@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+.env*
+!.env.example
+supabase/.branches
+supabase/.temp
+imgs_reference
+*.log

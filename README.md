@@ -1,8 +1,14 @@
-# LA PANCA
+# LA PANADERÍA DE MASOKU
 
 Aplicación web responsive de apuestas **1 contra 1** entre jugadores, con
 estética de fantasía medieval / MOBA original. Mascota oficial: el
-"Guardián de la masa", un panadero de batalla (`public/images/mascot.png`).
+"Guardián de la masa", un panadero de batalla (`public/images/mascota.png`).
+
+La pantalla de registro/ingreso (`src/app/page.tsx`) está construida sobre
+las ilustraciones reales de la marca (fondo de la plaza, placa del logo,
+cartel de reglas, y los paneles de "Crear cuenta"/"Ingresar") en vez de
+recrearlas en CSS — ver la sección "Pantalla de registro con arte real"
+más abajo si vas a tocar esos formularios.
 
 > Proyecto de demostración. No procesa pagos, depósitos, retiros ni
 > criptomonedas reales. Acceso restringido a mayores de 18 años —
@@ -91,6 +97,45 @@ Estas funciones están cubiertas por pruebas en
 Una apuesta, una vez registrada (publicada o tomada), **no se puede
 retirar** — no existe ninguna acción de cancelación en la UI del demo 1:1.
 
+## Pantalla de registro con arte real
+
+`/` (registro/ingreso) no usa paneles de CSS genéricos: usa las
+ilustraciones reales de la marca como fondo/skin, con inputs de verdad
+posicionados encima en porcentaje.
+
+- `public/images/plaza-background.png` — fondo de la pantalla completa.
+- `public/images/titulo.png` — placa del logo (`Logo` con `asImage`).
+- `public/images/reglas.png` — cartel de reglas; el texto ya viene
+  dibujado, así que `GameRulesSidebar` lo pinta como imagen decorativa y
+  duplica el contenido en un bloque `sr-only` para lectores de pantalla.
+- `public/images/crear-cuenta.png` / `ingresar-cuenta.png` — los paneles
+  de formulario, con las cajas de texto, checkbox y botón ya dibujados.
+
+Para estos dos últimos, `ArtPanel` (`src/components/auth/ArtPanel.tsx`)
+envuelve la imagen en un contenedor con `aspect-ratio` fijo (el mismo
+ancho/alto del PNG), y `ArtInput` (`src/components/auth/ArtInput.tsx`)
+posiciona inputs reales en **porcentaje** sobre las cajas ya dibujadas —
+como el contenedor mantiene el aspect-ratio del arte en cualquier tamaño
+de pantalla, esos porcentajes se mantienen alineados sin importar el
+viewport. Las coordenadas de cada campo se extrajeron una sola vez con un
+script (`sharp`) que detecta los rectángulos oscuros de cada casilla en
+el PNG — si cambias esas imágenes, hay que volver a medir.
+
+Cada `ArtInput` tiene fondo opaco (~`#0e0a06`, el mismo tono que el
+relleno de la casilla dibujada) para tapar por completo cualquier texto
+de ejemplo horneado en el arte (p.ej. "PanConQueso"); si un botón o link
+propio se superpone a un texto ya dibujado en la imagen (como
+"¿Olvidaste tu contraseña?" en `ingresar-cuenta.png`), también necesita
+fondo opaco — de lo contrario ambos textos se ven doblados/borrosos.
+
+> Nota: `imgs_reference/mascota.png`, `reglas.png`, `crear_cuenta.png` e
+> `ingresar_cuenta.png` llegaron con un patrón de cuadros (checkerboard)
+> horneado como píxeles reales (sin canal alfa) en vez de transparencia
+> de verdad — se procesaron con un flood-fill desde los bordes
+> (`sharp`, no un simple umbral de color, para no perder blancos reales
+> del arte como el gorro del panadero) antes de copiarlos a
+> `public/images/`.
+
 ## Panel de administración, títulos, recargas y niveles
 
 Sobre el demo 1:1 (mock, `localStorage`) se agregó una capa de
@@ -102,7 +147,7 @@ Se crea sola la primera vez que abres la app (`ensureSeedAdmin` en
 `src/services/userService.ts`):
 
 - Teléfono: `999999999`
-- Nickname: `AdminPanca`
+- Nickname: `AdminMasoku`
 - Contraseña: `admin1234`
 
 Inicia sesión con esos datos para ver el enlace **Admin** en el header y
@@ -157,7 +202,7 @@ Masa). `LevelBadge` los pinta con un emoji provisional por nivel —
 reemplázalo por las imágenes reales de badges apenas estén listas
 (basta con mapear `level.id` a un `<Image>` ahí en vez del emoji).
 `/ranking` lista a todos los usuarios ordenados por puntos — "los
-panaderos más gosus" de LA PANCA.
+panaderos más gosus" de La Panadería de Masoku.
 
 ## Conectar una API REST (Laravel u otra)
 

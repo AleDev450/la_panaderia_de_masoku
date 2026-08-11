@@ -1,0 +1,149 @@
+/**
+ * Hand-written types mirroring supabase/migrations/0001_schema.sql. If you
+ * have the Supabase CLI configured, prefer generating this file instead:
+ *
+ *   npx supabase gen types typescript --project-id <id> > src/lib/supabase/types.ts
+ */
+
+export type EstadoEvento = "abierto" | "cerrado" | "resuelto";
+export type LadoApuesta = "a" | "b";
+export type EstadoApuesta = "pendiente" | "parcial" | "completa" | "cancelada";
+export type TipoMovimientoSaldo =
+  | "retencion"
+  | "devolucion"
+  | "pago_ganancia"
+  | "cancelacion";
+
+// These use `type` (object literal aliases), not `interface`: TypeScript
+// only grants object *literal* types an implicit string index signature,
+// which `Record<string, unknown>` structural checks require. An `interface`
+// with the exact same members fails `extends Record<string, unknown>`,
+// which silently collapses every postgrest-js generic (Database["public"]
+// stops extending GenericSchema) down to `never` — see the RPC/`.from()`
+// argument types in src/actions/betting.ts if this ever regresses.
+
+export type Perfil = {
+  id: string;
+  nickname: string;
+  rol: "user" | "admin";
+  saldo_disponible: number;
+  saldo_retenido: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Evento = {
+  id: string;
+  nombre: string;
+  lado_a: string;
+  lado_b: string;
+  estado: EstadoEvento;
+  resultado: LadoApuesta | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Apuesta = {
+  id: string;
+  evento_id: string;
+  usuario_id: string;
+  lado: LadoApuesta;
+  monto_total: number;
+  monto_matcheado: number;
+  monto_pendiente: number;
+  estado: EstadoApuesta;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Emparejamiento = {
+  id: string;
+  evento_id: string;
+  apuesta_a_id: string;
+  apuesta_b_id: string;
+  monto: number;
+  created_at: string;
+};
+
+export type MovimientoSaldo = {
+  id: string;
+  usuario_id: string;
+  tipo: TipoMovimientoSaldo;
+  monto: number;
+  apuesta_id: string | null;
+  evento_id: string | null;
+  created_at: string;
+};
+
+export type ComisionPlataforma = {
+  id: string;
+  evento_id: string;
+  monto: number;
+  created_at: string;
+};
+
+// Shape required by @supabase/postgrest-js's `GenericSchema` — every
+// table needs `Relationships` even if empty, and `Views` must exist even
+// unused, or the RPC/`.from()` generics silently collapse to `never`.
+type NoRelationships = { Relationships: [] };
+
+export interface Database {
+  public: {
+    Tables: {
+      perfiles: {
+        Row: Perfil;
+        Insert: Partial<Perfil>;
+        Update: Partial<Perfil>;
+      } & NoRelationships;
+      eventos: {
+        Row: Evento;
+        Insert: Partial<Evento>;
+        Update: Partial<Evento>;
+      } & NoRelationships;
+      apuestas: {
+        Row: Apuesta;
+        Insert: Partial<Apuesta>;
+        Update: Partial<Apuesta>;
+      } & NoRelationships;
+      emparejamientos: {
+        Row: Emparejamiento;
+        Insert: Partial<Emparejamiento>;
+        Update: Partial<Emparejamiento>;
+      } & NoRelationships;
+      movimientos_saldo: {
+        Row: MovimientoSaldo;
+        Insert: Partial<MovimientoSaldo>;
+        Update: Partial<MovimientoSaldo>;
+      } & NoRelationships;
+      comisiones_plataforma: {
+        Row: ComisionPlataforma;
+        Insert: Partial<ComisionPlataforma>;
+        Update: Partial<ComisionPlataforma>;
+      } & NoRelationships;
+    };
+    Views: Record<string, never>;
+    Functions: {
+      crear_apuesta: {
+        Args: {
+          p_usuario_id: string;
+          p_evento_id: string;
+          p_lado: LadoApuesta;
+          p_monto: number;
+        };
+        Returns: Apuesta;
+      };
+      cancelar_apuesta: {
+        Args: { p_apuesta_id: string; p_usuario_id: string };
+        Returns: Apuesta;
+      };
+      resolver_evento: {
+        Args: {
+          p_evento_id: string;
+          p_resultado: LadoApuesta;
+          p_admin_id: string;
+        };
+        Returns: undefined;
+      };
+    };
+  };
+}

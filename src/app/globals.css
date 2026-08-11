@@ -1,26 +1,118 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-obsidian: #0b0908;
+  --color-charcoal: #17130f;
+  --color-charcoal-light: #221b15;
+  --color-panel: #1b1512;
+  --color-crimson: #6b0f13;
+  --color-crimson-light: #8c1a1f;
+  --color-crimson-dark: #3d0a0d;
+  --color-gold: #c9a13b;
+  --color-gold-light: #e8c877;
+  --color-gold-dark: #8a6b23;
+  --color-parchment: #ece1c8;
+  --color-win: #3ea44b;
+  --color-win-glow: #6fe583;
+  --color-lose: #b3383a;
+  --color-lose-glow: #ff6b6f;
+  --background: var(--color-obsidian);
+  --foreground: var(--color-parchment);
 }
 
 @theme inline {
+  --color-obsidian: var(--color-obsidian);
+  --color-charcoal: var(--color-charcoal);
+  --color-charcoal-light: var(--color-charcoal-light);
+  --color-panel: var(--color-panel);
+  --color-crimson: var(--color-crimson);
+  --color-crimson-light: var(--color-crimson-light);
+  --color-crimson-dark: var(--color-crimson-dark);
+  --color-gold: var(--color-gold);
+  --color-gold-light: var(--color-gold-light);
+  --color-gold-dark: var(--color-gold-dark);
+  --color-parchment: var(--color-parchment);
+  --color-win: var(--color-win);
+  --color-win-glow: var(--color-win-glow);
+  --color-lose: var(--color-lose);
+  --color-lose-glow: var(--color-lose-glow);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-serif-fantasy: var(--font-cinzel);
+  --font-sans: var(--font-inter);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
+html,
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(140, 26, 31, 0.18), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 100%, rgba(201, 161, 59, 0.08), transparent 60%),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.012) 0px, rgba(255, 255, 255, 0.012) 1px, transparent 1px, transparent 3px),
+    linear-gradient(180deg, #0b0908 0%, #120d0a 100%);
+  background-attachment: fixed;
+}
+
+.font-fantasy {
+  font-family: var(--font-cinzel), serif;
+}
+
+/* Stone / parchment panel texture */
+.panel-stone {
+  background-color: var(--color-panel);
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.035), transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(0, 0, 0, 0.35), transparent 45%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.015) 0px, transparent 2px, transparent 4px);
+  border: 1px solid var(--color-gold-dark);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 30px -10px rgba(0, 0, 0, 0.7);
+}
+
+.border-gold-frame {
+  border: 1px solid var(--color-gold-dark);
+  box-shadow: inset 0 0 0 1px rgba(201, 161, 59, 0.15);
+}
+
+.text-glow-gold {
+  text-shadow: 0 0 18px rgba(232, 200, 119, 0.35);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--color-gold-dark);
+  border-radius: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-gold-light);
+  outline-offset: 2px;
+  border-radius: 2px;
 }

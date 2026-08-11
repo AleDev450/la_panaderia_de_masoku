@@ -1,0 +1,30 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000/api}
+    image: la-panca-app
+    ports:
+      - "3100:3000"
+    environment:
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000/api}
+    networks:
+      - default
+      - supabase
+
+networks:
+  # Supabase local (CLI-managed via `supabase start`) publishes its own
+  # network named `supabase_network_<project_id>` — project_id comes from
+  # supabase/config.toml ("la-panaderia"). Joining it lets this container
+  # reach Kong by its service name instead of a host-published port,
+  # which only works from the host machine, not from inside another
+  # container. Run `supabase start` before `docker compose up`.
+  supabase:
+    name: supabase_network_la-panaderia
+    external: true
