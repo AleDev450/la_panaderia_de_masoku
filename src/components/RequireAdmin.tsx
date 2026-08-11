@@ -1,25 +1,31 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useSession } from "@/context/SessionContext";
+import { BakeryLoginForm } from "@/components/bakery/BakeryLoginForm";
 
 export function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { user, isReady, isAdmin } = useSession();
-  const router = useRouter();
 
-  useEffect(() => {
-    if (!isReady) return;
-    if (!user) {
-      router.replace("/");
-      return;
-    }
-    if (!isAdmin) {
-      router.replace("/partidas");
-    }
-  }, [isReady, user, isAdmin, router]);
+  if (!isReady) return null;
 
-  if (!isReady || !user || !isAdmin) return null;
+  if (!user) {
+    return <BakeryLoginForm />;
+  }
+
+  if (!isAdmin) {
+    return (
+      <main className="mx-auto flex min-h-[80vh] w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
+        <h1 className="font-fantasy text-2xl font-bold text-lose-glow">Acceso restringido</h1>
+        <p className="text-sm text-parchment/70">
+          Tu cuenta no tiene permisos de panadería.
+        </p>
+        <Link href="/partidas" className="text-sm font-semibold text-gold-light underline">
+          Volver a Partidas
+        </Link>
+      </main>
+    );
+  }
 
   return <>{children}</>;
 }

@@ -1,22 +1,19 @@
 import Image from "next/image";
 import { BET_MAX, BET_MIN } from "@/types";
-import { Logo } from "@/components/Logo";
 
 export function GameRulesSidebar() {
   return (
-    <div className="flex w-full max-w-md flex-col items-center gap-4 lg:items-start">
-      <Logo size="lg" href="" asImage />
-
+    <div className="flex w-full max-w-lg flex-col items-center gap-5">
       {/* El cartel ya trae el título, las reglas GANA/PIERDE 1:1, los
           montos y el aviso de 18+ dibujados — se mantiene decorativo y se
           duplica como texto accesible para lectores de pantalla. */}
-      <div className="relative w-full max-w-sm" style={{ aspectRatio: "1134 / 1387" }}>
+      <div className="relative w-full max-w-md xl:max-w-lg" style={{ aspectRatio: "1134 / 1387" }}>
         <Image
           src="/images/reglas.png"
           alt=""
           aria-hidden
           fill
-          sizes="(min-width: 1024px) 24rem, 90vw"
+          sizes="(min-width: 1280px) 32rem, 92vw"
           className="select-none object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
         />
       </div>

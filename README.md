@@ -56,7 +56,8 @@ src/
     ranking/               Ranking de puntos / niveles
     recargar/               Subir comprobante de recarga
     como-jugar/            Reglas del formato 1:1
-    admin/                  Panel admin (RequireAdmin)
+    bakery/                 Panel admin (RequireAdmin) — ruta a propósito no
+                            obvia, ver "Panel de administración" más abajo
       titulos/               Crear títulos, editar contador, declarar resultado
       recargas/               Aprobar / rechazar comprobantes
   components/            Componentes reutilizables (Header, MatchCard,
@@ -150,14 +151,21 @@ Se crea sola la primera vez que abres la app (`ensureSeedAdmin` en
 - Nickname: `AdminMasoku`
 - Contraseña: `admin1234`
 
-Inicia sesión con esos datos para ver el enlace **Admin** en el header y
-acceder a `/admin`.
+Inicia sesión con esos datos para ver el enlace **Bakery** en el header y
+acceder a `/bakery`.
 
-### Títulos de apuesta (`/admin/titulos`)
+> El panel admin vive en `/bakery` a propósito, no en `/admin` — esa ruta
+> es de las primeras que prueba cualquier scanner automatizado. Esto no
+> reemplaza el control de acceso real (`RequireAdmin` sigue exigiendo
+> sesión + `rol === 'admin'`), es solo una capa extra de "no lo hagas
+> tan fácil de encontrar" (security through obscurity, nunca la única
+> defensa).
+
+### Títulos de apuesta (`/bakery/titulos`)
 
 Antes, las 3 partidas del día eran datos fijos en `src/data/matches.ts`.
 Ahora un admin puede publicar nuevos **títulos de apuesta** (pregunta +
-lado A + lado B + hora) desde `/admin/titulos`; aparecen de inmediato en
+lado A + lado B + hora) desde `/bakery/titulos`; aparecen de inmediato en
 `/partidas` para que los usuarios elijan sobre cuál apostar —
 `MatchesContext.createTitulo()`.
 
@@ -167,14 +175,14 @@ contador corre, el título acepta retos y aceptaciones normalmente
 (`isMatchOpen` en `betService.ts`); al vencer, `createChallenge` /
 `acceptChallenge` rechazan cualquier intento nuevo y la tarjeta muestra
 "Título cerrado". `CountdownBadge` pinta la cuenta regresiva en vivo
-tanto en `/partidas` como en `/admin/titulos`.
+tanto en `/partidas` como en `/bakery/titulos`.
 
 Cuando el admin declara el resultado (**Declarar GANA** / **Declarar
 PIERDE**), `resolveMatch` reparte puntos al duelo emparejado de ese
 título (ver niveles abajo) y el título queda `resuelto` — ya no acepta
 más acciones.
 
-### Recargas con comprobante (`/recargar` y `/admin/recargas`)
+### Recargas con comprobante (`/recargar` y `/bakery/recargas`)
 
 Un usuario sube el monto depositado + una foto/captura del comprobante
 (`/recargar`); la imagen se comprimen en el navegador
@@ -183,7 +191,7 @@ guardarse como `data:` URL, para no agotar la cuota de `localStorage`.
 La recarga queda `pendiente`.
 
 Un admin revisa la hora del depósito en la imagen desde
-`/admin/recargas` y marca **Marcar correcto** (acredita el monto a
+`/bakery/recargas` y marca **Marcar correcto** (acredita el monto a
 `saldo_disponible` del usuario) o **Marcar incorrecto** — nunca se
 acredita saldo sin ese comprobante.
 
@@ -466,5 +474,6 @@ después de cambiar el SQL.
   ver sección "Motor de emparejamiento real" arriba.
 - Mascota oficial sin modificar, con animación flotante y resplandor.
 - Avisos de 18+ y juego responsable visibles en ambas pantallas.
-#   l a _ p a n a d e r i a _ d e _ m a s o k u  
+#   l a _ p a n a d e r i a _ d e _ m a s o k u 
+ 
  

@@ -25,7 +25,7 @@ interface FormErrors {
   ageConsent?: string;
 }
 
-export function RegisterForm() {
+export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
   const router = useRouter();
   const { register } = useSession();
   const { showToast } = useToast();
@@ -73,7 +73,12 @@ export function RegisterForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate aria-label="Crear cuenta" className="flex w-full justify-center">
+    <form
+      onSubmit={handleSubmit}
+      noValidate
+      aria-label="Crear cuenta"
+      className="flex w-full flex-col items-center gap-3"
+    >
       <ArtPanel src="/images/crear-cuenta.png" alt="" ratio="979 / 1606">
         <ArtInput
           id="fullName"
@@ -160,6 +165,14 @@ export function RegisterForm() {
           style={{ top: "81.3%", left: "15.2%", width: "69.6%", height: "6.8%" }}
         />
       </ArtPanel>
+
+      <button
+        type="button"
+        onClick={onSwitchToLogin}
+        className="rounded font-fantasy text-sm text-parchment/70 outline-none transition hover:text-gold-light focus-visible:ring-2 focus-visible:ring-gold-light"
+      >
+        ¿Ya tienes cuenta? <span className="text-gold-light">Iniciar sesión</span>
+      </button>
     </form>
   );
 }

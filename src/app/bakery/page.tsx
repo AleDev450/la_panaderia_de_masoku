@@ -19,14 +19,14 @@ function AdminHomeContent() {
       <Header />
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
         <h1 className="font-fantasy text-3xl font-bold text-parchment">
-          Panel de administración
+          Panel de la panadería
         </h1>
         <p className="mt-2 text-sm text-parchment/60">
           Gestiona recargas, títulos de apuesta y sus resultados.
         </p>
 
         <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Link href="/admin/recargas">
+          <Link href="/bakery/recargas">
             <Panel className="flex h-full flex-col justify-between p-5 transition hover:border-gold-light">
               <div>
                 <h2 className="font-fantasy text-lg font-semibold text-gold-light">
@@ -43,7 +43,7 @@ function AdminHomeContent() {
             </Panel>
           </Link>
 
-          <Link href="/admin/titulos">
+          <Link href="/bakery/titulos">
             <Panel className="flex h-full flex-col justify-between p-5 transition hover:border-gold-light">
               <div>
                 <h2 className="font-fantasy text-lg font-semibold text-gold-light">

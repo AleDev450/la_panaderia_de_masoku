@@ -25,7 +25,7 @@ export function Header() {
 
   if (!user) return null;
 
-  const links = isAdmin ? [...NAV_LINKS, { href: "/admin", label: "Admin" }] : NAV_LINKS;
+  const links = isAdmin ? [...NAV_LINKS, { href: "/bakery", label: "Bakery" }] : NAV_LINKS;
 
   function handleLogout() {
     logout();

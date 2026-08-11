@@ -16,7 +16,7 @@ export function Mascot({ caption = "Guardián de la masa" }: { caption?: string 
     <div className="relative flex flex-col items-center justify-center px-4 py-6">
       <div
         aria-hidden
-        className="pointer-events-none absolute h-64 w-64 rounded-full bg-gold/25 blur-3xl sm:h-80 sm:w-80"
+        className="pointer-events-none absolute h-72 w-72 rounded-full bg-gold/25 blur-3xl sm:h-96 sm:w-96 xl:h-[28rem] xl:w-[28rem]"
       />
 
       {sparkPositions.map((spark, i) => (
@@ -38,13 +38,13 @@ export function Mascot({ caption = "Guardián de la masa" }: { caption?: string 
       <motion.div
         animate={{ y: [0, -14, 0] }}
         transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
-        className="relative z-10 w-56 sm:w-72 md:w-80"
+        className="relative z-10 w-64 sm:w-80 md:w-96 xl:w-[26rem]"
       >
         <Image
           src="/images/mascota.png"
           alt="El Guardián de la Masa, panadero de batalla, mascota oficial de La Panadería de Masoku"
-          width={1130}
-          height={1392}
+          width={1120}
+          height={1632}
           priority
           className="h-auto w-full select-none"
           draggable={false}
@@ -53,10 +53,10 @@ export function Mascot({ caption = "Guardián de la masa" }: { caption?: string 
 
       <div
         aria-hidden
-        className="relative z-0 -mt-4 h-6 w-40 rounded-[50%] bg-black/60 blur-md sm:w-52"
+        className="relative z-0 -mt-4 h-7 w-48 rounded-[50%] bg-black/60 blur-md sm:w-64 xl:w-72"
       />
 
-      <p className="mt-3 font-fantasy text-sm tracking-wide text-gold/80">
+      <p className="mt-3 font-fantasy text-base tracking-wide text-gold/80 xl:text-lg">
         {caption}
       </p>
     </div>

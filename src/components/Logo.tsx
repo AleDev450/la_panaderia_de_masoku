@@ -8,7 +8,7 @@ export function Logo({
   href = "/",
   asImage = false,
 }: {
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   withAvatar?: boolean;
   href?: string;
   /** Usa la placa de madera ilustrada (titulo.png) en vez del texto CSS —
@@ -20,9 +20,10 @@ export function Logo({
     sm: "text-xl",
     md: "text-2xl sm:text-3xl",
     lg: "text-4xl sm:text-5xl",
+    xl: "text-5xl sm:text-6xl",
   }[size];
 
-  const imageWidth = { sm: 140, md: 220, lg: 320 }[size];
+  const imageWidth = { sm: 140, md: 220, lg: 320, xl: 440 }[size];
 
   const content = asImage ? (
     <Image

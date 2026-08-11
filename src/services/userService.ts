@@ -66,7 +66,7 @@ function toPublicUser(stored: StoredUser): User {
 
 /**
  * Crea la cuenta admin de demostración la primera vez que se usa el
- * servicio en el navegador, para que /admin sea navegable sin tener que
+ * servicio en el navegador, para que /bakery sea navegable sin tener que
  * editar localStorage a mano. Ver README para las credenciales.
  */
 export async function ensureSeedAdmin(): Promise<void> {
