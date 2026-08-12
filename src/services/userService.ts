@@ -1,6 +1,7 @@
 import { User } from "@/types";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Perfil } from "@/lib/supabase/types";
+import { registerPlayer } from "@/actions/auth";
 
 /**
  * Auth de jugadores y de /bakery — ambos corren contra Supabase Auth real
@@ -46,41 +47,24 @@ export interface RegisterInput {
 }
 
 /**
- * `data.user` sin `data.session` significa que el proyecto tiene
- * "Confirm email" activado en Supabase Auth: la cuenta se creó pero
- * necesita que el usuario confirme por correo antes de poder loguear.
- * Devolvemos `null` para que RegisterForm lo distinga de un registro que
- * ya deja sesión activa.
+ * Crea la cuenta vía `registerPlayer` (Server Action, cliente admin con
+ * `email_confirm: true`) para que el registro nunca dependa de que el
+ * usuario confirme por correo, y de inmediato inicia sesión con las
+ * mismas credenciales — el registro siempre deja sesión activa.
  */
-export async function registerUser(input: RegisterInput): Promise<User | null> {
-  const supabase = createSupabaseBrowserClient();
-  const { data, error } = await supabase.auth.signUp({
+export async function registerUser(input: RegisterInput): Promise<User> {
+  const result = await registerPlayer({
     email: input.email.trim(),
     password: input.password,
-    options: {
-      data: {
-        nickname: input.nickname.trim(),
-        full_name: input.fullName.trim(),
-        phone: input.phone,
-      },
-    },
+    nickname: input.nickname.trim(),
+    fullName: input.fullName.trim(),
+    phone: input.phone,
   });
-
-  if (error) {
-    throw new UserServiceError(
-      error.message.includes("already registered")
-        ? "Ya existe una cuenta con ese correo."
-        : "No pudimos crear tu cuenta."
-    );
+  if (!result.ok) {
+    throw new UserServiceError(result.error);
   }
-  if (!data.user) {
-    throw new UserServiceError("No pudimos crear tu cuenta.");
-  }
-  if (!data.session) return null;
 
-  // El trigger handle_new_user (0004/0005) ya insertó la fila en perfiles
-  // en el mismo insert de auth.users.
-  return toUser(await fetchPerfil(data.user.id));
+  return loginUser({ email: input.email, password: input.password });
 }
 
 export interface LoginInput {

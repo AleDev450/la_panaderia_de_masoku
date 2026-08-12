@@ -22,8 +22,7 @@ interface SessionContextValue {
   user: User | null;
   isReady: boolean;
   isAdmin: boolean;
-  /** `null` si Supabase Auth exige confirmar el correo antes de dejar sesión activa. */
-  register: (input: RegisterInput) => Promise<User | null>;
+  register: (input: RegisterInput) => Promise<User>;
   login: (input: LoginInput) => Promise<User>;
   logout: () => void;
   /** Re-lee el perfil desde Supabase — para reflejar saldo o puntos que
@@ -60,7 +59,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const register = useCallback(async (input: RegisterInput) => {
     const created = await registerUser(input);
-    if (created) setUser(created);
+    setUser(created);
     return created;
   }, []);
 

@@ -55,22 +55,13 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
 
     setSubmitting(true);
     try {
-      const created = await register({ fullName, phone, nickname, email, password });
-      if (created) {
-        showToast({
-          variant: "success",
-          title: "Cuenta creada",
-          description: `Bienvenido, ${nickname}.`,
-        });
-        router.push("/partidas");
-      } else {
-        showToast({
-          variant: "info",
-          title: "Revisa tu correo",
-          description: "Te enviamos un enlace para confirmar tu cuenta antes de poder ingresar.",
-        });
-        onSwitchToLogin();
-      }
+      await register({ fullName, phone, nickname, email, password });
+      showToast({
+        variant: "success",
+        title: "Cuenta creada",
+        description: `Bienvenido, ${nickname}.`,
+      });
+      router.push("/partidas");
     } catch (err) {
       const message =
         err instanceof UserServiceError ? err.message : "No pudimos crear tu cuenta.";

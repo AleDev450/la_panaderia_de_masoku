@@ -9,9 +9,12 @@ const STORAGE_KEY = "lapanaderia:music-playing";
 /**
  * Botón flotante de música de fondo, montado una sola vez en el layout
  * raíz para que el <audio> no se reinicie al navegar entre rutas (Next.js
- * mantiene el layout montado en la navegación por cliente). Los
- * navegadores bloquean el autoplay con sonido sin gesto del usuario, así
- * que arranca en pausa — el primer click del usuario la activa.
+ * mantiene el layout montado en la navegación por cliente). Suena por
+ * defecto — el usuario la apaga si quiere, no al revés — salvo que ya la
+ * haya silenciado antes (se respeta esa elección). Los navegadores
+ * igual bloquean el autoplay con sonido sin ningún gesto previo del
+ * usuario en el dominio; cuando eso pasa, `play()` rechaza la promesa y
+ * el botón simplemente queda apagado hasta el primer click, sin error.
  */
 export function MusicToggle() {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -22,7 +25,8 @@ export function MusicToggle() {
     const stored = window.localStorage.getItem(STORAGE_KEY);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time bootstrap from localStorage on mount
     setReady(true);
-    if (stored === "true" && audioRef.current) {
+    const shouldPlay = stored !== "false";
+    if (shouldPlay && audioRef.current) {
       audioRef.current.play().then(
         () => setPlaying(true),
         () => setPlaying(false) // el navegador bloqueó el autoplay; el usuario debe darle play

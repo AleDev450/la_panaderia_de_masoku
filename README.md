@@ -160,18 +160,20 @@ que usa el motor `/exchange`). No hay dos sistemas de cuentas separados —
 lo único que distingue a un jugador de un admin es `perfiles.rol`.
 
 - **Registro de jugador** (`RegisterForm` → `registerUser` en
-  `src/services/userService.ts`): `supabase.auth.signUp({ email,
-  password, options: { data: { nickname, full_name, phone } } })`. El
-  trigger `handle_new_user` (`0004`/`0005`) crea la fila en `perfiles` en
-  el mismo insert, con `rol = 'user'` siempre — nunca depende de "quién
-  se registró primero" (ver más abajo por qué).
+  `src/services/userService.ts` → `registerPlayer` en
+  `src/actions/auth.ts`): la cuenta se crea con el cliente admin
+  (`service_role`) vía `auth.admin.createUser({ ..., email_confirm: true
+  })` en vez de `supabase.auth.signUp` desde el navegador — así el
+  registro nunca depende de que el usuario confirme por correo ni del
+  toggle "Confirm email" del dashboard, queda listo para iniciar sesión
+  de inmediato. El correo es único a nivel de `auth.users`, así que
+  `registerPlayer` ya rechaza duplicados. El trigger `handle_new_user`
+  (`0004`/`0005`) crea la fila en `perfiles` en el mismo insert, con
+  `rol = 'user'` siempre — nunca depende de "quién se registró primero"
+  (ver más abajo por qué).
 - **Login** (`LoginForm` y `BakeryLoginForm`, ambos llaman al mismo
   `login` del `SessionContext`): `supabase.auth.signInWithPassword({
   email, password })`, luego lee `perfiles` para el rol/saldo/puntos.
-- Si tu proyecto de Supabase tiene **"Confirm email" activado** (default),
-  `signUp` no deja sesión activa hasta que el usuario confirme por
-  correo — `registerUser` devuelve `null` en ese caso y `RegisterForm`
-  muestra "revisa tu correo" en vez de redirigir directo a `/partidas`.
 - El arte de `crear-cuenta.png` / `iniciar-sesion.png` no trae una caja
   dibujada para correo (solo nombre/teléfono/nickname/contraseña) —
   el campo de correo va aparte, con estilo genérico, encima del panel de
