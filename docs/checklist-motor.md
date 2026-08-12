@@ -17,14 +17,16 @@ Corre las queries en **SQL Editor** de Supabase. Los pasos de UI, en la app.
 select column_name from information_schema.columns
 where table_name = 'eventos' and column_name in ('categoria', 'cierra_en');
 
--- Esperado: 6 filas
+-- Esperado: 8 filas
 select proname from pg_proc where proname in (
   'crear_apuesta', 'resolver_evento', 'handle_new_user',
-  'admin_creditar_saldo', 'admin_otorgar_puntos', 'actualizar_nickname'
+  'admin_creditar_saldo', 'admin_otorgar_puntos', 'actualizar_nickname',
+  'admin_resolver_solicitud_telefono', 'admin_resolver_recarga'
 );
 
--- Esperado: 1 fila (la tabla de la cola de teléfonos)
-select tablename from pg_tables where tablename = 'solicitudes_telefono';
+-- Esperado: 2 filas (cola de teléfonos y recargas)
+select tablename from pg_tables
+where tablename in ('solicitudes_telefono', 'recargas');
 
 -- Esperado: que el cuerpo mencione 'puntos' (0007 aplicada) y que
 -- crear_apuesta mencione 'cierra_en' (0006 aplicada)
@@ -175,6 +177,37 @@ y el ranking/insignia debe reflejar los puntos nuevos.
 
 ---
 
+## 5b. Recargas (el flujo que antes vivía en localStorage)
+
+Esta es la prueba que antes era imposible: **usa dos navegadores distintos**
+(o uno normal y otro en incógnito), uno con el jugador y otro con el admin.
+
+1. Como **jugador**, en `/recargar`: elige S/50, sube cualquier imagen y
+   envía. Debe aparecer en "Tus recargas" como *Pendiente de revisión*.
+2. Como **admin**, en `/bakery/recargas`: **la recarga tiene que verse ahí**.
+   Si no aparece, la migración `0009` no está aplicada o el jugador no es
+   quien crees.
+3. Verifica que se muestren **nickname, nombre completo y teléfono**.
+4. Haz clic en la miniatura → el comprobante se abre a pantalla completa;
+   el botón **Ampliar** hace zoom al 200 %.
+5. **Corrige el monto**: escribe `30` en el campo y aprueba.
+
+```sql
+select r.monto_solicitado, r.monto_acreditado, r.estado, p.nickname, p.saldo_disponible
+from recargas r join perfiles p on p.id = r.usuario_id
+order by r.created_at desc limit 3;
+```
+
+**Esperado:** `monto_solicitado 50`, `monto_acreditado 30`, estado
+`aprobada`, y el `saldo_disponible` del jugador subió **30**, no 50. Queda
+registro de que declaró 50 pero se le acreditó 30.
+
+6. Intenta aprobar **la misma recarga otra vez** (recarga la página y
+   vuelve a darle) → debe rechazar con "Esta recarga ya fue revisada". Eso
+   confirma que no se puede acreditar saldo dos veces.
+
+---
+
 ## 6. Perfil
 
 - `/perfil` → cambia tu nickname por uno que **ya tenga** la otra cuenta →
@@ -206,4 +239,12 @@ delete from movimientos_saldo where evento_id = 'EVENTO_ID';
 delete from comisiones_plataforma where evento_id = 'EVENTO_ID';
 delete from apuestas where evento_id = 'EVENTO_ID';
 delete from eventos where id = 'EVENTO_ID';
+
+-- Recargas y solicitudes de prueba
+delete from recargas where usuario_id in (
+  select id from perfiles where nickname in ('JUGADOR_A', 'JUGADOR_B')
+);
+delete from solicitudes_telefono where usuario_id in (
+  select id from perfiles where nickname in ('JUGADOR_A', 'JUGADOR_B')
+);
 ```

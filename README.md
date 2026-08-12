@@ -27,10 +27,9 @@ más abajo si vas a tocar esos formularios.
   fue retirado por completo; `/partidas`, `/mis-apuestas` e `/historial`
   leen Postgres. Emparejamiento FIFO parcial multi-jugador, cuota fija
   1.80x, y devolución automática de lo no emparejado al liquidar.
-- Las recargas (`/recargar`) siguen con comprobante manual + aprobación
-  admin, ahora en montos fijos de S/10 en 10 hasta S/100; acreditan
-  directo a `perfiles.saldo_disponible` vía Server Action
-  (`src/actions/perfiles.ts`).
+- Las recargas (`/recargar`) también viven en Postgres (tabla `recargas`,
+  migración `0009`): comprobante manual + aprobación admin, en montos de
+  S/10 en 10 hasta S/100. **Ya no queda nada en `localStorage`.**
 
 ## Instalación y ejecución
 
@@ -80,10 +79,10 @@ src/
                           contador, resolver título y repartir puntos
     userService.ts        registro / ingreso / ranking — Supabase Auth +
                           tabla `perfiles` real (ver "Cuentas de jugador y de staff")
-    recargaService.ts     validar y registrar recargas con comprobante
     apiClient.ts          wrapper fetch listo para una API REST real
   actions/
-    perfiles.ts            Server Actions admin: acreditar saldo (recargas),
+    recargas.ts            Server Actions de recarga (crear, listar, resolver)
+    perfiles.ts            Server Actions admin: acreditar saldo,
                           otorgar puntos (resolución de títulos) — RPC
                           admin_creditar_saldo / admin_otorgar_puntos
     betting.ts              Server Actions del motor de apuestas (/partidas)
@@ -152,9 +151,8 @@ fondo opaco — de lo contrario ambos textos se ven doblados/borrosos.
 
 ## Panel de administración, títulos, recargas y niveles
 
-Sobre el demo 1:1 (partidas/retos/recargas siguen siendo datos simulados
-en `localStorage`) se agregó una capa de administración y progresión de
-jugadores, con cuentas reales:
+Todo el panel corre sobre Postgres — cuentas, apuestas, recargas y
+solicitudes de cambio de teléfono:
 
 ### Cuentas de jugador y de staff — ambas Supabase Auth real
 
@@ -226,17 +224,30 @@ más acciones.
 
 ### Recargas con comprobante (`/recargar` y `/bakery/recargas`)
 
-Un usuario sube el monto depositado + una foto/captura del comprobante
-(`/recargar`); la imagen se comprimen en el navegador
-(`src/lib/image.ts`, redimensiona a 1000px y reexporta a JPEG) antes de
-guardarse como `data:` URL, para no agotar la cuota de `localStorage`.
-La recarga queda `pendiente`.
+El jugador elige cuánto depositó (de S/10 en 10 hasta S/100) y sube una
+foto del comprobante. La imagen se comprime en el navegador
+(`src/lib/image.ts`, 1000px → JPEG) y se guarda como `data:` URL en la
+columna `recargas.comprobante`. La recarga queda `pendiente`.
 
-Un admin revisa la hora del depósito en la imagen desde
-`/bakery/recargas` y marca **Marcar correcto** (acredita el monto a
-`saldo_disponible` del usuario, vía el RPC `admin_creditar_saldo` y la
-Server Action `adminCreditarSaldo` en `src/actions/perfiles.ts`) o
-**Marcar incorrecto** — nunca se acredita saldo sin ese comprobante.
+Desde `/bakery/recargas`, el admin:
+
+- Ve **nickname, nombre completo y teléfono** del jugador — el teléfono
+  es el dato con el que se confirma de quién vino el depósito.
+- **Amplía el comprobante** a pantalla completa (con zoom) para leer la
+  hora y el monto impresos.
+- **Corrige el monto si hace falta** antes de aprobar: el jugador pudo
+  declarar S/100 y el comprobante decir S/50. Se guardan por separado
+  `monto_solicitado` (lo declarado) y `monto_acreditado` (lo que
+  realmente se abonó), así queda registro de la discrepancia.
+
+Aprobar acredita el saldo y cierra la recarga **en una sola transacción**
+(RPC `admin_resolver_recarga`) — antes eran dos pasos sueltos y, si el
+segundo fallaba, la recarga quedaba aprobada sin dinero acreditado. Nunca
+se acredita saldo sin comprobante.
+
+> ⚠️ El comprobante se guarda como texto en Postgres. Para producción lo
+> correcto sería Supabase Storage (bucket + policies + signed URLs); acá
+> se prefirió texto para no agregar esa superficie a un demo.
 
 ### Niveles y ranking (`/ranking`)
 
@@ -361,6 +372,9 @@ seguimiento del jugador.
    - `supabase/migrations/0008_solicitudes_telefono.sql` (tabla
      `solicitudes_telefono` + RLS, RPC `admin_resolver_solicitud_telefono`
      y `actualizar_nickname` — ver "Perfil del jugador" abajo)
+   - `supabase/migrations/0009_recargas.sql` (tabla `recargas` + RLS y RPC
+     `admin_resolver_recarga`, que acredita el saldo y cierra la recarga
+     en una sola transacción — antes vivían en `localStorage`)
 3. Copia `.env.example` → `.env.local` y completa `NEXT_PUBLIC_SUPABASE_URL`,
    `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` (esta
    última es secreta, solo se usa en el servidor — nunca la expongas al

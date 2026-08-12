@@ -3,7 +3,7 @@ import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
 import { BET_MAX, BET_MIN, PUNTOS_POR_GANAR, PUNTOS_POR_PERDER } from "@/types";
 import { CUOTA, pagoPorMatcheado } from "@/lib/apuestas";
-import { MONTO_MAX, MONTO_MIN, MONTO_PASO } from "@/services/recargaService";
+import { MONTO_MAX, MONTO_MIN, MONTO_PASO } from "@/lib/recargas";
 
 const STEPS = [
   {

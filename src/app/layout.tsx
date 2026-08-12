@@ -3,7 +3,6 @@ import { Cinzel, Inter } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "@/context/SessionContext";
 import { ToastProvider } from "@/context/ToastContext";
-import { RecargasProvider } from "@/context/RecargasContext";
 import { MusicToggle } from "@/components/MusicToggle";
 
 const cinzel = Cinzel({
@@ -32,9 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-obsidian text-parchment">
         <ToastProvider>
-          <SessionProvider>
-            <RecargasProvider>{children}</RecargasProvider>
-          </SessionProvider>
+          <SessionProvider>{children}</SessionProvider>
         </ToastProvider>
         <MusicToggle />
       </body>

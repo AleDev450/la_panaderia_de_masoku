@@ -15,6 +15,7 @@ export type TipoMovimientoSaldo =
   | "pago_ganancia"
   | "cancelacion";
 export type EstadoSolicitud = "pendiente" | "aprobada" | "rechazada";
+export type EstadoRecarga = "pendiente" | "aprobada" | "rechazada";
 
 // These use `type` (object literal aliases), not `interface`: TypeScript
 // only grants object *literal* types an implicit string index signature,
@@ -91,6 +92,21 @@ export type ComisionPlataforma = {
   created_at: string;
 };
 
+export type Recarga = {
+  id: string;
+  usuario_id: string;
+  /** Lo que declaró el jugador. */
+  monto_solicitado: number;
+  /** Lo que el admin acreditó de verdad; null mientras no esté aprobada. */
+  monto_acreditado: number | null;
+  /** Data URL de la imagen del comprobante (ver 0009_recargas.sql). */
+  comprobante: string;
+  estado: EstadoRecarga;
+  revisado_por: string | null;
+  revisado_at: string | null;
+  created_at: string;
+};
+
 export type SolicitudTelefono = {
   id: string;
   usuario_id: string;
@@ -146,6 +162,11 @@ export interface Database {
         Insert: Partial<SolicitudTelefono>;
         Update: Partial<SolicitudTelefono>;
       } & NoRelationships;
+      recargas: {
+        Row: Recarga;
+        Insert: Partial<Recarga>;
+        Update: Partial<Recarga>;
+      } & NoRelationships;
     };
     Views: Record<string, never>;
     Functions: {
@@ -185,6 +206,15 @@ export interface Database {
       actualizar_nickname: {
         Args: { p_usuario_id: string; p_nickname: string };
         Returns: Perfil;
+      };
+      admin_resolver_recarga: {
+        Args: {
+          p_admin_id: string;
+          p_recarga_id: string;
+          p_aprobar: boolean;
+          p_monto_acreditado?: number | null;
+        };
+        Returns: Recarga;
       };
     };
   };

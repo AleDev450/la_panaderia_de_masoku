@@ -5,14 +5,14 @@ import Link from "next/link";
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
-import { useRecargas } from "@/context/RecargasContext";
 import { getEventosHoy } from "@/actions/betting";
 import { getSolicitudesTelefono } from "@/actions/perfil";
+import { getRecargas } from "@/actions/recargas";
 
 function AdminHomeContent() {
-  const { recargas } = useRecargas();
   const [abiertos, setAbiertos] = useState<number | null>(null);
   const [telefonos, setTelefonos] = useState<number | null>(null);
+  const [pendientes, setPendientes] = useState<number | null>(null);
 
   useEffect(() => {
     getEventosHoy().then((result) => {
@@ -25,9 +25,12 @@ function AdminHomeContent() {
         setTelefonos(result.data.filter((s) => s.solicitud.estado === "pendiente").length);
       }
     });
+    getRecargas().then((result) => {
+      if (result.ok) {
+        setPendientes(result.data.filter((r) => r.recarga.estado === "pendiente").length);
+      }
+    });
   }, []);
-
-  const pendientes = recargas.filter((r) => r.estado === "pendiente").length;
 
   return (
     <>
@@ -52,7 +55,7 @@ function AdminHomeContent() {
                 </p>
               </div>
               <p className="mt-4 font-fantasy text-2xl font-bold text-parchment">
-                {pendientes}{" "}
+                {pendientes ?? "—"}{" "}
                 <span className="text-sm font-normal text-parchment/50">pendientes</span>
               </p>
             </Panel>

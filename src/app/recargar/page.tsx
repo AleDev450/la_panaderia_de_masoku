@@ -1,32 +1,21 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import clsx from "clsx";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
-import { useSession } from "@/context/SessionContext";
-import { useRecargas } from "@/context/RecargasContext";
 import { useToast } from "@/context/ToastContext";
 import { compressImageToDataUrl, ImageError } from "@/lib/image";
-import { MONTOS_RECARGA, RecargaServiceError, validateMonto } from "@/services/recargaService";
-import clsx from "clsx";
-
-const ESTADO_LABEL: Record<string, string> = {
-  pendiente: "Pendiente de revisión",
-  aprobada: "Aprobada",
-  rechazada: "Rechazada",
-};
-
-const ESTADO_COLOR: Record<string, string> = {
-  pendiente: "text-gold-light",
-  aprobada: "text-win-glow",
-  rechazada: "text-lose-glow",
-};
+import {
+  ESTADO_RECARGA_COLOR,
+  ESTADO_RECARGA_LABEL,
+  MONTOS_RECARGA,
+} from "@/lib/recargas";
+import { RecargaResumen, crearRecarga, getMisRecargas } from "@/actions/recargas";
 
 function RecargarContent() {
-  const { user } = useSession();
-  const { recargas, crear } = useRecargas();
   const { showToast } = useToast();
 
   const [monto, setMonto] = useState<number | null>(null);
@@ -34,10 +23,17 @@ function RecargarContent() {
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | undefined>();
   const [submitting, setSubmitting] = useState(false);
+  const [misRecargas, setMisRecargas] = useState<RecargaResumen[] | null>(null);
 
-  if (!user) return null;
+  const refresh = useCallback(async () => {
+    const result = await getMisRecargas();
+    if (result.ok) setMisRecargas(result.data);
+  }, []);
 
-  const misRecargas = recargas.filter((r) => r.userId === user.id);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time bootstrap on mount
+    refresh();
+  }, [refresh]);
 
   function handleFile(selected: File | null) {
     setFile(selected);
@@ -48,11 +44,8 @@ function RecargarContent() {
     event.preventDefault();
     setError(undefined);
 
-    if (!user) return;
-
-    const validation = validateMonto(monto ?? NaN);
-    if (!validation.valid) {
-      setError(validation.message);
+    if (monto === null) {
+      setError("Elige el monto que depositaste.");
       return;
     }
     if (!file) {
@@ -62,13 +55,12 @@ function RecargarContent() {
 
     setSubmitting(true);
     try {
-      const imagenDataUrl = await compressImageToDataUrl(file);
-      await crear({
-        userId: user.id,
-        userNickname: user.nickname,
-        monto: monto as number,
-        imagenDataUrl,
-      });
+      const comprobante = await compressImageToDataUrl(file);
+      const result = await crearRecarga({ monto, comprobante });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
       showToast({
         variant: "info",
         title: "Comprobante enviado",
@@ -76,12 +68,9 @@ function RecargarContent() {
       });
       setMonto(null);
       handleFile(null);
+      await refresh();
     } catch (err) {
-      const message =
-        err instanceof RecargaServiceError || err instanceof ImageError
-          ? err.message
-          : "No pudimos enviar tu recarga.";
-      setError(message);
+      setError(err instanceof ImageError ? err.message : "No pudimos enviar tu recarga.");
     } finally {
       setSubmitting(false);
     }
@@ -135,7 +124,7 @@ function RecargarContent() {
                 className="block w-full text-sm text-parchment/70 file:mr-3 file:min-h-11 file:rounded-md file:border file:border-gold-dark file:bg-obsidian/60 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-gold-light"
               />
               {preview ? (
-                // eslint-disable-next-line @next/next/no-img-element -- local blob preview, not an optimizable remote asset
+                // eslint-disable-next-line @next/next/no-img-element -- blob local, no un asset remoto optimizable
                 <img
                   src={preview}
                   alt="Vista previa del comprobante"
@@ -160,22 +149,37 @@ function RecargarContent() {
           <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
             Tus recargas
           </h2>
-          {misRecargas.length === 0 ? (
+          {misRecargas === null ? (
+            <p className="text-sm text-parchment/50">Cargando…</p>
+          ) : misRecargas.length === 0 ? (
             <Panel className="border-dashed p-6 text-center text-sm text-parchment/50">
               Todavía no enviaste ninguna recarga.
             </Panel>
           ) : (
             <div className="flex flex-col gap-3">
               {misRecargas.map((r) => (
-                <Panel key={r.id} className="flex items-center justify-between p-4">
-                  <div>
-                    <p className="font-fantasy font-bold text-gold-light">S/{r.monto}</p>
+                <Panel key={r.id} className="flex items-center justify-between gap-3 p-4">
+                  <div className="min-w-0">
+                    <p className="font-fantasy font-bold text-gold-light">
+                      S/{r.monto_acreditado ?? r.monto_solicitado}
+                      {r.monto_acreditado !== null &&
+                      Number(r.monto_acreditado) !== Number(r.monto_solicitado) ? (
+                        <span className="ml-2 text-xs font-normal text-parchment/50">
+                          (declaraste S/{r.monto_solicitado})
+                        </span>
+                      ) : null}
+                    </p>
                     <p className="text-xs text-parchment/50">
-                      {new Date(r.createdAt).toLocaleString("es-PE")}
+                      {new Date(r.created_at).toLocaleString("es-PE")}
                     </p>
                   </div>
-                  <span className={clsx("text-xs font-semibold", ESTADO_COLOR[r.estado])}>
-                    {ESTADO_LABEL[r.estado]}
+                  <span
+                    className={clsx(
+                      "shrink-0 text-xs font-semibold",
+                      ESTADO_RECARGA_COLOR[r.estado]
+                    )}
+                  >
+                    {ESTADO_RECARGA_LABEL[r.estado]}
                   </span>
                 </Panel>
               ))}
