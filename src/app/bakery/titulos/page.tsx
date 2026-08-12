@@ -6,13 +6,15 @@ import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/context/ToastContext";
+import { EventoResumen, crearEvento, getEventosHoy } from "@/actions/betting";
 import {
-  EventoResumen,
-  crearEvento,
-  getEventosHoy,
-  resolverEvento,
-} from "@/actions/betting";
-import { cambiarEstadoEvento } from "@/actions/admin";
+  cambiarEstadoEvento,
+  confirmarPago,
+  corregirResultado,
+  declararResultado,
+  liquidarVencidos,
+} from "@/actions/admin";
+import { ResolverPanel } from "@/components/bakery/ResolverPanel";
 import { CategoriaBadge, CATEGORIA_OPTIONS } from "@/components/partidas/CategoriaBadge";
 import { CategoriaEvento, Evento } from "@/lib/supabase/types";
 import { DURACION_MIN_DEFAULT } from "@/types";
@@ -36,8 +38,9 @@ function AdminTitulosContent() {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time bootstrap on mount
-    refresh();
+    // Sin pg_cron nadie liquida solo lo que ya cumplió su minuto: se barre
+    // al abrir el panel y luego se refresca la lista.
+    liquidarVencidos().then(() => refresh());
   }, [refresh]);
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
@@ -74,15 +77,64 @@ function AdminTitulosContent() {
     }
   }
 
-  async function handleResolver(eventoId: string, resultado: "a" | "b") {
+  async function handleDeclarar(eventoId: string, resultado: "a" | "b") {
     setProcesando(eventoId);
     try {
-      const result = await resolverEvento({ eventoId, resultado });
+      const result = await declararResultado({ eventoId, resultado });
       if (!result.ok) {
-        showToast({ variant: "warning", title: "No se pudo resolver", description: result.error });
+        showToast({ variant: "warning", title: "No se pudo declarar", description: result.error });
         return;
       }
-      showToast({ variant: "success", title: "Resultado declarado" });
+      showToast({
+        variant: "info",
+        title: "Resultado declarado — sin pagar",
+        description: "Tienes 1 minuto para corregirlo antes de confirmar el pago.",
+      });
+      await refresh();
+    } finally {
+      setProcesando(null);
+    }
+  }
+
+  async function handleCorregir(eventoId: string, resultado: "a" | "b") {
+    setProcesando(eventoId);
+    try {
+      const result = await corregirResultado({ eventoId, resultado });
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo corregir", description: result.error });
+        return;
+      }
+      showToast({
+        variant: "success",
+        title: "Resultado corregido",
+        description: "Es la única corrección posible; revísalo antes de pagar.",
+      });
+      await refresh();
+    } finally {
+      setProcesando(null);
+    }
+  }
+
+  // Al llegar a 0 el contador de cualquier título, se barre lo vencido.
+  const handleVencidos = useCallback(async () => {
+    const result = await liquidarVencidos();
+    if (result.ok && result.data > 0) await refresh();
+  }, [refresh]);
+
+  async function handleConfirmar(eventoId: string) {
+    setProcesando(eventoId);
+    try {
+      const result = await confirmarPago(eventoId);
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo pagar", description: result.error });
+        await refresh();
+        return;
+      }
+      showToast({
+        variant: "success",
+        title: "Pagado",
+        description: "Se repartió el dinero y los puntos.",
+      });
       await refresh();
     } finally {
       setProcesando(null);
@@ -236,66 +288,41 @@ function AdminTitulosContent() {
                     </div>
                   </div>
 
-                  {evento.estado !== "resuelto" ? (
-                    <>
-                      {/* Abrir/cerrar apuestas a mano: el contador es el
-                          camino automático, esto lo fuerza cuando hace falta. */}
-                      <div className="mt-3 flex flex-wrap items-center gap-2 border-b border-gold-dark/30 pb-3">
-                        <span className="text-xs text-parchment/50">Apuestas:</span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          disabled={procesando === evento.id || evento.estado === "abierto"}
-                          onClick={() => handleEstado(evento.id, true)}
-                          className="min-h-9 px-3 py-1 text-xs"
-                        >
-                          Abrir
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          disabled={procesando === evento.id || evento.estado === "cerrado"}
-                          onClick={() => handleEstado(evento.id, false)}
-                          className="min-h-9 px-3 py-1 text-xs"
-                        >
-                          Cerrar
-                        </Button>
-                      </div>
+                  {evento.estado !== "resuelto" && evento.resultado_preliminar === null ? (
+                    // Abrir/cerrar apuestas a mano: el contador es el camino
+                    // automático, esto lo fuerza cuando hace falta. Se oculta
+                    // una vez declarado el resultado.
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-b border-gold-dark/30 pb-3">
+                      <span className="text-xs text-parchment/50">Apuestas:</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={procesando === evento.id || evento.estado === "abierto"}
+                        onClick={() => handleEstado(evento.id, true)}
+                        className="min-h-9 px-3 py-1 text-xs"
+                      >
+                        Abrir
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={procesando === evento.id || evento.estado === "cerrado"}
+                        onClick={() => handleEstado(evento.id, false)}
+                        className="min-h-9 px-3 py-1 text-xs"
+                      >
+                        Cerrar
+                      </Button>
+                    </div>
+                  ) : null}
 
-                      <div className="mt-3">
-                        <p className="mb-2 text-xs text-parchment/50">
-                          Declarar resultado — paga 1.80x y reparte puntos. No
-                          se puede deshacer.
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            variant="win"
-                            disabled={procesando === evento.id}
-                            onClick={() => handleResolver(evento.id, "a")}
-                          >
-                            Declarar {evento.lado_a}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="lose"
-                            disabled={procesando === evento.id}
-                            onClick={() => handleResolver(evento.id, "b")}
-                          >
-                            Declarar {evento.lado_b}
-                          </Button>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <p className="mt-3 rounded-md border border-gold-dark/60 bg-obsidian/40 px-3 py-2 text-xs text-parchment/60">
-                      Resultado:{" "}
-                      <span className="font-fantasy font-bold text-gold-light">
-                        {evento.resultado === "a" ? evento.lado_a : evento.lado_b}
-                      </span>{" "}
-                      · pagado
-                    </p>
-                  )}
+                  <ResolverPanel
+                    evento={evento}
+                    procesando={procesando === evento.id}
+                    onDeclarar={(resultado) => handleDeclarar(evento.id, resultado)}
+                    onCorregir={(resultado) => handleCorregir(evento.id, resultado)}
+                    onConfirmar={() => handleConfirmar(evento.id)}
+                    onVentanaVencida={handleVencidos}
+                  />
                 </Panel>
               ))}
             </div>

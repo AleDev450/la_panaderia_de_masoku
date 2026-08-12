@@ -148,6 +148,15 @@ update eventos set cierra_en = now() - interval '1 minute' where id = 'EVENTO_ID
 
 ---
 
+## 4b. Un solo bando por sala
+
+Como **jugador B**, que ya apostó al lado b, intenta apostar al lado a de
+esa misma sala → debe rechazar con "Ya apostaste al otro lado de esta
+sala". En la tarjeta, ese lado debe mostrar "Ya elegiste el otro bando"
+en vez del formulario.
+
+---
+
 ## 5. Resolver y verificar el dinero
 
 Anota los saldos **antes** de resolver:
@@ -157,8 +166,42 @@ select nickname, saldo_disponible, saldo_retenido, puntos from perfiles
 where nickname in ('JUGADOR_A', 'JUGADOR_B');
 ```
 
-Como admin, en `/bakery/titulos`, declara **el lado A** como resultado.
-Vuelve a correr la query de arriba.
+### 5.1 Declarar no paga
+
+Como admin, en `/bakery/titulos`, declara **el lado B** (a propósito el
+equivocado). Vuelve a correr la query de saldos.
+
+**Esperado: ningún saldo cambió.** Declarar solo guarda el resultado:
+
+```sql
+select estado, resultado, resultado_preliminar, correcciones, declarado_at
+from eventos where id = 'EVENTO_ID';
+```
+
+`estado` queda `cerrado`, `resultado_preliminar` en `b`, `resultado` en
+null y `correcciones` en 0. En la UI aparece un contador de 60 s.
+
+### 5.2 Corregir, una sola vez
+
+Con el contador corriendo, pulsa **"No, ganó [lado A]"**.
+
+```sql
+select resultado_preliminar, correcciones from eventos where id = 'EVENTO_ID';
+```
+
+**Esperado:** `resultado_preliminar` ahora es `a` y `correcciones` es 1. El
+contador se reinició. El botón de corregir **desaparece** — una segunda
+corrección se rechaza:
+
+```sql
+select admin_corregir_resultado('ID_DEL_ADMIN', 'EVENTO_ID', 'b');
+-- Esperado: ERROR "Este resultado ya se corrigió una vez"
+```
+
+### 5.3 Confirmar el pago
+
+Pulsa **"Confirmar y pagar"**. Ahora sí corre la liquidación con el
+resultado corregido (lado A).
 
 **Esperado, con A ganador (100 pedidos, 60 emparejados):**
 
@@ -184,6 +227,29 @@ where m.evento_id = 'EVENTO_ID' order by m.created_at;
 
 En la UI, `/historial` debe mostrarle a A "Ganaste S/108 · devuelto S/40",
 y el ranking/insignia debe reflejar los puntos nuevos.
+
+### 5.4 No se puede pagar dos veces
+
+Esta es la garantía que importa. Intenta pagar de nuevo el mismo evento:
+
+```sql
+select admin_confirmar_pago('ID_DEL_ADMIN', 'EVENTO_ID');
+-- Esperado: ERROR "El evento ya fue resuelto"
+
+select admin_corregir_resultado('ID_DEL_ADMIN', 'EVENTO_ID', 'b');
+-- Esperado: ERROR "El evento ya fue pagado, no se puede corregir"
+```
+
+Y confirma que los saldos **no se movieron otra vez** tras esos intentos.
+
+### 5.5 Pago automático al minuto
+
+Declara un resultado en otro título y **deja el panel abierto sin tocar
+nada**. Al llegar el contador a 0 debe liquidarse solo.
+
+Si cierras el panel antes, el evento queda declarado pero sin pagar hasta
+que alguien vuelva a abrirlo — no hay proceso en segundo plano (ver la
+nota sobre pg_cron en `0013_resolucion_en_dos_fases.sql`).
 
 ---
 

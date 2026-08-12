@@ -54,8 +54,14 @@ export type Evento = {
   estado: EstadoEvento;
   resultado: LadoApuesta | null;
   categoria: CategoriaEvento;
-  /** Hora límite para apuestas nuevas — crear_apuesta las rechaza después. La resolución (resolver_evento) sigue siendo manual del admin, no depende de esto. */
+  /** Hora límite para apuestas nuevas — crear_apuesta las rechaza después. */
   cierra_en: string;
+  /** Ganador declarado pero todavía sin pagar (ver 0013). Al confirmar
+   * el pago se copia a `resultado` y el estado pasa a 'resuelto'. */
+  resultado_preliminar: LadoApuesta | null;
+  declarado_at: string | null;
+  /** Solo se admite una corrección del resultado declarado. */
+  correcciones: number;
   created_at: string;
   updated_at: string;
 };
@@ -230,6 +236,22 @@ export interface Database {
           p_admin_id: string;
         };
         Returns: undefined;
+      };
+      admin_declarar_resultado: {
+        Args: { p_admin_id: string; p_evento_id: string; p_resultado: LadoApuesta };
+        Returns: Evento;
+      };
+      admin_corregir_resultado: {
+        Args: { p_admin_id: string; p_evento_id: string; p_resultado: LadoApuesta };
+        Returns: Evento;
+      };
+      admin_confirmar_pago: {
+        Args: { p_admin_id: string; p_evento_id: string };
+        Returns: Evento;
+      };
+      liquidar_eventos_vencidos: {
+        Args: Record<string, never>;
+        Returns: number;
       };
       admin_creditar_saldo: {
         Args: { p_admin_id: string; p_usuario_id: string; p_monto: number };

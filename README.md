@@ -20,9 +20,11 @@ quien eligió el lado contrario.
 3. Otros lo **cubren por partes**. El emparejamiento es FIFO y parcial:
    varias personas pueden cubrir a una sola, con montos distintos. Nadie
    se empareja consigo mismo.
-4. El staff **declara el resultado**. Lo emparejado ganador paga **1.80x**;
-   lo que nadie cubrió vuelve entero al saldo. La plataforma se queda con
-   0.20 por unidad emparejada — ganancia fija, sin riesgo de mercado.
+4. El staff **declara el resultado**, que abre una ventana de 1 minuto
+   para corregirlo antes de que se mueva un sol. Al confirmar, lo
+   emparejado ganador paga **1.80x**; lo que nadie cubrió vuelve entero al
+   saldo. La plataforma se queda con 0.20 por unidad emparejada —
+   ganancia fija, sin riesgo de mercado.
 5. Se reparten puntos: **+5** al que acertó, **+1** al que no (solo si
    llegó a emparejar algo). Los puntos suben el rango del panadero.
 6. Para **retirar**, el jugador solicita un monto de su saldo disponible.
@@ -86,7 +88,13 @@ Reglas que el SQL garantiza (no la UI):
 
 - Monto entre S/10 y S/100, con saldo suficiente, retenido al apostar.
 - Emparejamiento FIFO parcial; nadie se empareja consigo mismo.
-- No se apuesta en títulos cerrados ni con el contador vencido.
+- **Un solo bando por sala**: si ya apostaste a un lado, el contrario te
+  rechaza — cubrirse a sí mismo no es apostar.
+- No se apuesta en títulos cerrados, con el contador vencido, o con el
+  resultado ya declarado.
+- **Un evento no se puede pagar dos veces**: la liquidación exige que no
+  esté `resuelto` y lo marca como tal en la misma transacción en la que
+  mueve el dinero, con la fila bloqueada.
 - Un miembro del staff no puede apostar; un usuario suspendido tampoco.
 - Solo se cancela la parte **no emparejada**; lo emparejado queda en juego.
 
@@ -164,7 +172,15 @@ Lo que puede hacer:
   entran apuestas pero el resultado todavía no se declara ni se paga. Al
   reabrir un título vencido, la función empuja el contador hacia adelante
   — si no, quedaría abierto pero rechazando por tiempo.
-- **Declarar resultados**, lo que dispara la liquidación completa.
+- **Declarar el resultado en dos fases.** Declarar **no paga**: guarda un
+  ganador preliminar y abre una ventana de 1 minuto en la que se puede
+  corregir **una sola vez** (el contador se reinicia al corregir, para
+  poder revisar la corrección). Recién al confirmar se reparte el dinero.
+  Así un clic equivocado deja de ser irreversible.
+
+  > Sin `pg_cron`, el pago automático al vencer el minuto lo dispara el
+  > propio panel: si nadie lo tiene abierto, el evento queda declarado sin
+  > pagar hasta que alguien vuelva a entrar.
 - **Revisar recargas**: el jugador yapea al QR (`public/images/yape-qr.jpg`)
   y sube la captura. El staff ve nickname, nombre y teléfono del jugador, amplía
   el comprobante para leer la hora y el monto, y **corrige el monto** si no
@@ -213,6 +229,12 @@ Ver `supabase/migrations/0011_rls_hardening.sql` para dos huecos que se
 encontraron y cerraron: `perfiles` era legible por cualquier usuario
 autenticado (filtraba teléfonos y saldos de todos), y los inserts no
 restringían columnas.
+
+> ⚠️ Un archivo `"use server"` **solo admite exports de funciones async**.
+> Exportar una constante desde ahí anula en silencio todos los exports del
+> módulo, y ni `tsc` ni eslint lo detectan — solo revienta en runtime. Por
+> eso valores compartidos como `VENTANA_CORRECCION_MS` viven en
+> `src/lib/`, no en `src/actions/`.
 
 ### Limitaciones conocidas
 

@@ -21,6 +21,14 @@ function PartidasContent() {
   const [eventos, setEventos] = useState<EventoResumen[] | null>(null);
   const [categoria, setCategoria] = useState<CategoriaEvento | "todas">("todas");
   const [modalAbierto, setModalAbierto] = useState(false);
+  // Reloj propio: leer Date.now() en el render sería impuro, y hace falta
+  // para saber qué títulos ya vencieron su contador.
+  const [ahora, setAhora] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setAhora(Date.now()), 15_000);
+    return () => clearInterval(id);
+  }, []);
 
   const refresh = useCallback(async () => {
     const result = await getEventosHoy();
@@ -41,10 +49,17 @@ function PartidasContent() {
   );
 
   // Una "sala" es un título en el que alguien ya apostó; los demás son
-  // títulos disponibles para abrir sala desde el modal.
+  // títulos disponibles para abrir sala desde el modal. Un título con
+  // resultado (aunque todavía se esté confirmando el pago) ya no admite
+  // sala nueva: la partida terminó.
   const salas = visibles.filter((r) => r.ladoA.retador || r.ladoB.retador);
   const disponibles = (eventos ?? []).filter(
-    (r) => r.evento.estado === "abierto" && !r.ladoA.retador && !r.ladoB.retador
+    (r) =>
+      r.evento.estado === "abierto" &&
+      r.evento.resultado_preliminar === null &&
+      new Date(r.evento.cierra_en).getTime() > ahora &&
+      !r.ladoA.retador &&
+      !r.ladoB.retador
   );
 
   async function handleApostar(eventoId: string, lado: "a" | "b", monto: number) {

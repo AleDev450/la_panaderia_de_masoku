@@ -193,6 +193,9 @@ export interface EventoResumen {
   evento: Evento;
   ladoA: LadoResumen;
   ladoB: LadoResumen;
+  /** Lado en el que ya apostó quien consulta; null si todavía no entró.
+   * En una sala se elige un bando y no se puede apostar al contrario. */
+  miLado: "a" | "b" | null;
 }
 
 /**
@@ -264,8 +267,20 @@ export async function getEventosHoy(): Promise<ActionResult<EventoResumen[]>> {
     };
   }
 
+  // En qué lado ya entró quien consulta (cualquier apuesta viva, incluso
+  // las ya cubiertas del todo, que no salen en la consulta de arriba).
+  const { data: misApuestas } = await admin
+    .from("apuestas")
+    .select("evento_id, lado")
+    .in("evento_id", eventoIds)
+    .eq("usuario_id", session.userId)
+    .neq("estado", "cancelada");
+  const miLadoPorEvento = new Map<string, "a" | "b">();
+  for (const a of misApuestas ?? []) miLadoPorEvento.set(a.evento_id, a.lado);
+
   const resumenes: EventoResumen[] = eventos.map((evento) => ({
     evento: evento as Evento,
+    miLado: miLadoPorEvento.get(evento.id) ?? null,
     ladoA: resumenDeLado(evento.id, "a", evento.lado_a),
     ladoB: resumenDeLado(evento.id, "b", evento.lado_b),
   }));

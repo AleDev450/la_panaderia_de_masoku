@@ -45,6 +45,14 @@ const estadoEventoSchema = z.object({
 });
 export type CambiarEstadoEventoInput = z.infer<typeof estadoEventoSchema>;
 
+const resultadoSchema = z.object({
+  eventoId: z.string().uuid("Evento inválido."),
+  resultado: z.enum(["a", "b"]),
+});
+export type ResultadoInput = z.infer<typeof resultadoSchema>;
+// La ventana de corrección vive en src/lib/eventos.ts: acá no se puede
+// exportar una constante (ver el comentario en ese archivo).
+
 export async function getMetricas(): Promise<ActionResult<AdminMetricas>> {
   const session = await requireAdminId();
   if (!session.ok) return session;
@@ -135,6 +143,86 @@ export async function banearUsuario(
 
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: data as Perfil };
+}
+
+/**
+ * Fase 1: guarda el ganador **sin pagar** y abre la ventana de corrección.
+ * Ver 0013_resolucion_en_dos_fases.sql.
+ */
+export async function declararResultado(input: ResultadoInput): Promise<ActionResult<Evento>> {
+  const parsed = resultadoSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_declarar_resultado", {
+    p_admin_id: session.userId,
+    p_evento_id: parsed.data.eventoId,
+    p_resultado: parsed.data.resultado,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as Evento };
+}
+
+/** Fase 2 (opcional): cambiar el ganador, una sola vez y antes de pagar. */
+export async function corregirResultado(input: ResultadoInput): Promise<ActionResult<Evento>> {
+  const parsed = resultadoSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_corregir_resultado", {
+    p_admin_id: session.userId,
+    p_evento_id: parsed.data.eventoId,
+    p_resultado: parsed.data.resultado,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as Evento };
+}
+
+/** Fase 3: paga con el resultado preliminar vigente. */
+export async function confirmarPago(eventoId: string): Promise<ActionResult<Evento>> {
+  if (!z.string().uuid().safeParse(eventoId).success) {
+    return { ok: false, error: "Evento inválido." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_confirmar_pago", {
+    p_admin_id: session.userId,
+    p_evento_id: eventoId,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as Evento };
+}
+
+/**
+ * Liquida en lote todo lo que ya cumplió su minuto. Sin pg_cron nadie
+ * dispara esto solo: lo llama el panel de títulos al abrirse y cuando un
+ * contador llega a cero.
+ */
+export async function liquidarVencidos(): Promise<ActionResult<number>> {
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("liquidar_eventos_vencidos", {});
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: Number(data ?? 0) };
 }
 
 /** Abrir/cerrar las apuestas de un título a mano, sin esperar al contador. */

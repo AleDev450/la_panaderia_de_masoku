@@ -34,9 +34,10 @@ export function PartidaCard({
   resumen: EventoResumen;
   onApostar: (eventoId: string, lado: "a" | "b", monto: number) => Promise<void>;
 }) {
-  const { evento, ladoA, ladoB } = resumen;
+  const { evento, ladoA, ladoB, miLado } = resumen;
   const restanteMs = useCuentaRegresiva(evento.cierra_en);
-  const cerrado = evento.estado !== "abierto" || restanteMs <= 0;
+  const terminada = evento.estado === "resuelto" || evento.resultado_preliminar !== null;
+  const cerrado = terminada || evento.estado !== "abierto" || restanteMs <= 0;
 
   return (
     <Panel className="flex flex-col p-4 sm:p-5">
@@ -49,7 +50,7 @@ export function PartidaCard({
               : "rounded-md border border-gold-dark bg-charcoal px-2 py-1 font-fantasy text-xs font-bold text-gold-light"
           }
         >
-          {evento.estado === "resuelto" ? "Resuelto" : formatoRestante(restanteMs)}
+          {terminada ? "Partida terminada" : formatoRestante(restanteMs)}
         </span>
       </div>
 
@@ -62,22 +63,32 @@ export function PartidaCard({
           lado="a"
           resumen={ladoA}
           disabled={cerrado}
+          // En una sala se elige un bando: si ya entraste por un lado, el
+          // contrario queda bloqueado (crear_apuesta lo rechaza igual).
+          bloqueadoPorMiLado={miLado === "b"}
+          terminada={terminada}
           onApostar={(lado, monto) => onApostar(evento.id, lado, monto)}
         />
         <LadoPanel
           lado="b"
           resumen={ladoB}
           disabled={cerrado}
+          bloqueadoPorMiLado={miLado === "a"}
+          terminada={terminada}
           onApostar={(lado, monto) => onApostar(evento.id, lado, monto)}
         />
       </div>
 
       {evento.estado === "resuelto" && evento.resultado ? (
         <p className="mt-4 rounded-md border border-gold-dark/60 bg-obsidian/40 px-3 py-2.5 text-center text-xs text-parchment/60">
-          Resultado:{" "}
+          Ganó:{" "}
           <span className="font-fantasy font-bold text-gold-light">
             {evento.resultado === "a" ? evento.lado_a : evento.lado_b}
           </span>
+        </p>
+      ) : evento.resultado_preliminar !== null ? (
+        <p className="mt-4 rounded-md border border-gold-dark/60 bg-obsidian/40 px-3 py-2.5 text-center text-xs text-parchment/60">
+          Resultado en revisión — el pago se está confirmando.
         </p>
       ) : null}
 

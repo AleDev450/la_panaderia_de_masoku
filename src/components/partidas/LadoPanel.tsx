@@ -10,11 +10,16 @@ export function LadoPanel({
   lado,
   resumen,
   disabled,
+  bloqueadoPorMiLado = false,
+  terminada = false,
   onApostar,
 }: {
   lado: "a" | "b";
   resumen: LadoResumen;
   disabled: boolean;
+  /** Ya apostaste al lado contrario de esta sala. */
+  bloqueadoPorMiLado?: boolean;
+  terminada?: boolean;
   onApostar: (lado: "a" | "b", monto: number) => Promise<void>;
 }) {
   const [monto, setMonto] = useState("");
@@ -66,8 +71,16 @@ export function LadoPanel({
         </p>
       ) : null}
 
-      {disabled ? (
-        <p className="text-center text-[11px] text-parchment/40">Título cerrado</p>
+      {terminada ? (
+        <p className="mt-auto text-center text-[11px] text-parchment/40">
+          Partida terminada
+        </p>
+      ) : bloqueadoPorMiLado ? (
+        <p className="mt-auto text-center text-[11px] text-parchment/40">
+          Ya elegiste el otro bando
+        </p>
+      ) : disabled ? (
+        <p className="mt-auto text-center text-[11px] text-parchment/40">Apuestas cerradas</p>
       ) : (
         // Input y botón apilados, no lado a lado: la tarjeta ya está
         // partida en dos columnas, y meterlos en la misma fila dejaba el
