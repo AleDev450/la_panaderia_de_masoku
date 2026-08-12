@@ -12,7 +12,10 @@ export function ArtPanel({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative w-full max-w-md xl:max-w-lg" style={{ aspectRatio: ratio }}>
+    <div
+      className="relative w-[22rem] max-w-[90vw] sm:w-[26rem] lg:h-[64vh] lg:max-h-[40rem] lg:min-h-[22rem] lg:w-auto lg:max-w-[28vw]"
+      style={{ aspectRatio: ratio }}
+    >
       <Image
         src={src}
         alt={alt}

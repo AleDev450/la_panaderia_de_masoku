@@ -19,35 +19,40 @@ export default function Home() {
   if (!isReady || user) return null;
 
   return (
-    <div className="relative flex-1 overflow-hidden">
+    <div className="relative flex min-h-screen w-full flex-col overflow-y-auto lg:h-screen lg:overflow-hidden">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[url('/images/plaza-background.png')] bg-cover bg-center"
+        className="pointer-events-none fixed inset-0 bg-[url('/images/plaza-background.png')] bg-cover bg-center"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-obsidian/20 via-transparent to-obsidian"
+        className="pointer-events-none fixed inset-0 bg-gradient-to-b from-obsidian/20 via-transparent to-obsidian"
       />
 
-      <main className="relative mx-auto flex w-full max-w-[1800px] flex-1 flex-col items-center gap-6 px-4 py-10 sm:px-6 xl:gap-4 xl:px-10 xl:py-12">
-        {/* Título: siempre centrado, ancla visual de toda la pantalla. */}
-        <Logo size="xl" href="" asImage />
+      {/* Marca en la esquina: el título grande ya no compite por espacio
+          vertical con la fila principal — el cartel de reglas trae su
+          propio encabezado. */}
+      <div className="absolute left-4 top-4 z-10 lg:left-8 lg:top-6">
+        <Logo size="sm" href="" />
+      </div>
 
-        {/* Mascota: justo debajo del título, siempre centrada. */}
-        <Mascot />
+      {/* Fila única en pantallas grandes: reglas a la izquierda, mascota
+          al centro, acceso a la derecha — todo cabe en un solo viewport
+          (los paneles se dimensionan por alto de pantalla, no por ancho
+          fijo, ver ArtPanel/GameRulesSidebar/Mascot). En pantallas chicas
+          se apilan y la página puede hacer scroll normalmente. */}
+      <main className="relative z-[1] mx-auto flex w-full max-w-[1800px] flex-1 flex-col items-center justify-center gap-8 px-4 py-10 sm:px-6 lg:flex-row lg:gap-6 lg:px-8 lg:py-4 xl:gap-12">
+        <section aria-label="Cómo funcionan las apuestas 1 contra 1" className="flex w-full justify-center lg:w-auto">
+          <GameRulesSidebar />
+        </section>
 
-        {/* Reglas a la izquierda, acceso a la derecha — la mascota de
-            arriba queda "entre" ambas, dando la sensación de una sola
-            composición en vez de piezas sueltas. */}
-        <div className="flex w-full flex-col items-center gap-8 lg:flex-row lg:items-start lg:justify-center lg:gap-10 xl:gap-16">
-          <section aria-label="Cómo funcionan las apuestas 1 contra 1" className="flex w-full justify-center lg:w-auto">
-            <GameRulesSidebar />
-          </section>
+        <section aria-label="Mascota" className="flex w-full justify-center lg:w-auto">
+          <Mascot />
+        </section>
 
-          <section aria-label="Acceso a tu cuenta" className="flex w-full justify-center lg:w-auto">
-            <AuthPanel />
-          </section>
-        </div>
+        <section aria-label="Acceso a tu cuenta" className="flex w-full justify-center lg:w-auto">
+          <AuthPanel />
+        </section>
       </main>
     </div>
   );

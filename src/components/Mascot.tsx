@@ -13,10 +13,10 @@ const sparkPositions = [
 
 export function Mascot({ caption = "Guardián de la masa" }: { caption?: string }) {
   return (
-    <div className="relative flex flex-col items-center justify-center px-4 py-6">
+    <div className="relative flex flex-col items-center justify-center px-4 py-6 lg:py-2">
       <div
         aria-hidden
-        className="pointer-events-none absolute h-72 w-72 rounded-full bg-gold/25 blur-3xl sm:h-96 sm:w-96 xl:h-[28rem] xl:w-[28rem]"
+        className="pointer-events-none absolute h-72 w-72 rounded-full bg-gold/25 blur-3xl sm:h-96 sm:w-96 lg:h-72 lg:w-72 xl:h-80 xl:w-80"
       />
 
       {sparkPositions.map((spark, i) => (
@@ -38,7 +38,7 @@ export function Mascot({ caption = "Guardián de la masa" }: { caption?: string 
       <motion.div
         animate={{ y: [0, -14, 0] }}
         transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
-        className="relative z-10 w-64 sm:w-80 md:w-96 xl:w-[26rem]"
+        className="relative z-10 w-64 sm:w-80 md:w-96 lg:h-[46vh] lg:max-h-[28rem] lg:min-h-[16rem] lg:w-auto"
       >
         <Image
           src="/images/mascota.png"
@@ -46,7 +46,7 @@ export function Mascot({ caption = "Guardián de la masa" }: { caption?: string 
           width={1120}
           height={1632}
           priority
-          className="h-auto w-full select-none"
+          className="h-auto w-full select-none lg:h-full lg:w-auto"
           draggable={false}
         />
       </motion.div>

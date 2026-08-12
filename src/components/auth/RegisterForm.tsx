@@ -77,7 +77,7 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
       onSubmit={handleSubmit}
       noValidate
       aria-label="Crear cuenta"
-      className="flex w-full flex-col items-center gap-3"
+      className="flex w-full flex-col items-center gap-2 lg:gap-1.5"
     >
       <ArtPanel src="/images/crear-cuenta.png" alt="" ratio="979 / 1606">
         <ArtInput
@@ -169,7 +169,7 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
       <button
         type="button"
         onClick={onSwitchToLogin}
-        className="rounded font-fantasy text-sm text-parchment/70 outline-none transition hover:text-gold-light focus-visible:ring-2 focus-visible:ring-gold-light"
+        className="rounded font-fantasy text-sm text-parchment/70 outline-none transition hover:text-gold-light focus-visible:ring-2 focus-visible:ring-gold-light lg:text-xs"
       >
         ¿Ya tienes cuenta? <span className="text-gold-light">Iniciar sesión</span>
       </button>

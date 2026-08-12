@@ -5,6 +5,7 @@ import { SessionProvider } from "@/context/SessionContext";
 import { MatchesProvider } from "@/context/MatchesContext";
 import { ToastProvider } from "@/context/ToastContext";
 import { RecargasProvider } from "@/context/RecargasContext";
+import { MusicToggle } from "@/components/MusicToggle";
 
 const cinzel = Cinzel({
   variable: "--font-cinzel",
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </MatchesProvider>
           </SessionProvider>
         </ToastProvider>
+        <MusicToggle />
       </body>
     </html>
   );

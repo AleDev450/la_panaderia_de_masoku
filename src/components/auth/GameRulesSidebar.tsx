@@ -3,11 +3,17 @@ import { BET_MAX, BET_MIN } from "@/types";
 
 export function GameRulesSidebar() {
   return (
-    <div className="flex w-full max-w-lg flex-col items-center gap-5">
+    <div className="flex flex-col items-center gap-5">
       {/* El cartel ya trae el título, las reglas GANA/PIERDE 1:1, los
           montos y el aviso de 18+ dibujados — se mantiene decorativo y se
-          duplica como texto accesible para lectores de pantalla. */}
-      <div className="relative w-full max-w-md xl:max-w-lg" style={{ aspectRatio: "1134 / 1387" }}>
+          duplica como texto accesible para lectores de pantalla.
+          Ancho absoluto (no %) a propósito: un % encadenado a través de un
+          ancestro con w-auto (el <section> centrado) colapsa a 0 — es un
+          problema real de flexbox, no cosmético. */}
+      <div
+        className="relative w-[22rem] max-w-[90vw] sm:w-[26rem] lg:h-[64vh] lg:max-h-[40rem] lg:min-h-[22rem] lg:w-auto lg:max-w-[28vw]"
+        style={{ aspectRatio: "1134 / 1387" }}
+      >
         <Image
           src="/images/reglas.png"
           alt=""

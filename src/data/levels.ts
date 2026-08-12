@@ -1,10 +1,10 @@
 import { Level } from "@/types";
 
 /**
- * Niveles temáticos de panadería, en bandas de 10 puntos. Los íconos/badges
- * definitivos los adjunta el negocio más adelante — por ahora
- * `LevelBadge` los representa con un emoji + color por nivel
- * (`src/components/LevelBadge.tsx`), fácil de reemplazar por un `<Image>`.
+ * Niveles temáticos de panadería, en bandas de 10 puntos. Los nombres
+ * coinciden exactamente con el texto horneado en los badges reales
+ * (`public/images/levels/nivel-1.png` … `nivel-10.png`, pintados por
+ * `LevelBadge`) — si cambias un nombre aquí, el badge queda desalineado.
  */
 export const LEVELS: Level[] = [
   { id: 1, nombre: "Masa", min: 0, max: 10 },
