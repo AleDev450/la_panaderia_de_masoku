@@ -21,12 +21,18 @@ más abajo si vas a tocar esos formularios.
 - Framer Motion (animaciones de la mascota, toasts, modal)
 - Supabase Auth (registro/login de jugadores y de `/bakery`, ambos reales —
   ver "Cuentas de jugador y de staff" más abajo) + Postgres (Zod + RPC en
-  PL/pgSQL) para el motor de emparejamiento real bajo `/exchange`
-- Partidas del día, retos/duelos y recargas del demo 1:1 siguen siendo
-  datos simulados en `src/data`, persistidos en `localStorage`
-  (`src/services/betService.ts`, `recargaService.ts`) — el saldo y los
-  puntos que esas pantallas otorgan sí se escriben en Supabase (`perfiles`)
-  vía Server Actions, ver `src/actions/perfiles.ts`.
+  PL/pgSQL) para el motor de emparejamiento real
+- **`/partidas` corre sobre ese mismo motor real** (antes era un demo 1:1
+  mock en `localStorage`; ver "Partidas de hoy" más abajo) — apuestas con
+  emparejamiento FIFO parcial multi-jugador, cuota fija 1.80x, y
+  devolución automática de lo no emparejado al cerrar el título.
+  `/mis-apuestas` e `/historial` **todavía leen el demo mock viejo**
+  (`src/services/betService.ts`) y por ahora no muestran las apuestas
+  reales — pendiente de una siguiente pasada.
+- Las recargas (`/recargar`) siguen con comprobante manual + aprobación
+  admin, ahora en montos fijos de S/10 en 10 hasta S/100; acreditan
+  directo a `perfiles.saldo_disponible` vía Server Action
+  (`src/actions/perfiles.ts`).
 
 ## Instalación y ejecución
 
@@ -275,19 +281,30 @@ La lógica de validación (`betService.ts`) puede mantenerse en el
 frontend como validación optimista, mientras el backend aplica la misma
 regla como fuente de verdad.
 
-## Motor de emparejamiento real (Supabase/Postgres) — `/exchange`
+## Motor de emparejamiento real (Supabase/Postgres)
 
-Además del demo 1:1 de arriba (mock, sin cuotas), el proyecto incluye un
-segundo módulo, independiente: un **motor de apuestas peer-to-peer con
-order book y cuota fija 1.80**, con el matching y la liquidación
-resueltos enteramente en Postgres (no en el cliente ni en JS del
-servidor), pensado para producción.
+Un **motor de apuestas peer-to-peer con order book y cuota fija 1.80**,
+con el matching y la liquidación resueltos enteramente en Postgres (no en
+el cliente ni en JS del servidor). Dos pantallas lo usan:
 
-> ⚠️ Modelo económico distinto al demo 1:1: aquí sí hay una cuota fija
-> (1.80) y una comisión de plataforma garantizada. Es un motor separado,
-> vive bajo `/exchange/[eventoId]`, pero **sí comparte cuentas** con el
-> demo 1:1 y `/bakery` — las tres usan la misma tabla `perfiles` y el
-> mismo login Supabase Auth (ver "Cuentas de jugador y de staff" arriba).
+- **`/partidas`** — la principal. Un admin publica un título (pregunta +
+  lado A + lado B + categoría + minutos hasta el cierre) desde
+  `/bakery/titulos`; los jugadores apuestan el monto que quieran por
+  cualquiera de los dos lados, `crear_apuesta` los empareja FIFO contra
+  el lado contrario (parcial si hace falta — varias personas pueden
+  cubrir a una sola), y el admin declara el resultado con
+  `resolver_evento`, que paga 1.80x a los ganadores y devuelve lo no
+  emparejado. Ver `getEventosHoy`/`crearEvento` en `src/actions/betting.ts`
+  y los componentes en `src/components/partidas/`.
+- **`/exchange/[eventoId]`** — pantalla de ejemplo previa al mismo motor,
+  con su propio order book agregado anónimo (`getOrderBook`, nunca
+  expone quién apostó qué — a propósito, distinto del listado de
+  `/partidas`, que sí muestra el nickname del primer retador por lado
+  porque ahí es un requisito de producto).
+
+Ambas comparten cuentas con `/bakery` — las tres usan la misma tabla
+`perfiles` y el mismo login Supabase Auth (ver "Cuentas de jugador y de
+staff" arriba).
 
 ### Configuración
 
@@ -306,6 +323,10 @@ servidor), pensado para producción.
      signup nuevo entre como `rol = 'user'`, ajusta RLS de `perfiles`, y
      agrega los RPC `admin_creditar_saldo` / `admin_otorgar_puntos` — ver
      "Cuentas de jugador y de staff" arriba)
+   - `supabase/migrations/0006_eventos_categoria_cierre.sql` (columnas
+     `eventos.categoria` / `eventos.cierra_en`, y `crear_apuesta` ahora
+     rechaza apuestas nuevas después de `cierra_en` — necesaria para que
+     `/partidas` funcione)
 3. Copia `.env.example` → `.env.local` y completa `NEXT_PUBLIC_SUPABASE_URL`,
    `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` (esta
    última es secreta, solo se usa en el servidor — nunca la expongas al

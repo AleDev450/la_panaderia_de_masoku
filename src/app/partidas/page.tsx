@@ -1,60 +1,57 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Header } from "@/components/Header";
-import { MatchCard } from "@/components/matches/MatchCard";
-import { BetModal } from "@/components/matches/BetModal";
-import { useMatches } from "@/context/MatchesContext";
+import { PartidaCard } from "@/components/partidas/PartidaCard";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
-import { BetSide } from "@/types";
-import { BetServiceError } from "@/services/betService";
+import { crearApuesta, getEventosHoy, EventoResumen } from "@/actions/betting";
 
 function PartidasContent() {
-  const { user } = useSession();
-  const { matches, publishChallenge, takeChallenge } = useMatches();
+  const router = useRouter();
+  const { user, refreshUser } = useSession();
   const { showToast } = useToast();
-  const [openMatchId, setOpenMatchId] = useState<string | null>(null);
+  const [eventos, setEventos] = useState<EventoResumen[] | null>(null);
 
-  const openMatch = matches.find((m) => m.id === openMatchId) ?? null;
+  const refresh = useCallback(async () => {
+    const result = await getEventosHoy();
+    if (result.ok) setEventos(result.data);
+  }, []);
 
-  function handlePublish(side: BetSide, amount: number) {
-    if (!user || !openMatch) return;
-    try {
-      publishChallenge(openMatch.id, { id: user.id, nickname: user.nickname }, side, amount);
-      showToast({
-        variant: "info",
-        title: "Reto publicado",
-        description: `Tu apuesta ${side} · S/${amount} está esperando rival.`,
-      });
-      setOpenMatchId(null);
-    } catch (err) {
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time bootstrap on mount
+    refresh();
+  }, [refresh]);
+
+  async function handleApostar(eventoId: string, lado: "a" | "b", monto: number) {
+    if (!user) return;
+    if (user.balance <= 0) {
       showToast({
         variant: "warning",
-        title: "No se pudo publicar el reto",
-        description: err instanceof BetServiceError ? err.message : undefined,
+        title: "No tienes saldo",
+        description: "Recarga para poder apostar.",
       });
+      router.push("/recargar");
+      return;
     }
-  }
+    if (monto > user.balance) {
+      throw new Error(`Tu saldo disponible es S/${user.balance}.`);
+    }
 
-  function handleAccept() {
-    if (!user || !openMatch) return;
-    try {
-      takeChallenge(openMatch.id, { id: user.id, nickname: user.nickname });
-      showToast({
-        variant: "success",
-        title: "Duelo emparejado 1:1",
-        description: "Tu apuesta quedó confirmada contra tu rival.",
-      });
-      setOpenMatchId(null);
-    } catch (err) {
-      showToast({
-        variant: "warning",
-        title: "No se pudo tomar el reto",
-        description: err instanceof BetServiceError ? err.message : undefined,
-      });
-    }
+    const result = await crearApuesta({ eventoId, lado, monto });
+    if (!result.ok) throw new Error(result.error);
+
+    showToast({
+      variant: "success",
+      title: "Apuesta registrada",
+      description:
+        result.data.monto_matcheado > 0
+          ? `Se emparejaron S/${result.data.monto_matcheado} de inmediato.`
+          : "Esperando retador para emparejar tu monto.",
+    });
+    await Promise.all([refresh(), refreshUser()]);
   }
 
   return (
@@ -66,33 +63,31 @@ function PartidasContent() {
             Partidas de hoy
           </h1>
           <p className="mt-2 font-fantasy text-sm font-semibold uppercase tracking-[0.25em] text-gold-light">
-            Apuestas 1 contra 1
+            Apuestas con emparejamiento parcial · cuota 1.80x
           </p>
           <p className="mx-auto mt-3 max-w-lg text-sm text-parchment/60">
-            Encuentra una apuesta abierta o crea tu propio reto.
+            Apuesta el monto que quieras — se empareja contra el lado
+            contrario hasta cubrir lo pedido; lo que sobre al cierre se
+            devuelve a tu saldo.
           </p>
-          <div className="mx-auto mt-4 inline-block rounded-md border border-gold-dark px-4 py-1.5 font-fantasy text-xs font-semibold tracking-wide text-gold/90">
-            Una apuesta. Un rival.
+        </div>
+
+        {eventos === null ? (
+          <p className="mt-10 text-center text-sm text-parchment/50">Cargando partidas…</p>
+        ) : eventos.length === 0 ? (
+          <p className="mt-10 text-center text-sm text-parchment/50">
+            Todavía no hay títulos publicados hoy — vuelve más tarde.
+          </p>
+        ) : (
+          <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {eventos.map((resumen) => (
+              <PartidaCard key={resumen.evento.id} resumen={resumen} onApostar={handleApostar} />
+            ))}
           </div>
-        </div>
+        )}
 
-        <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {matches.map((match) => (
-            <MatchCard key={match.id} match={match} onOpen={setOpenMatchId} />
-          ))}
-        </div>
-
-        <div className="mt-3 text-center text-xs text-parchment/40">18+ · Juego responsable</div>
+        <div className="mt-8 text-center text-xs text-parchment/40">18+ · Juego responsable</div>
       </main>
-
-      {openMatch ? (
-        <BetModal
-          match={openMatch}
-          onClose={() => setOpenMatchId(null)}
-          onPublish={handlePublish}
-          onAccept={handleAccept}
-        />
-      ) : null}
     </>
   );
 }

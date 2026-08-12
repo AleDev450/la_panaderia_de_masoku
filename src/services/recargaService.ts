@@ -1,8 +1,13 @@
 import { Recarga } from "@/types";
 
 const RECARGAS_KEY = "lapanca:recargas";
-const MONTO_MIN = 10;
-const MONTO_MAX = 1000;
+export const MONTO_MIN = 10;
+export const MONTO_MAX = 100;
+export const MONTO_PASO = 10;
+export const MONTOS_RECARGA = Array.from(
+  { length: (MONTO_MAX - MONTO_MIN) / MONTO_PASO + 1 },
+  (_, i) => MONTO_MIN + i * MONTO_PASO
+);
 
 export class RecargaServiceError extends Error {}
 
@@ -36,6 +41,9 @@ export function validateMonto(monto: number): { valid: boolean; message?: string
   }
   if (monto > MONTO_MAX) {
     return { valid: false, message: `El monto máximo de recarga es S/${MONTO_MAX}.` };
+  }
+  if (monto % MONTO_PASO !== 0) {
+    return { valid: false, message: `El monto debe ser múltiplo de S/${MONTO_PASO}.` };
   }
   return { valid: true };
 }

@@ -9,7 +9,7 @@ import { useSession } from "@/context/SessionContext";
 import { useRecargas } from "@/context/RecargasContext";
 import { useToast } from "@/context/ToastContext";
 import { compressImageToDataUrl, ImageError } from "@/lib/image";
-import { RecargaServiceError, validateMonto } from "@/services/recargaService";
+import { MONTOS_RECARGA, RecargaServiceError, validateMonto } from "@/services/recargaService";
 import clsx from "clsx";
 
 const ESTADO_LABEL: Record<string, string> = {
@@ -29,7 +29,7 @@ function RecargarContent() {
   const { recargas, crear } = useRecargas();
   const { showToast } = useToast();
 
-  const [monto, setMonto] = useState("");
+  const [monto, setMonto] = useState<number | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | undefined>();
@@ -50,8 +50,7 @@ function RecargarContent() {
 
     if (!user) return;
 
-    const montoNumber = Number(monto);
-    const validation = validateMonto(montoNumber);
+    const validation = validateMonto(monto ?? NaN);
     if (!validation.valid) {
       setError(validation.message);
       return;
@@ -67,7 +66,7 @@ function RecargarContent() {
       await crear({
         userId: user.id,
         userNickname: user.nickname,
-        monto: montoNumber,
+        monto: monto as number,
         imagenDataUrl,
       });
       showToast({
@@ -75,7 +74,7 @@ function RecargarContent() {
         title: "Comprobante enviado",
         description: "Tu recarga quedó pendiente de revisión por un admin.",
       });
-      setMonto("");
+      setMonto(null);
       handleFile(null);
     } catch (err) {
       const message =
@@ -100,21 +99,29 @@ function RecargarContent() {
 
         <Panel className="mt-6 p-5">
           <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-            <div>
-              <label htmlFor="monto" className="mb-1.5 block text-sm text-parchment/80">
+            <fieldset>
+              <legend className="mb-1.5 block text-sm text-parchment/80">
                 Monto depositado (S/)
-              </label>
-              <input
-                id="monto"
-                type="number"
-                min={10}
-                max={1000}
-                inputMode="numeric"
-                value={monto}
-                onChange={(e) => setMonto(e.target.value)}
-                className="min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-lg font-semibold text-parchment outline-none"
-              />
-            </div>
+              </legend>
+              <div className="grid grid-cols-5 gap-2">
+                {MONTOS_RECARGA.map((opcion) => (
+                  <button
+                    key={opcion}
+                    type="button"
+                    aria-pressed={monto === opcion}
+                    onClick={() => setMonto(opcion)}
+                    className={clsx(
+                      "min-h-11 rounded-md border px-2 py-2 text-sm font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-gold-light",
+                      monto === opcion
+                        ? "border-gold bg-gold-dark/40 text-gold-light"
+                        : "border-gold-dark bg-obsidian/60 text-parchment/80 hover:border-gold-light"
+                    )}
+                  >
+                    S/{opcion}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
 
             <div>
               <label htmlFor="comprobante" className="mb-1.5 block text-sm text-parchment/80">

@@ -1,0 +1,87 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Panel } from "@/components/ui/Panel";
+import { CategoriaBadge } from "@/components/partidas/CategoriaBadge";
+import { LadoPanel } from "@/components/partidas/LadoPanel";
+import { EventoResumen } from "@/actions/betting";
+
+function useCuentaRegresiva(cierraEn: string) {
+  const [restanteMs, setRestanteMs] = useState(() => new Date(cierraEn).getTime() - Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setRestanteMs(new Date(cierraEn).getTime() - Date.now());
+    }, 1000);
+    return () => clearInterval(id);
+  }, [cierraEn]);
+
+  return restanteMs;
+}
+
+function formatoRestante(ms: number): string {
+  if (ms <= 0) return "Cerrado";
+  const totalSeg = Math.floor(ms / 1000);
+  const min = Math.floor(totalSeg / 60);
+  const seg = totalSeg % 60;
+  return `${min}:${String(seg).padStart(2, "0")}`;
+}
+
+export function PartidaCard({
+  resumen,
+  onApostar,
+}: {
+  resumen: EventoResumen;
+  onApostar: (eventoId: string, lado: "a" | "b", monto: number) => Promise<void>;
+}) {
+  const { evento, ladoA, ladoB } = resumen;
+  const restanteMs = useCuentaRegresiva(evento.cierra_en);
+  const cerrado = evento.estado !== "abierto" || restanteMs <= 0;
+
+  return (
+    <Panel className="flex flex-col p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-2">
+        <CategoriaBadge categoria={evento.categoria} />
+        <span
+          className={
+            cerrado
+              ? "rounded-md border border-gold-dark/60 px-2 py-1 text-[11px] font-semibold text-parchment/50"
+              : "rounded-md border border-gold-dark bg-charcoal px-2 py-1 font-fantasy text-xs font-bold text-gold-light"
+          }
+        >
+          {evento.estado === "resuelto" ? "Resuelto" : formatoRestante(restanteMs)}
+        </span>
+      </div>
+
+      <p className="mt-3 text-center font-fantasy text-sm font-semibold text-parchment">
+        {evento.nombre}
+      </p>
+
+      <div className="mt-4 flex items-stretch gap-2">
+        <LadoPanel
+          lado="a"
+          resumen={ladoA}
+          disabled={cerrado}
+          onApostar={(lado, monto) => onApostar(evento.id, lado, monto)}
+        />
+        <LadoPanel
+          lado="b"
+          resumen={ladoB}
+          disabled={cerrado}
+          onApostar={(lado, monto) => onApostar(evento.id, lado, monto)}
+        />
+      </div>
+
+      {evento.estado === "resuelto" && evento.resultado ? (
+        <p className="mt-4 rounded-md border border-gold-dark/60 bg-obsidian/40 px-3 py-2.5 text-center text-xs text-parchment/60">
+          Resultado:{" "}
+          <span className="font-fantasy font-bold text-gold-light">
+            {evento.resultado === "a" ? evento.lado_a : evento.lado_b}
+          </span>
+        </p>
+      ) : null}
+
+      <p className="mt-3 text-center text-[11px] text-parchment/40">Multiplicador 1.80x</p>
+    </Panel>
+  );
+}

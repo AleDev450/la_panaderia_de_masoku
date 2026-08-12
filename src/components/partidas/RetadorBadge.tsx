@@ -1,0 +1,71 @@
+import Image from "next/image";
+import { getLevelForPoints } from "@/data/levels";
+
+/** Escudo neutro con "?" — mismo lenguaje visual que TeamCrest.tsx (path
+ * de escudo genérico), para el lado que todavía no tiene retador. */
+function EscudoVacante({ size }: { size: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 64 64"
+      role="img"
+      aria-label="Esperando retador"
+      className="drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]"
+    >
+      <path
+        d="M32 3 58 12v18c0 16-11 27-26 31C17 57 6 46 6 30V12Z"
+        fill="#2a2320"
+        stroke="var(--color-gold-dark)"
+        strokeWidth="2"
+      />
+      <text
+        x="32"
+        y="41"
+        textAnchor="middle"
+        fontSize="26"
+        fontWeight="bold"
+        fill="var(--color-parchment)"
+        opacity="0.6"
+      >
+        ?
+      </text>
+    </svg>
+  );
+}
+
+export function RetadorBadge({
+  retador,
+  size = 48,
+}: {
+  retador: { nickname: string; puntos: number } | null;
+  size?: number;
+}) {
+  if (!retador) {
+    return (
+      <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+        <EscudoVacante size={size} />
+        <p className="text-center text-xs text-parchment/50">Esperando retador</p>
+      </div>
+    );
+  }
+
+  const level = getLevelForPoints(retador.puntos);
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+      <Image
+        src={`/images/levels/nivel-${level.id}.png`}
+        alt=""
+        aria-hidden
+        width={size}
+        height={size}
+        className="shrink-0 select-none object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]"
+        style={{ width: size, height: size }}
+      />
+      <p className="w-full truncate text-center text-xs font-semibold text-parchment/85 sm:text-sm">
+        {retador.nickname}
+      </p>
+    </div>
+  );
+}

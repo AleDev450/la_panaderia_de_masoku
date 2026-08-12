@@ -6,6 +6,7 @@
  */
 
 export type EstadoEvento = "abierto" | "cerrado" | "resuelto";
+export type CategoriaEvento = "dota2" | "csgo" | "lol" | "valorant" | "otros";
 export type LadoApuesta = "a" | "b";
 export type EstadoApuesta = "pendiente" | "parcial" | "completa" | "cancelada";
 export type TipoMovimientoSaldo =
@@ -43,6 +44,9 @@ export type Evento = {
   lado_b: string;
   estado: EstadoEvento;
   resultado: LadoApuesta | null;
+  categoria: CategoriaEvento;
+  /** Hora límite para apuestas nuevas — crear_apuesta las rechaza después. La resolución (resolver_evento) sigue siendo manual del admin, no depende de esto. */
+  cierra_en: string;
   created_at: string;
   updated_at: string;
 };

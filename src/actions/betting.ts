@@ -5,9 +5,11 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   CancelarApuestaInput,
   CrearApuestaInput,
+  CrearEventoInput,
   ResolverEventoInput,
   cancelarApuestaSchema,
   crearApuestaSchema,
+  crearEventoSchema,
   resolverEventoSchema,
 } from "@/lib/validation/betting";
 import { Apuesta, Evento } from "@/lib/supabase/types";
@@ -175,4 +177,121 @@ export async function getMisApuestas(eventoId: string): Promise<ActionResult<Apu
 
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: (data ?? []) as Apuesta[] };
+}
+
+/**
+ * Crea el evento con el cliente ligado a la sesión (no el de service_role):
+ * la policy `eventos_admin_write` ya restringe el insert a `es_admin(auth.uid())`,
+ * así que basta con que el admin esté autenticado — no hace falta escalar
+ * privilegios para esto, a diferencia de las RPC de dinero.
+ */
+export async function crearEvento(input: CrearEventoInput): Promise<ActionResult<Evento>> {
+  const parsed = crearEventoSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const cierraEn = new Date(Date.now() + parsed.data.duracionMin * 60_000).toISOString();
+  const { data, error } = await supabase
+    .from("eventos")
+    .insert({
+      nombre: parsed.data.nombre,
+      lado_a: parsed.data.ladoA,
+      lado_b: parsed.data.ladoB,
+      categoria: parsed.data.categoria,
+      cierra_en: cierraEn,
+    })
+    .select("*")
+    .single();
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as Evento };
+}
+
+export interface LadoResumen {
+  label: string;
+  /** Monto original pedido por el primer retador abierto de este lado; null = nadie ha apostado todavía. */
+  montoObjetivo: number | null;
+  /** Cuánto le falta a ese primer retador para completarse. */
+  montoPendiente: number;
+  retador: { nickname: string; puntos: number } | null;
+}
+
+export interface EventoResumen {
+  evento: Evento;
+  ladoA: LadoResumen;
+  ladoB: LadoResumen;
+}
+
+/**
+ * Listado de "partidas de hoy" para /partidas — a diferencia de
+ * getOrderBook (agregados anónimos, a propósito, ver su comentario), acá
+ * sí se expone el nickname del primer retador abierto por lado: es un
+ * requisito de producto para esta pantalla ("esperando retador" / mostrar
+ * quién creó la sala), no para el order book de /exchange.
+ */
+export async function getEventosHoy(): Promise<ActionResult<EventoResumen[]>> {
+  const admin = createSupabaseAdminClient();
+
+  const inicioHoy = new Date();
+  inicioHoy.setHours(0, 0, 0, 0);
+
+  const { data: eventos, error: eventosError } = await admin
+    .from("eventos")
+    .select("*")
+    .gte("created_at", inicioHoy.toISOString())
+    .order("created_at", { ascending: false });
+  if (eventosError) return { ok: false, error: eventosError.message };
+  if (!eventos || eventos.length === 0) return { ok: true, data: [] };
+
+  const eventoIds = eventos.map((e) => e.id);
+  const { data: apuestas, error: apuestasError } = await admin
+    .from("apuestas")
+    .select("evento_id, lado, usuario_id, monto_total, monto_pendiente")
+    .in("evento_id", eventoIds)
+    .in("estado", ["pendiente", "parcial"])
+    .gt("monto_pendiente", 0)
+    .order("created_at", { ascending: true });
+  if (apuestasError) return { ok: false, error: apuestasError.message };
+
+  const usuarioIds = [...new Set((apuestas ?? []).map((a) => a.usuario_id))];
+  const perfilesPorId = new Map<string, { nickname: string; puntos: number }>();
+  if (usuarioIds.length > 0) {
+    const { data: perfiles, error: perfilesError } = await admin
+      .from("perfiles")
+      .select("id, nickname, puntos")
+      .in("id", usuarioIds);
+    if (perfilesError) return { ok: false, error: perfilesError.message };
+    for (const p of perfiles ?? []) {
+      perfilesPorId.set(p.id, { nickname: p.nickname, puntos: p.puntos });
+    }
+  }
+
+  // La primera apuesta abierta (ya ordenada asc por created_at) de cada
+  // lado es "el retador visible" de ese lado en la tarjeta.
+  const primeraApuestaPorEventoLado = new Map<string, (typeof apuestas)[number]>();
+  for (const a of apuestas ?? []) {
+    const key = `${a.evento_id}:${a.lado}`;
+    if (!primeraApuestaPorEventoLado.has(key)) primeraApuestaPorEventoLado.set(key, a);
+  }
+
+  function resumenDeLado(eventoId: string, lado: "a" | "b", label: string): LadoResumen {
+    const primera = primeraApuestaPorEventoLado.get(`${eventoId}:${lado}`);
+    if (!primera) return { label, montoObjetivo: null, montoPendiente: 0, retador: null };
+    return {
+      label,
+      montoObjetivo: Number(primera.monto_total),
+      montoPendiente: Number(primera.monto_pendiente),
+      retador: perfilesPorId.get(primera.usuario_id) ?? null,
+    };
+  }
+
+  const resumenes: EventoResumen[] = eventos.map((evento) => ({
+    evento: evento as Evento,
+    ladoA: resumenDeLado(evento.id, "a", evento.lado_a),
+    ladoB: resumenDeLado(evento.id, "b", evento.lado_b),
+  }));
+
+  return { ok: true, data: resumenes };
 }
