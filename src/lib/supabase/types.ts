@@ -28,6 +28,10 @@ export type Perfil = {
   rol: "user" | "admin";
   saldo_disponible: number;
   saldo_retenido: number;
+  /** Solo usados por el demo 1:1 (registro/login de jugadores); el motor /exchange no los toca. */
+  full_name: string | null;
+  phone: string | null;
+  puntos: number;
   created_at: string;
   updated_at: string;
 };
@@ -143,6 +147,14 @@ export interface Database {
           p_admin_id: string;
         };
         Returns: undefined;
+      };
+      admin_creditar_saldo: {
+        Args: { p_admin_id: string; p_usuario_id: string; p_monto: number };
+        Returns: Perfil;
+      };
+      admin_otorgar_puntos: {
+        Args: { p_admin_id: string; p_usuario_id: string; p_puntos: number };
+        Returns: Perfil;
       };
     };
   };

@@ -19,11 +19,14 @@ más abajo si vas a tocar esos formularios.
 - Next.js (App Router) + React + TypeScript
 - Tailwind CSS v4
 - Framer Motion (animaciones de la mascota, toasts, modal)
-- Datos simulados en `src/data`, persistidos en `localStorage` a través de
-  servicios independientes en `src/services` (ver más abajo cómo
-  conectarlos a una API real)
-- Supabase (Postgres + RLS + RPC en PL/pgSQL) + Zod para el motor de
-  emparejamiento real bajo `/exchange` (ver esa sección más abajo)
+- Supabase Auth (registro/login de jugadores y de `/bakery`, ambos reales —
+  ver "Cuentas de jugador y de staff" más abajo) + Postgres (Zod + RPC en
+  PL/pgSQL) para el motor de emparejamiento real bajo `/exchange`
+- Partidas del día, retos/duelos y recargas del demo 1:1 siguen siendo
+  datos simulados en `src/data`, persistidos en `localStorage`
+  (`src/services/betService.ts`, `recargaService.ts`) — el saldo y los
+  puntos que esas pantallas otorgan sí se escriben en Supabase (`perfiles`)
+  vía Server Actions, ver `src/actions/perfiles.ts`.
 
 ## Instalación y ejecución
 
@@ -71,9 +74,15 @@ src/
   services/               Lógica de negocio pura y funciones "API"
     betService.ts        crear reto, validar monto, emparejar, cierre por
                           contador, resolver título y repartir puntos
-    userService.ts        registro / ingreso / puntos / ranking (mock, localStorage)
+    userService.ts        registro / ingreso / ranking — Supabase Auth +
+                          tabla `perfiles` real (ver "Cuentas de jugador y de staff")
     recargaService.ts     validar y registrar recargas con comprobante
     apiClient.ts          wrapper fetch listo para una API REST real
+  actions/
+    perfiles.ts            Server Actions admin: acreditar saldo (recargas),
+                          otorgar puntos (resolución de títulos) — RPC
+                          admin_creditar_saldo / admin_otorgar_puntos
+    betting.ts              Server Actions del motor /exchange
   types/                  Tipos TypeScript compartidos
 ```
 
@@ -139,24 +148,47 @@ fondo opaco — de lo contrario ambos textos se ven doblados/borrosos.
 
 ## Panel de administración, títulos, recargas y niveles
 
-Sobre el demo 1:1 (mock, `localStorage`) se agregó una capa de
-administración y progresión de jugadores:
+Sobre el demo 1:1 (partidas/retos/recargas siguen siendo datos simulados
+en `localStorage`) se agregó una capa de administración y progresión de
+jugadores, con cuentas reales:
 
-### Acceso admin (`/bakery`) vía Supabase Auth
+### Cuentas de jugador y de staff — ambas Supabase Auth real
 
-A diferencia del resto del demo 1:1 (que usa el mock de `localStorage`),
-el login de `/bakery` (`BakeryLoginForm`) autentica contra **Supabase
-Auth real** — `loginWithSupabase` en `src/services/userService.ts` llama
-`supabase.auth.signInWithPassword({ email, password })` y luego lee el
-rol/saldo desde la tabla `perfiles` (la misma que usa `/exchange`), no
-desde `localStorage`.
+El registro/login de `/` (jugadores) y el login de `/bakery` (staff) usan
+el **mismo backend real**: Supabase Auth + la tabla `perfiles` (la misma
+que usa el motor `/exchange`). No hay dos sistemas de cuentas separados —
+lo único que distingue a un jugador de un admin es `perfiles.rol`.
 
-Para entrar necesitas una cuenta creada en **Authentication → Users** de
-tu proyecto Supabase, con una fila correspondiente en `perfiles` marcada
-`rol = 'admin'` (ver paso 4 de "Configuración" en la sección del motor
-`/exchange` más abajo). El resultado se guarda con el mismo shape `User`
-que usa el resto de la UI de panadería (Header, `/bakery/recargas`…), así
-que no hizo falta tocar esas pantallas.
+- **Registro de jugador** (`RegisterForm` → `registerUser` en
+  `src/services/userService.ts`): `supabase.auth.signUp({ email,
+  password, options: { data: { nickname, full_name, phone } } })`. El
+  trigger `handle_new_user` (`0004`/`0005`) crea la fila en `perfiles` en
+  el mismo insert, con `rol = 'user'` siempre — nunca depende de "quién
+  se registró primero" (ver más abajo por qué).
+- **Login** (`LoginForm` y `BakeryLoginForm`, ambos llaman al mismo
+  `login` del `SessionContext`): `supabase.auth.signInWithPassword({
+  email, password })`, luego lee `perfiles` para el rol/saldo/puntos.
+- Si tu proyecto de Supabase tiene **"Confirm email" activado** (default),
+  `signUp` no deja sesión activa hasta que el usuario confirme por
+  correo — `registerUser` devuelve `null` en ese caso y `RegisterForm`
+  muestra "revisa tu correo" en vez de redirigir directo a `/partidas`.
+- El arte de `crear-cuenta.png` / `iniciar-sesion.png` no trae una caja
+  dibujada para correo (solo nombre/teléfono/nickname/contraseña) —
+  el campo de correo va aparte, con estilo genérico, encima del panel de
+  arte en ambos formularios.
+
+**Para tener un admin:** crea el usuario normalmente (por `/` o desde
+**Authentication → Users** del dashboard) y después promuévelo a mano:
+
+```sql
+update perfiles set rol = 'admin' where id = '<uuid-del-usuario>';
+```
+
+(ver también el `update` comentado en `supabase/migrations/0003_seed.sql`).
+La migración `0004_handle_new_user.sql` original marcaba admin al primer
+usuario que existiera en `perfiles`; `0005_perfiles_players.sql` quitó esa
+regla — con el registro abierto a jugadores reales, "el primero en
+llegar" es un vector de privilegio, no una regla de negocio.
 
 > El panel admin vive en `/bakery` a propósito, no en `/admin` — esa ruta
 > es de las primeras que prueba cualquier scanner automatizado. Esto no
@@ -196,13 +228,16 @@ La recarga queda `pendiente`.
 
 Un admin revisa la hora del depósito en la imagen desde
 `/bakery/recargas` y marca **Marcar correcto** (acredita el monto a
-`saldo_disponible` del usuario) o **Marcar incorrecto** — nunca se
-acredita saldo sin ese comprobante.
+`saldo_disponible` del usuario, vía el RPC `admin_creditar_saldo` y la
+Server Action `adminCreditarSaldo` en `src/actions/perfiles.ts`) o
+**Marcar incorrecto** — nunca se acredita saldo sin ese comprobante.
 
 ### Niveles y ranking (`/ranking`)
 
-Cada usuario tiene un contador de `puntos` (`src/types/index.ts`). Al
-resolver un título con duelo emparejado:
+Cada usuario tiene un contador de `puntos` (columna `perfiles.puntos`). Al
+resolver un título con duelo emparejado, `MatchesContext.resolveMatch`
+llama al RPC `admin_otorgar_puntos` (vía la Server Action
+`adminOtorgarPuntos`) por cada lado del duelo:
 
 - El lado que acertó el resultado: **+5 puntos**.
 - El lado que no: **+1 punto** (participar en un duelo resuelto siempre
@@ -219,22 +254,20 @@ panaderos más gosus" de La Panadería de Masoku.
 ## Conectar una API REST (Laravel u otra)
 
 El proyecto está preparado para reemplazar los datos simulados sin tocar
-la UI:
+la UI. Las cuentas (`userService.ts`) ya no son parte de esto — corren
+sobre Supabase Auth real, ver "Cuentas de jugador y de staff" arriba.
+Sigue simulado, por ahora, todo lo demás del demo 1:1:
 
 1. Define `NEXT_PUBLIC_API_BASE_URL` en `.env.local` apuntando a tu API.
-2. En `src/services/userService.ts`, reemplaza las funciones
-   `registerUser` / `loginUser` (hoy leen/escriben `localStorage`) por
-   llamadas a `apiRequest` (`src/services/apiClient.ts`) contra tus
-   endpoints, por ejemplo `POST /auth/register` y `POST /auth/login`.
-3. En `src/context/MatchesContext.tsx`, sustituye el estado inicial
+2. En `src/context/MatchesContext.tsx`, sustituye el estado inicial
    (`initialMatches` desde `src/data/matches.ts`) por un `fetch` a
    `GET /matches`, y haz que `publishChallenge` / `takeChallenge` llamen a
    `POST /matches/:id/challenges` y `POST /challenges/:id/accept` en lugar
-   de mutar el estado local directamente.
-4. Los tipos en `src/types/index.ts` (`User`, `Match`, `Team`, `Bet`,
-   `BetSide`, `PendingChallenge`, `PairedBet`) están pensados para
-   coincidir 1:1 con el payload JSON que devolvería la API — reutilízalos
-   como contrato.
+   de mutar el estado local directamente. Reemplaza `apiRequest`
+   (`src/services/apiClient.ts`) por tus endpoints.
+3. Los tipos en `src/types/index.ts` (`Match`, `Team`, `Bet`, `BetSide`,
+   `PendingChallenge`, `PairedBet`) están pensados para coincidir 1:1 con
+   el payload JSON que devolvería la API — reutilízalos como contrato.
 
 La lógica de validación (`betService.ts`) puede mantenerse en el
 frontend como validación optimista, mientras el backend aplica la misma
@@ -250,8 +283,9 @@ servidor), pensado para producción.
 
 > ⚠️ Modelo económico distinto al demo 1:1: aquí sí hay una cuota fija
 > (1.80) y una comisión de plataforma garantizada. Es un motor separado,
-> vive bajo `/exchange/[eventoId]`, y **no** está conectado al login mock
-> de `/` — usa Supabase Auth de verdad (ver "Conectar el login" abajo).
+> vive bajo `/exchange/[eventoId]`, pero **sí comparte cuentas** con el
+> demo 1:1 y `/bakery` — las tres usan la misma tabla `perfiles` y el
+> mismo login Supabase Auth (ver "Cuentas de jugador y de staff" arriba).
 
 ### Configuración
 
@@ -262,13 +296,22 @@ servidor), pensado para producción.
      `cancelar_apuesta`, `resolver_evento`)
    - opcional: `supabase/migrations/0003_seed.sql` (comentado, contiene
      ejemplos para crear un evento de prueba y dar saldo demo)
+   - `supabase/migrations/0004_handle_new_user.sql` (trigger
+     `handle_new_user`: crea la fila en `perfiles` al registrarse en
+     Auth — su versión original quedó reemplazada por `0005`)
+   - `supabase/migrations/0005_perfiles_players.sql` (columnas
+     `full_name`/`phone`/`puntos`, corrige `handle_new_user` para que todo
+     signup nuevo entre como `rol = 'user'`, ajusta RLS de `perfiles`, y
+     agrega los RPC `admin_creditar_saldo` / `admin_otorgar_puntos` — ver
+     "Cuentas de jugador y de staff" arriba)
 3. Copia `.env.example` → `.env.local` y completa `NEXT_PUBLIC_SUPABASE_URL`,
    `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` (esta
    última es secreta, solo se usa en el servidor — nunca la expongas al
    cliente).
-4. Crea un usuario en **Authentication → Users**, luego en la tabla
-   `perfiles` asegúrate de que exista su fila (nickname, saldo) y, si vas
-   a probar `resolver_evento`, márcalo `rol = 'admin'`.
+4. Regístrate desde `/` o crea un usuario en **Authentication → Users**
+   — su fila en `perfiles` se crea sola vía trigger. Promueve a admin con
+   el `update` comentado en `0003_seed.sql` si necesitas entrar a `/bakery`
+   o probar `resolver_evento`.
 5. Inserta un evento de prueba (ver ejemplos comentados en `0003_seed.sql`)
    y visita `/exchange/<id-del-evento>`.
 
@@ -276,9 +319,11 @@ servidor), pensado para producción.
 
 ```
 supabase/migrations/
-  0001_schema.sql     Enums, tablas, índices, RLS
-  0002_functions.sql  crear_apuesta / cancelar_apuesta / resolver_evento
-  0003_seed.sql        Ejemplos comentados para desarrollo local
+  0001_schema.sql              Enums, tablas, índices, RLS
+  0002_functions.sql           crear_apuesta / cancelar_apuesta / resolver_evento
+  0003_seed.sql                 Ejemplos comentados para desarrollo local
+  0004_handle_new_user.sql       Trigger que crea la fila en perfiles al registrarse
+  0005_perfiles_players.sql       Columnas de jugador, RLS, admin_creditar_saldo/admin_otorgar_puntos
 src/lib/supabase/
   server.ts            Cliente ligado a la sesión del usuario (RLS activo)
   admin.ts              Cliente service_role — SOLO server actions, nunca cliente
@@ -327,16 +372,6 @@ usa `SECURITY DEFINER`), en vez de leerlo de `auth.uid()`. Por eso su
 otra persona. El servidor Next.js (`src/actions/betting.ts`) resuelve el
 id real desde la cookie de sesión del usuario **antes** de invocar la
 función, así que la confianza en el parámetro está justificada solo ahí.
-
-### Conectar el login real (pendiente)
-
-Este motor asume Supabase Auth. El login/registro de `/` sigue siendo el
-mock de `userService.ts` (localStorage) del demo 1:1, y no crea sesiones
-de Supabase. Para unificarlos: reemplaza `registerUser` / `loginUser`
-por `supabase.auth.signUp` / `signInWithPassword` (cliente en el
-navegador), crea la fila correspondiente en `perfiles` en el callback de
-registro, y listo — `requireSessionUserId()` en `betting.ts` empezará a
-reconocer esa sesión automáticamente.
 
 ## Correr todo en Docker (Supabase local → luego tu proyecto en la nube)
 

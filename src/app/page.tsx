@@ -48,26 +48,26 @@ export default function Home() {
 
       <section
         aria-label="Masoku, guardián de la masa"
-        className="flex w-full justify-center px-4 pt-4 lg:absolute lg:left-[2%] lg:top-[13%] lg:block lg:w-[27%] lg:justify-start lg:px-0 lg:pt-0"
+        className="flex w-full justify-center px-4 pt-4 lg:absolute lg:left-[calc(10%_-_20px)] lg:top-[25%] lg:block lg:w-[27%] lg:justify-start lg:px-0 lg:pt-0"
       >
         <Mascot />
       </section>
 
       <section
         aria-label="Hoy se hornea"
-        className="flex w-full justify-center px-4 pt-6 lg:absolute lg:left-[40%] lg:top-[50%] lg:w-[26%] lg:px-0 lg:pt-0"
+        className="flex w-full justify-center px-4 pt-6 lg:absolute lg:left-1/2 lg:top-[52%] lg:w-[25%] lg:-translate-x-1/2 lg:px-0 lg:pt-0"
       >
         <GameRulesSidebar />
       </section>
 
       <section
         aria-label="Acceso a tu cuenta"
-        className="flex w-full flex-1 justify-center px-4 pt-6 pb-4 lg:absolute lg:left-[66.5%] lg:top-[19%] lg:w-[27%] lg:flex-none lg:px-0 lg:pt-0 lg:pb-0"
+        className="flex w-full flex-1 justify-center px-4 pt-6 pb-4 lg:absolute lg:left-[68%] lg:top-[calc(8%_+_5px)] lg:w-[calc(28%_-_90px)] lg:flex-none lg:px-0 lg:pt-0 lg:pb-0"
       >
         <AuthPanel />
       </section>
 
-      <footer className="relative z-[2] flex justify-center px-4 py-6 lg:absolute lg:left-[4%] lg:top-[78%] lg:h-[20%] lg:w-[90%] lg:py-0">
+      <footer className="relative z-[2] flex justify-center px-4 py-6 lg:absolute lg:left-1/2 lg:top-[80%] lg:h-[24%] lg:w-[90%] lg:-translate-x-1/2 lg:py-0">
         <BettingNotice />
       </footer>
     </div>

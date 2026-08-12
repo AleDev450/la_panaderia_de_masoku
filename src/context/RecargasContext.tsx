@@ -16,7 +16,7 @@ import {
   listRecargas,
   rechazarRecarga,
 } from "@/services/recargaService";
-import { creditBalance } from "@/services/userService";
+import { adminCreditarSaldo } from "@/actions/perfiles";
 
 interface RecargasContextValue {
   recargas: Recarga[];
@@ -51,7 +51,8 @@ export function RecargasProvider({ children }: { children: React.ReactNode }) {
   const aprobar = useCallback(
     async (id: string, revisadoPor: string) => {
       const recarga = await aprobarRecarga(id, revisadoPor);
-      await creditBalance(recarga.userId, recarga.monto);
+      const result = await adminCreditarSaldo({ usuarioId: recarga.userId, monto: recarga.monto });
+      if (!result.ok) throw new Error(result.error);
       await refresh();
     },
     [refresh]

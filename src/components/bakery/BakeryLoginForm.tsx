@@ -9,12 +9,12 @@ import { UserServiceError } from "@/services/userService";
  * look de la pantalla pública (sin fondo de plaza, sin madera/dorado, sin
  * la mascota): un login de staff no debe verse como el login de
  * jugadores, para que quede claro de inmediato que estás en otra parte
- * del sitio. Autentica contra Supabase Auth real (`loginBakery` del
- * SessionContext, ver `loginWithSupabase` en userService.ts) — no el mock
- * local que usa el login de jugadores en `/`.
+ * del sitio. Usa el mismo `login` del SessionContext que la pantalla de
+ * jugadores — ambos autentican contra Supabase Auth real; lo único que
+ * distingue "staff" de "jugador" es el rol en `perfiles` (ver RequireAdmin).
  */
 export function BakeryLoginForm() {
-  const { loginBakery } = useSession();
+  const { login } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | undefined>();
@@ -31,7 +31,7 @@ export function BakeryLoginForm() {
 
     setSubmitting(true);
     try {
-      await loginBakery({ email, password });
+      await login({ email, password });
       // Si no es admin, RequireAdmin se encarga de mostrar el mensaje de
       // acceso restringido en el siguiente render — no hay nada más que
       // hacer aquí.

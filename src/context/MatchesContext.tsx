@@ -15,7 +15,7 @@ import {
   createChallenge,
   resolveMatch as resolveMatchPure,
 } from "@/services/betService";
-import { awardPoints } from "@/services/userService";
+import { adminOtorgarPuntos } from "@/actions/perfiles";
 
 const MATCHES_KEY = "lapanca:matches";
 
@@ -151,7 +151,7 @@ export function MatchesProvider({ children }: { children: React.ReactNode }) {
       const { match: resolved, awards } = resolveMatchPure(target, resultado);
       setMatches((prev) => prev.map((match) => (match.id === matchId ? resolved : match)));
       awards.forEach((award) => {
-        void awardPoints(award.userId, award.puntos);
+        void adminOtorgarPuntos({ usuarioId: award.userId, puntos: award.puntos });
       });
     },
     [matches]

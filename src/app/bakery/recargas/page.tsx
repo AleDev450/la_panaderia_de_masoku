@@ -31,6 +31,12 @@ function AdminRecargasContent() {
         title: "Recarga aprobada",
         description: `Se acreditaron S/${recarga.monto} a ${recarga.userNickname}.`,
       });
+    } catch (err) {
+      showToast({
+        variant: "warning",
+        title: "No se pudo acreditar el saldo",
+        description: err instanceof Error ? err.message : "Intenta de nuevo.",
+      });
     } finally {
       setProcessing(null);
     }

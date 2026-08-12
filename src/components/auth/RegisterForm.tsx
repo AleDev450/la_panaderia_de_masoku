@@ -7,18 +7,20 @@ import { useToast } from "@/context/ToastContext";
 import { UserServiceError } from "@/services/userService";
 import {
   validateAgeConsent,
+  validateEmail,
   validateFullName,
   validateNickname,
   validatePassword,
   validatePhone,
 } from "@/lib/validation";
 import { ArtPanel } from "@/components/auth/ArtPanel";
-import { ArtInput } from "@/components/auth/ArtInput";
+import { PanelField } from "@/components/auth/PanelField";
 
 interface FormErrors {
   fullName?: string;
   phone?: string;
   nickname?: string;
+  email?: string;
   password?: string;
   ageConsent?: string;
 }
@@ -31,6 +33,7 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [nickname, setNickname] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [ageConsent, setAgeConsent] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -43,6 +46,7 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
       fullName: validateFullName(fullName) ?? undefined,
       phone: validatePhone(phone) ?? undefined,
       nickname: validateNickname(nickname) ?? undefined,
+      email: validateEmail(email) ?? undefined,
       password: validatePassword(password) ?? undefined,
       ageConsent: validateAgeConsent(ageConsent) ?? undefined,
     };
@@ -51,13 +55,22 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
 
     setSubmitting(true);
     try {
-      await register({ fullName, phone, nickname, password });
-      showToast({
-        variant: "success",
-        title: "Cuenta creada",
-        description: `Bienvenido, ${nickname}. Tu saldo de demostración es S/250.`,
-      });
-      router.push("/partidas");
+      const created = await register({ fullName, phone, nickname, email, password });
+      if (created) {
+        showToast({
+          variant: "success",
+          title: "Cuenta creada",
+          description: `Bienvenido, ${nickname}.`,
+        });
+        router.push("/partidas");
+      } else {
+        showToast({
+          variant: "info",
+          title: "Revisa tu correo",
+          description: "Te enviamos un enlace para confirmar tu cuenta antes de poder ingresar.",
+        });
+        onSwitchToLogin();
+      }
     } catch (err) {
       const message =
         err instanceof UserServiceError ? err.message : "No pudimos crear tu cuenta.";
@@ -72,92 +85,109 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
       onSubmit={handleSubmit}
       noValidate
       aria-label="Crear cuenta"
-      className="flex w-full flex-col items-center gap-3 lg:gap-2"
+      className="flex w-full justify-center"
     >
-      <ArtPanel src="/images/home/registrar.png" alt="" ratio="1136 / 1385">
-        <ArtInput
-          id="fullName"
-          label="Nombre completo"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          error={errors.fullName}
-          autoComplete="name"
-          box={{ top: "31.2%", left: "28.5%", width: "44%", height: "4.2%" }}
-        />
-        <ArtInput
-          id="phone"
-          label="Teléfono (+51)"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))}
-          error={errors.phone}
-          inputMode="numeric"
-          autoComplete="tel-national"
-          placeholder="987654321"
-          box={{ top: "42.2%", left: "28.5%", width: "44%", height: "4.2%" }}
-        />
-        <ArtInput
-          id="nickname"
-          label="Nickname"
-          value={nickname}
-          onChange={(e) => setNickname(e.target.value)}
-          error={errors.nickname}
-          autoComplete="nickname"
-          box={{ top: "53.1%", left: "28.5%", width: "44%", height: "4.2%" }}
-        />
-        <ArtInput
-          id="password"
-          label="Contraseña"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          error={errors.password}
-          autoComplete="new-password"
-          box={{ top: "63.4%", left: "28.5%", width: "44%", height: "4.2%" }}
-        />
-
-        <div className="absolute" style={{ top: "69.6%", left: "22%", width: "60%", height: "3.4%" }}>
-          <label htmlFor="ageConsent" className="flex h-full cursor-pointer items-start gap-2">
-            <input
-              id="ageConsent"
-              type="checkbox"
-              checked={ageConsent}
-              onChange={(e) => setAgeConsent(e.target.checked)}
-              aria-invalid={Boolean(errors.ageConsent)}
-              aria-describedby={errors.ageConsent ? "ageConsent-error" : undefined}
-              className="mt-[2%] h-[85%] shrink-0 accent-gold"
-              style={{ width: "9%" }}
-            />
-            <span className="sr-only">
-              Confirmo que soy mayor de 18 años y acepto las reglas de juego responsable.
-            </span>
-          </label>
-          {errors.ageConsent ? (
-            <p
-              id="ageConsent-error"
-              role="alert"
-              className="absolute left-0 top-full z-10 mt-0.5 rounded bg-obsidian/90 px-1.5 py-0.5 text-[clamp(0.6rem,1.3vw,0.75rem)] leading-tight text-lose-glow"
-            >
-              {errors.ageConsent}
-            </p>
-          ) : null}
-        </div>
-
-        <button
-          type="submit"
-          disabled={submitting}
-          aria-label={submitting ? "Creando cuenta…" : "Crear cuenta"}
-          className="absolute rounded-[6px] outline-none transition focus-visible:ring-2 focus-visible:ring-gold-light disabled:cursor-not-allowed disabled:opacity-60"
-          style={{ top: "75.2%", left: "21%", width: "59%", height: "7.6%" }}
-        />
-
-        <button
-          type="button"
-          onClick={onSwitchToLogin}
-          className="absolute rounded outline-none transition focus-visible:ring-2 focus-visible:ring-gold-light"
-          style={{ top: "87.5%", left: "30%", width: "40%", height: "4%" }}
+      {/* registrar.png (create_account.png) es un panel de arte en blanco —
+          solo trae el marco y el título "REGISTRAR" dibujados, sin cajas de
+          campo ni botón. Los campos van en flujo normal dentro de un
+          recuadro absoluto que cubre el área de madera vacía (ver
+          PanelField), en vez de intentar alinearlos a una caja que ya no
+          existe en el arte. */}
+      <ArtPanel src="/images/home/registrar.png" alt="" ratio="950 / 1750">
+        <div
+          className="absolute overflow-y-auto"
+          style={{ top: "calc(20% + 5px)", bottom: "9%", left: "50%", width: "70%", transform: "translateX(-50%)" }}
         >
-          <span className="sr-only">Ingresar</span>
-        </button>
+          <div className="flex flex-col gap-1">
+            <PanelField
+              id="fullName"
+              label="Nombre completo"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              error={errors.fullName}
+              autoComplete="name"
+            />
+            <PanelField
+              id="phone"
+              label="Teléfono (+51)"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))}
+              error={errors.phone}
+              inputMode="numeric"
+              autoComplete="tel-national"
+              placeholder="987654321"
+            />
+            <PanelField
+              id="nickname"
+              label="Nickname"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              error={errors.nickname}
+              autoComplete="nickname"
+            />
+            <PanelField
+              id="email"
+              label="Correo"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              error={errors.email}
+              autoComplete="email"
+              placeholder="tu@correo.com"
+            />
+            <PanelField
+              id="password"
+              label="Contraseña"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              error={errors.password}
+              autoComplete="new-password"
+            />
+
+            <div>
+              <label htmlFor="ageConsent" className="flex cursor-pointer items-start gap-2">
+                <input
+                  id="ageConsent"
+                  type="checkbox"
+                  checked={ageConsent}
+                  onChange={(e) => setAgeConsent(e.target.checked)}
+                  aria-invalid={Boolean(errors.ageConsent)}
+                  aria-describedby={errors.ageConsent ? "ageConsent-error" : undefined}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-gold"
+                />
+                <span className="text-[clamp(0.65rem,1.4vw,0.8rem)] text-parchment/80">
+                  Confirmo que soy mayor de 18 años y acepto las reglas de juego responsable.
+                </span>
+              </label>
+              {errors.ageConsent ? (
+                <p
+                  id="ageConsent-error"
+                  role="alert"
+                  className="mt-1 text-[clamp(0.6rem,1.3vw,0.75rem)] leading-tight text-lose-glow"
+                >
+                  {errors.ageConsent}
+                </p>
+              ) : null}
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="min-h-11 rounded-md border border-gold bg-gradient-to-b from-[#8a5a1f] to-[#5c3a13] font-fantasy text-sm font-bold uppercase tracking-wide text-parchment shadow-[0_2px_10px_rgba(0,0,0,0.4)] outline-none transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-gold-light disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submitting ? "Creando cuenta…" : "Crear cuenta"}
+            </button>
+
+            <button
+              type="button"
+              onClick={onSwitchToLogin}
+              className="py-0.5 text-center text-[clamp(0.7rem,1.5vw,0.85rem)] font-semibold text-gold-light underline outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            >
+              ¿Ya tienes cuenta? Ingresar
+            </button>
+          </div>
+        </div>
       </ArtPanel>
     </form>
   );

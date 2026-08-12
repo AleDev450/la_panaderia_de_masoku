@@ -10,30 +10,23 @@ import {
 } from "react";
 import { User } from "@/types";
 import {
-  LoginBakeryInput,
   LoginInput,
   RegisterInput,
-  ensureSeedAdmin,
   getUserById,
   loginUser,
-  loginWithSupabase,
   registerUser,
 } from "@/services/userService";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-
-const SESSION_KEY = "lapanca:session";
 
 interface SessionContextValue {
   user: User | null;
   isReady: boolean;
   isAdmin: boolean;
-  register: (input: RegisterInput) => Promise<User>;
+  /** `null` si Supabase Auth exige confirmar el correo antes de dejar sesión activa. */
+  register: (input: RegisterInput) => Promise<User | null>;
   login: (input: LoginInput) => Promise<User>;
-  /** Login de /bakery contra Supabase Auth real (superadmin/staff), en vez
-   * del mock de `login`. Ver comentario de `loginWithSupabase` en userService.ts. */
-  loginBakery: (input: LoginBakeryInput) => Promise<User>;
   logout: () => void;
-  /** Re-lee la cuenta desde el store — para reflejar saldo o puntos que
+  /** Re-lee el perfil desde Supabase — para reflejar saldo o puntos que
    * cambiaron desde otra pantalla (p.ej. una recarga aprobada). */
   refreshUser: () => Promise<void>;
 }
@@ -45,66 +38,48 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    ensureSeedAdmin();
-    try {
-      const raw = window.localStorage.getItem(SESSION_KEY);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time bootstrap from localStorage on mount
-      if (raw) setUser(JSON.parse(raw) as User);
-    } catch {
-      // ignore corrupted session
-    } finally {
-      setIsReady(true);
+    const supabase = createSupabaseBrowserClient();
+
+    async function syncFromSession(userId: string | undefined) {
+      const fresh = userId ? await getUserById(userId) : null;
+      setUser(fresh);
     }
+
+    supabase.auth.getSession().then(({ data }) => {
+      syncFromSession(data.session?.user.id).finally(() => setIsReady(true));
+    });
+
+    // Mantiene el estado al día si la sesión cambia en otra pestaña, expira,
+    // o se refresca el token — fuente de verdad real, no un cache propio.
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      syncFromSession(session?.user.id);
+    });
+
+    return () => listener.subscription.unsubscribe();
   }, []);
 
-  const persist = useCallback((next: User | null) => {
-    setUser(next);
-    if (next) {
-      window.localStorage.setItem(SESSION_KEY, JSON.stringify(next));
-    } else {
-      window.localStorage.removeItem(SESSION_KEY);
-    }
+  const register = useCallback(async (input: RegisterInput) => {
+    const created = await registerUser(input);
+    if (created) setUser(created);
+    return created;
   }, []);
 
-  const register = useCallback(
-    async (input: RegisterInput) => {
-      const created = await registerUser(input);
-      persist(created);
-      return created;
-    },
-    [persist]
-  );
-
-  const login = useCallback(
-    async (input: LoginInput) => {
-      const found = await loginUser(input);
-      persist(found);
-      return found;
-    },
-    [persist]
-  );
-
-  const loginBakery = useCallback(
-    async (input: LoginBakeryInput) => {
-      const found = await loginWithSupabase(input);
-      persist(found);
-      return found;
-    },
-    [persist]
-  );
+  const login = useCallback(async (input: LoginInput) => {
+    const found = await loginUser(input);
+    setUser(found);
+    return found;
+  }, []);
 
   const logout = useCallback(() => {
-    persist(null);
-    // No-op si la sesión activa era del mock local (nunca hubo sesión de
-    // Supabase que cerrar); necesario cuando sí se entró por /bakery.
+    setUser(null);
     createSupabaseBrowserClient().auth.signOut();
-  }, [persist]);
+  }, []);
 
   const refreshUser = useCallback(async () => {
     if (!user) return;
     const fresh = await getUserById(user.id);
-    if (fresh) persist(fresh);
-  }, [user, persist]);
+    if (fresh) setUser(fresh);
+  }, [user]);
 
   const value = useMemo(
     () => ({
@@ -113,11 +88,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       isAdmin: user?.rol === "admin",
       register,
       login,
-      loginBakery,
       logout,
       refreshUser,
     }),
-    [user, isReady, register, login, loginBakery, logout, refreshUser]
+    [user, isReady, register, login, logout, refreshUser]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

@@ -1,19 +1,11 @@
-"use client";
-
 import Image from "next/image";
-import { motion, useReducedMotion } from "framer-motion";
 
+/** Sin animación propia a propósito — de los elementos flotantes de la
+ * pantalla de inicio, solo HomeLogo debe flotar; Masoku se queda fijo. */
 export function Mascot() {
-  const reduceMotion = useReducedMotion();
-
   return (
     <div className="relative flex items-end justify-center lg:block">
-      <motion.div
-        animate={reduceMotion ? undefined : { y: [0, -10, 0] }}
-        transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
-        className="relative w-56 sm:w-72 md:w-80 lg:h-auto lg:w-full"
-        style={{ aspectRatio: "1103 / 1426" }}
-      >
+      <div className="relative w-56 sm:w-72 md:w-80 lg:h-auto lg:w-full" style={{ aspectRatio: "1103 / 1426" }}>
         <Image
           src="/images/home/masoku.png"
           alt="Masoku, panadero de batalla, mascota oficial de La Panadería de Masoku"
@@ -23,7 +15,7 @@ export function Mascot() {
           className="select-none object-contain drop-shadow-[0_10px_24px_rgba(0,0,0,0.55)]"
           draggable={false}
         />
-      </motion.div>
+      </div>
 
       <div
         aria-hidden

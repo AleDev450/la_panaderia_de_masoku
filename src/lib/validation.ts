@@ -5,6 +5,13 @@ export function validateFullName(value: string): string | null {
   return null;
 }
 
+export function validateEmail(value: string): string | null {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
+    return "Ingresa un correo válido.";
+  }
+  return null;
+}
+
 export function validatePhone(value: string): string | null {
   if (!/^\d{9}$/.test(value)) {
     return "Ingresa un teléfono peruano válido de 9 dígitos.";
