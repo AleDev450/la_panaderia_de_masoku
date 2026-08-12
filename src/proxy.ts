@@ -2,10 +2,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 /**
- * Refreshes the Supabase auth session cookie on every request, required
- * for src/lib/supabase/server.ts reads (getOrderBook, getMisApuestas,
- * requireSessionUserId in src/actions/betting.ts) to see a valid session.
- * No-ops entirely if Supabase isn't configured yet.
+ * Refresca la cookie de sesión de Supabase en cada request. Es lo que
+ * permite que las lecturas de src/lib/supabase/server.ts (todas las Server
+ * Actions: requireSessionUserId, getMisApuestasConEvento, crearEvento,
+ * las de perfil…) vean una sesión válida: un Server Component no puede
+ * escribir cookies, así que sin este refresco el access token expira
+ * (~1 h) y esas acciones empiezan a responder "Debes iniciar sesión".
+ * No hace nada si Supabase todavía no está configurado.
  */
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request });
@@ -38,5 +41,12 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/exchange/:path*"],
+  // Todas las rutas de la app menos assets estáticos. Antes esto solo
+  // cubría "/exchange/:path*", que era correcto cuando esa era la única
+  // pantalla con Server Actions; hoy /partidas, /mis-apuestas, /historial,
+  // /perfil y /bakery también dependen de la sesión del servidor, así que
+  // dejarlas fuera hacía que su token expirara sin refrescarse.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|mp3)$).*)",
+  ],
 };

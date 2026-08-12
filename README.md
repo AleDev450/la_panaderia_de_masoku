@@ -86,7 +86,7 @@ src/
     perfiles.ts            Server Actions admin: acreditar saldo (recargas),
                           otorgar puntos (resolución de títulos) — RPC
                           admin_creditar_saldo / admin_otorgar_puntos
-    betting.ts              Server Actions del motor /exchange
+    betting.ts              Server Actions del motor de apuestas (/partidas)
   types/                  Tipos TypeScript compartidos
 ```
 
@@ -160,7 +160,7 @@ jugadores, con cuentas reales:
 
 El registro/login de `/` (jugadores) y el login de `/bakery` (staff) usan
 el **mismo backend real**: Supabase Auth + la tabla `perfiles` (la misma
-que usa el motor `/exchange`). No hay dos sistemas de cuentas separados —
+que usa el motor de apuestas). No hay dos sistemas de cuentas separados —
 lo único que distingue a un jugador de un admin es `perfiles.rol`.
 
 - **Registro de jugador** (`RegisterForm` → `registerUser` en
@@ -300,30 +300,38 @@ La lógica de validación (`betService.ts`) puede mantenerse en el
 frontend como validación optimista, mientras el backend aplica la misma
 regla como fuente de verdad.
 
-## Motor de emparejamiento real (Supabase/Postgres)
+## Motor de emparejamiento real (Supabase/Postgres) — `/partidas`
 
-Un **motor de apuestas peer-to-peer con order book y cuota fija 1.80**,
-con el matching y la liquidación resueltos enteramente en Postgres (no en
-el cliente ni en JS del servidor). Dos pantallas lo usan:
+Un **motor de apuestas peer-to-peer con cuota fija 1.80**, con el matching
+y la liquidación resueltos enteramente en Postgres (no en el cliente ni en
+JS del servidor).
 
-- **`/partidas`** — la principal. Un admin publica un título (pregunta +
-  lado A + lado B + categoría + minutos hasta el cierre) desde
-  `/bakery/titulos`; los jugadores apuestan el monto que quieran por
-  cualquiera de los dos lados, `crear_apuesta` los empareja FIFO contra
-  el lado contrario (parcial si hace falta — varias personas pueden
-  cubrir a una sola), y el admin declara el resultado con
-  `resolver_evento`, que paga 1.80x a los ganadores y devuelve lo no
-  emparejado. Ver `getEventosHoy`/`crearEvento` en `src/actions/betting.ts`
-  y los componentes en `src/components/partidas/`.
-- **`/exchange/[eventoId]`** — pantalla de ejemplo previa al mismo motor,
-  con su propio order book agregado anónimo (`getOrderBook`, nunca
-  expone quién apostó qué — a propósito, distinto del listado de
-  `/partidas`, que sí muestra el nickname del primer retador por lado
-  porque ahí es un requisito de producto).
+El flujo completo:
 
-Ambas comparten cuentas con `/bakery` — las tres usan la misma tabla
-`perfiles` y el mismo login Supabase Auth (ver "Cuentas de jugador y de
-staff" arriba).
+1. Un **admin** publica un título desde `/bakery/titulos`: nombre, lado A,
+   lado B, categoría (dota2 / csgo / lol / valorant / otros) y minutos
+   hasta el cierre. `/partidas` solo lista los títulos de hoy.
+2. Un **jugador abre sala**: elige uno de esos títulos, su lado y su monto
+   (S/10–S/100). Esa primera apuesta convierte el título en una sala
+   visible en la grilla.
+3. **Otros jugadores la cubren por partes.** `crear_apuesta` empareja FIFO
+   contra el lado contrario, parcialmente si hace falta: varias personas
+   pueden cubrir a una sola, con montos distintos. Nadie se empareja
+   consigo mismo. Al vencer el contador no entran apuestas nuevas.
+4. El **admin declara el resultado** con `resolver_evento`, que en una sola
+   transacción paga 1.80x sobre lo emparejado ganador, devuelve lo que
+   nunca se cubrió, registra la comisión de plataforma y reparte los
+   puntos de progresión.
+
+Piezas: `getEventosHoy` / `crearEvento` en `src/actions/betting.ts`, la UI
+en `src/components/partidas/`, y `/mis-apuestas` + `/historial` para el
+seguimiento del jugador.
+
+> Antes existía `/exchange/[eventoId]`, una pantalla de ejemplo sobre este
+> mismo motor con un order book agregado anónimo. Quedó duplicada por
+> `/partidas` (y sin ningún enlace que llevara a ella), así que se retiró
+> junto con `getOrderBook`/`getEvento`/`getMisApuestas`. Está en el
+> historial de git si necesitas recuperarla.
 
 ### Configuración
 
@@ -361,8 +369,9 @@ staff" arriba).
    — su fila en `perfiles` se crea sola vía trigger. Promueve a admin con
    el `update` comentado en `0003_seed.sql` si necesitas entrar a `/bakery`
    o probar `resolver_evento`.
-5. Inserta un evento de prueba (ver ejemplos comentados en `0003_seed.sql`)
-   y visita `/exchange/<id-del-evento>`.
+5. Publica un título desde `/bakery/titulos` y ábrelo en `/partidas`. Para
+   validar el motor de punta a punta, sigue
+   [`docs/checklist-motor.md`](docs/checklist-motor.md).
 
 ### Piezas
 
@@ -373,15 +382,21 @@ supabase/migrations/
   0003_seed.sql                 Ejemplos comentados para desarrollo local
   0004_handle_new_user.sql       Trigger que crea la fila en perfiles al registrarse
   0005_perfiles_players.sql       Columnas de jugador, RLS, admin_creditar_saldo/admin_otorgar_puntos
+  0006_eventos_categoria_cierre.sql  categoria + cierra_en + límites S/10–100
+  0007_resolver_evento_puntos.sql     resolver_evento reparte puntos de progresión
+  0008_solicitudes_telefono.sql        Cola de cambio de teléfono + actualizar_nickname
 src/lib/supabase/
   server.ts            Cliente ligado a la sesión del usuario (RLS activo)
   admin.ts              Cliente service_role — SOLO server actions, nunca cliente
   types.ts               Tipos TS espejo del esquema SQL
-src/lib/validation/betting.ts   Esquemas Zod (montos positivos, 2 decimales)
+src/lib/apuestas.ts             Cuota, pago redondeado y liquidación (solo UI, no mueve saldo)
+src/lib/validation/betting.ts   Esquemas Zod (rango S/10–100, 2 decimales)
 src/actions/betting.ts           Server actions: crearApuesta, cancelarApuesta,
-                                  resolverEvento, getOrderBook, getMisApuestas, getEvento
-src/components/exchange/         OrderBookPanel + CreateBetForm (ejemplo de UI)
-src/app/exchange/[eventoId]/      Página de ejemplo que consume todo lo anterior
+                                  crearEvento, resolverEvento, getEventosHoy,
+                                  getMisApuestasConEvento
+src/actions/perfil.ts            Nickname / correo / cola de cambio de teléfono
+src/components/partidas/         PartidaCard, LadoPanel, CrearSalaModal, RetadorBadge
+src/app/partidas/                 Pantalla principal del motor
 ```
 
 ### Reglas de negocio implementadas
@@ -480,8 +495,17 @@ cambio `.env.local` con `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54421`
 
 ### 3. Checklist para verificar que todo funciona de verdad
 
-No te quedes en "compiló" — esto es lo que de verdad hay que probar
-antes de dar por bueno el motor de apuestas:
+No te quedes en "compiló". El emparejamiento parcial, la cuota, la
+devolución y los puntos viven en PL/pgSQL, donde ningún test de
+TypeScript llega — la única forma de validarlos es ejercitarlos.
+
+**El checklist completo, paso a paso, está en
+[`docs/checklist-motor.md`](docs/checklist-motor.md)**: verificar que las
+migraciones se aplicaron, abrir una sala, comprobar que varias personas
+cubren a una sola por partes, las reglas que deben rechazar, y que al
+resolver el dinero cuadra exacto (pozo = pago 1.80x + comisión).
+
+Además, para el entorno Docker:
 
 ```bash
 # a) La app responde
@@ -495,15 +519,6 @@ docker exec la-panaderia-app-1 sh -c \
 # c) Las migraciones aplicaron sin errores (lee la salida de `supabase
 #    start` / `supabase db reset` — cualquier ERROR ahí es un bug real
 #    en el SQL, no algo que los tests de TypeScript puedan detectar)
-
-# d) El matching y la liquidación calculan bien (ejecuta esto contra
-#    supabase_db_la-panaderia con psql o desde el SQL Editor de Studio,
-#    http://localhost:54423): crea dos perfiles + un evento, llama
-#    crear_apuesta() con lados opuestos y mismo monto, confirma que
-#    quedó en emparejamientos y que monto_matcheado/estado se actualizó
-#    en ambas apuestas, luego llama resolver_evento() y confirma que el
-#    saldo se mueve exactamente como en "Modelo económico" (pool - 0.20
-#    × monto = comisión, el resto es 1.80× para el ganador).
 ```
 
 `npx supabase db reset` vuelve a aplicar las migraciones desde cero
@@ -557,9 +572,9 @@ después de cambiar el SQL.
 - Sin pagos, depósitos, retiros ni criptomonedas reales.
 - Sin recursos ni logos de Dota 2 (todos los escudos de equipo son SVG
   originales dibujados para este proyecto).
-- Demo 1:1 (`/`, `/partidas`…) sin odds/cuotas: solo GANA / PIERDE, pozo
-  1:1. El motor `/exchange` es un módulo aparte con cuota fija 1.80 —
-  ver sección "Motor de emparejamiento real" arriba.
+- Apuestas entre jugadores con cuota fija 1.80 y emparejamiento parcial —
+  ver "Motor de emparejamiento real" arriba. La plataforma nunca asume
+  riesgo de mercado: su comisión es fija por volumen emparejado.
 - Mascota oficial sin modificar, con animación flotante y resplandor.
 - Avisos de 18+ y juego responsable visibles en ambas pantallas.
 #   l a _ p a n a d e r i a _ d e _ m a s o k u 

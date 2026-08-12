@@ -1,11 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import { useSession } from "@/context/SessionContext";
-import { Logo } from "@/components/Logo";
 import { LevelBadge } from "@/components/LevelBadge";
+import { getLevelForPoints } from "@/data/levels";
 import { useState } from "react";
 
 const NAV_LINKS = [
@@ -26,6 +27,7 @@ export function Header() {
   if (!user) return null;
 
   const links = isAdmin ? [...NAV_LINKS, { href: "/bakery", label: "Bakery" }] : NAV_LINKS;
+  const nivel = getLevelForPoints(user.puntos);
 
   function handleLogout() {
     logout();
@@ -35,22 +37,33 @@ export function Header() {
   return (
     <header className="panel-stone sticky top-0 z-40 border-x-0 border-t-0 px-4 py-3 sm:px-6">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-        {/* Identidad del panadero a la izquierda: nickname + rango + puntos
-            (LevelBadge ya pinta insignia, nombre del rango y pts). Todo el
-            bloque es el acceso a /perfil. */}
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <Logo size="sm" withAvatar href="/partidas" />
-          <Link
-            href="/perfil"
-            aria-label="Ir a mi perfil"
-            className="hidden min-w-0 items-center gap-2 rounded-md px-2 py-1 transition hover:bg-gold/10 focus-visible:ring-2 focus-visible:ring-gold-light sm:flex"
-          >
-            <span className="truncate text-sm font-semibold text-parchment">
+        {/* Identidad del panadero: su insignia de rango como avatar, su
+            nickname donde antes iba la marca, y sus puntos al costado.
+            Todo el bloque es el acceso a /perfil. */}
+        <Link
+          href="/perfil"
+          aria-label={`Mi perfil — ${nivel.nombre}, ${user.puntos} puntos`}
+          className="flex min-w-0 items-center gap-2.5 rounded-md px-1 py-1 transition hover:bg-gold/10 focus-visible:ring-2 focus-visible:ring-gold-light"
+        >
+          <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-gold bg-charcoal-light shadow-[0_0_14px_rgba(201,161,59,0.35)]">
+            <Image
+              src={`/images/levels/nivel-${nivel.id}.png`}
+              alt=""
+              aria-hidden
+              width={40}
+              height={40}
+              className="h-full w-full select-none object-contain p-0.5"
+            />
+          </span>
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span className="truncate font-fantasy text-lg font-bold tracking-[0.04em] text-gold-light text-glow-gold">
               {user.nickname}
             </span>
-            <LevelBadge puntos={user.puntos} size="sm" />
-          </Link>
-        </div>
+            <span className="truncate text-[11px] text-parchment/50">
+              {nivel.nombre} · {user.puntos} pts
+            </span>
+          </span>
+        </Link>
 
         <nav
           aria-label="Navegación principal"

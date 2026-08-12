@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CUOTA, liquidacionDeApuesta } from "@/lib/apuestas";
+import { CUOTA, liquidacionDeApuesta, pagoPorMatcheado } from "@/lib/apuestas";
 import { Apuesta, Evento } from "@/lib/supabase/types";
 
 function evento(overrides: Partial<Evento> = {}): Evento {
@@ -34,6 +34,21 @@ function apuesta(overrides: Partial<Apuesta> = {}): Apuesta {
     ...overrides,
   };
 }
+
+describe("pagoPorMatcheado", () => {
+  it("aplica la cuota y redondea a 2 decimales", () => {
+    expect(pagoPorMatcheado(100)).toBe(180);
+    expect(pagoPorMatcheado(60)).toBe(108);
+    // 15 * 1.8 = 27.000000000000004 sin redondear.
+    expect(pagoPorMatcheado(15)).toBe(27);
+    // 12.35 * 1.8 = 22.229999999999997 sin redondear.
+    expect(pagoPorMatcheado(12.35)).toBe(22.23);
+  });
+
+  it("no paga nada sobre 0", () => {
+    expect(pagoPorMatcheado(0)).toBe(0);
+  });
+});
 
 describe("liquidacionDeApuesta", () => {
   it("devuelve null mientras el evento no esté resuelto", () => {

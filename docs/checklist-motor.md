@@ -1,0 +1,209 @@
+# Checklist: validar el motor de apuestas de verdad
+
+"Compiló" no prueba nada de lo que importa acá: el emparejamiento parcial,
+la cuota 1.80x, la devolución de lo no cubierto y los puntos viven en
+PL/pgSQL, donde ningún test de TypeScript llega. Este checklist es la
+única forma de saber que las migraciones `0006`–`0008` quedaron bien
+aplicadas.
+
+Corre las queries en **SQL Editor** de Supabase. Los pasos de UI, en la app.
+
+---
+
+## 0. Las migraciones están aplicadas
+
+```sql
+-- Esperado: 2 filas (categoria, cierra_en)
+select column_name from information_schema.columns
+where table_name = 'eventos' and column_name in ('categoria', 'cierra_en');
+
+-- Esperado: 6 filas
+select proname from pg_proc where proname in (
+  'crear_apuesta', 'resolver_evento', 'handle_new_user',
+  'admin_creditar_saldo', 'admin_otorgar_puntos', 'actualizar_nickname'
+);
+
+-- Esperado: 1 fila (la tabla de la cola de teléfonos)
+select tablename from pg_tables where tablename = 'solicitudes_telefono';
+
+-- Esperado: que el cuerpo mencione 'puntos' (0007 aplicada) y que
+-- crear_apuesta mencione 'cierra_en' (0006 aplicada)
+select proname, prosrc like '%puntos = puntos +%' as reparte_puntos
+from pg_proc where proname = 'resolver_evento';
+
+select proname, prosrc like '%cierra_en%' as corta_por_tiempo
+from pg_proc where proname = 'crear_apuesta';
+```
+
+Si `reparte_puntos` o `corta_por_tiempo` sale `false`, esa migración no se
+aplicó — vuelve a correrla (todas son idempotentes).
+
+---
+
+## 1. Preparar dos cuentas con saldo
+
+Necesitas **dos** cuentas de jugador (regístralas desde `/`) y una de
+admin. Anota sus `id`:
+
+```sql
+select id, nickname, rol, saldo_disponible, saldo_retenido, puntos
+from perfiles order by created_at desc limit 5;
+```
+
+Dales saldo de prueba (esto salta el flujo de recarga a propósito, para no
+depender de aprobar comprobantes):
+
+```sql
+update perfiles set saldo_disponible = 500
+where nickname in ('JUGADOR_A', 'JUGADOR_B');
+```
+
+---
+
+## 2. Publicar un título y abrir sala
+
+1. Entra como **admin** a `/bakery/titulos`.
+2. Publica un título: nombre, categoría, lado A / lado B, y **60 minutos**
+   de cierre (para tener margen mientras pruebas).
+3. Entra como **jugador A** a `/partidas` → **Crear sala** → elige ese
+   título, lado A, **S/100**.
+
+Verifica el estado en SQL:
+
+```sql
+select a.monto_total, a.monto_matcheado, a.monto_pendiente, a.estado,
+       p.nickname, p.saldo_disponible, p.saldo_retenido
+from apuestas a join perfiles p on p.id = a.usuario_id
+order by a.created_at desc limit 5;
+```
+
+**Esperado para A:** `monto_total 100`, `monto_matcheado 0`,
+`monto_pendiente 100`, estado `pendiente`. Su `saldo_disponible` bajó 100
+y `saldo_retenido` subió 100 — el dinero está retenido, no gastado.
+
+---
+
+## 3. Emparejamiento parcial (lo más importante)
+
+Como **jugador B**, en esa misma sala apuesta **S/40 al lado contrario**.
+Luego otra vez **S/20** al mismo lado contrario.
+
+```sql
+select p.nickname, a.lado, a.monto_total, a.monto_matcheado,
+       a.monto_pendiente, a.estado
+from apuestas a join perfiles p on p.id = a.usuario_id
+where a.evento_id = 'EVENTO_ID'
+order by a.created_at;
+```
+
+**Esperado:**
+
+| quién | lado | total | matcheado | pendiente | estado |
+|---|---|---|---|---|---|
+| A | a | 100 | 60 | 40 | parcial |
+| B | b | 40 | 40 | 0 | completa |
+| B | b | 20 | 20 | 0 | completa |
+
+Es decir: **varias personas cubrieron a una sola, por partes**. Si A
+aparece `matcheado 0`, el matching no está corriendo.
+
+```sql
+-- Esperado: 2 filas, montos 40 y 20
+select monto from emparejamientos where evento_id = 'EVENTO_ID';
+```
+
+En la UI, la tarjeta de `/partidas` debe mostrar a A con "faltan S/40", y
+`/mis-apuestas` debe reflejar los mismos números.
+
+---
+
+## 4. Reglas que deben rechazar
+
+Todas estas deben fallar con mensaje claro, no romperse:
+
+- Apostar **S/5** o **S/150** → fuera del rango S/10–S/100.
+- Apostar con **saldo 0** → te manda a `/recargar`.
+- Que **A apueste al lado contrario en su propia sala** → se registra, pero
+  **no se empareja consigo mismo** (`crear_apuesta` excluye `usuario_id`
+  propio). Verifica que su `monto_matcheado` no suba por eso.
+- Cambiar el `cierra_en` a pasado y volver a apostar:
+
+```sql
+update eventos set cierra_en = now() - interval '1 minute' where id = 'EVENTO_ID';
+```
+  → debe rechazar con "El título ya cerró para nuevas apuestas". Devuélvelo
+  a futuro para seguir: `update eventos set cierra_en = now() + interval '1 hour' ...`
+
+---
+
+## 5. Resolver y verificar el dinero
+
+Anota los saldos **antes** de resolver:
+
+```sql
+select nickname, saldo_disponible, saldo_retenido, puntos from perfiles
+where nickname in ('JUGADOR_A', 'JUGADOR_B');
+```
+
+Como admin, en `/bakery/titulos`, declara **el lado A** como resultado.
+Vuelve a correr la query de arriba.
+
+**Esperado, con A ganador (100 pedidos, 60 emparejados):**
+
+- **A** recibe `60 × 1.80 = 108` de premio **más** los `40` no emparejados
+  que se devuelven → `saldo_disponible` sube **148**. `saldo_retenido`
+  vuelve a 0. `puntos` **+5**.
+- **B** pierde los 60 emparejados (ya estaban retenidos) → su
+  `saldo_retenido` baja 60 y su `saldo_disponible` no cambia. `puntos`
+  **+1** por cada apuesta emparejada.
+
+```sql
+-- La plataforma se queda con 0.20 por unidad emparejada: 60 × 0.20 = 12
+select monto from comisiones_plataforma where evento_id = 'EVENTO_ID';
+
+-- Auditoría completa del movimiento de dinero
+select p.nickname, m.tipo, m.monto
+from movimientos_saldo m join perfiles p on p.id = m.usuario_id
+where m.evento_id = 'EVENTO_ID' order by m.created_at;
+```
+
+**La cuenta que tiene que cuadrar:** se emparejaron 60 por lado = pozo de
+120. El ganador se lleva 108, la plataforma 12. `108 + 12 = 120`. ✅
+
+En la UI, `/historial` debe mostrarle a A "Ganaste S/108 · devuelto S/40",
+y el ranking/insignia debe reflejar los puntos nuevos.
+
+---
+
+## 6. Perfil
+
+- `/perfil` → cambia tu nickname por uno que **ya tenga** la otra cuenta →
+  debe rechazar con "Ese nickname ya está en uso".
+- Cambia tu correo → cierra sesión → **entra con el correo nuevo**.
+- Solicita cambio de teléfono → como admin, apruébalo en
+  `/bakery/telefonos` → confirma que `perfiles.phone` cambió.
+- Intenta mandar una **segunda** solicitud sin que la primera se resuelva →
+  debe rechazar ("Ya tienes una solicitud pendiente").
+
+---
+
+## 7. Sesión de larga duración
+
+El bug que motivó ampliar el `matcher` de `src/proxy.ts`: el access token
+de Supabase dura ~1 hora. Deja la app abierta más de una hora **sin
+recargar** y luego intenta apostar. Debe funcionar. Si responde "Debes
+iniciar sesión", el refresco de sesión del proxy no está cubriendo esa
+ruta.
+
+---
+
+## Limpiar después de probar
+
+```sql
+-- Ojo: borra TODAS las apuestas del evento de prueba.
+delete from emparejamientos where evento_id = 'EVENTO_ID';
+delete from movimientos_saldo where evento_id = 'EVENTO_ID';
+delete from comisiones_plataforma where evento_id = 'EVENTO_ID';
+delete from apuestas where evento_id = 'EVENTO_ID';
+delete from eventos where id = 'EVENTO_ID';
+```

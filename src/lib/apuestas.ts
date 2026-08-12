@@ -3,6 +3,13 @@ import { Apuesta, Evento } from "@/lib/supabase/types";
 /** Cuota fija del motor — debe coincidir con `resolver_evento` en 0002_functions.sql. */
 export const CUOTA = 1.8;
 
+/** Lo que paga un monto emparejado ganador, redondeado a 2 decimales igual
+ * que en SQL (`round(monto_matcheado * 1.80, 2)`). En coma flotante
+ * `15 * 1.8` da 27.000000000000004, así que nunca multiplicar suelto. */
+export function pagoPorMatcheado(matcheado: number): number {
+  return Math.round(matcheado * CUOTA * 100) / 100;
+}
+
 export const ESTADO_APUESTA_LABEL: Record<Apuesta["estado"], string> = {
   pendiente: "Esperando retador",
   parcial: "Emparejada en parte",
@@ -39,7 +46,7 @@ export function liquidacionDeApuesta(
   const matcheado = Number(apuesta.monto_matcheado);
   return {
     gano,
-    cobrado: gano ? Math.round(matcheado * CUOTA * 100) / 100 : 0,
+    cobrado: gano ? pagoPorMatcheado(matcheado) : 0,
     perdido: gano ? 0 : matcheado,
     // `monto_total - monto_matcheado`, no `monto_pendiente`: al liquidar,
     // resolver_evento devuelve lo no emparejado y deja monto_pendiente en
