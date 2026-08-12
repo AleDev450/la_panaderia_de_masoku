@@ -13,7 +13,7 @@ export function ArtPanel({
 }) {
   return (
     <div
-      className="relative w-[22rem] max-w-[90vw] sm:w-[26rem] lg:h-[64vh] lg:max-h-[40rem] lg:min-h-[22rem] lg:w-auto lg:max-w-[28vw]"
+      className="relative w-[22rem] max-w-[90vw] sm:w-[26rem] lg:h-auto lg:w-full lg:max-w-none"
       style={{ aspectRatio: ratio }}
     >
       <Image

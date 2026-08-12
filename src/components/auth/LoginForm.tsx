@@ -48,14 +48,14 @@ export function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => vo
 
   return (
     <form onSubmit={handleSubmit} noValidate aria-label="Ingresar" className="flex w-full justify-center">
-      <ArtPanel src="/images/ingresar-cuenta.png" alt="" ratio="1060 / 1484">
+      <ArtPanel src="/images/home/iniciar-sesion.png" alt="" ratio="1132 / 1389">
         <ArtInput
           id="login-identifier"
           label="Teléfono o nickname"
           value={identifier}
           onChange={(e) => setIdentifier(e.target.value)}
           autoComplete="username"
-          box={{ top: "33.2%", left: "20.0%", width: "58.3%", height: "8.2%" }}
+          box={{ top: "36.1%", left: "28%", width: "44%", height: "4.2%" }}
         />
         <ArtInput
           id="login-password"
@@ -64,49 +64,34 @@ export function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => vo
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
-          box={{ top: "49.9%", left: "20.0%", width: "58.3%", height: "8.3%" }}
+          box={{ top: "53.6%", left: "28%", width: "44%", height: "4.2%" }}
         />
 
         {error ? (
           <p
             role="alert"
             className="absolute z-10 flex items-center justify-center rounded bg-[#231709] px-2 text-center text-[clamp(0.6rem,1.5vw,0.8rem)] leading-tight text-lose-glow"
-            style={{ top: "59.3%", left: "18%", width: "64%", height: "4.4%" }}
+            style={{ top: "58.5%", left: "18%", width: "64%", height: "4.4%" }}
           >
             {error}
           </p>
-        ) : (
-          <button
-            type="button"
-            onClick={() =>
-              showToast({
-                variant: "info",
-                title: "Recuperación no disponible",
-                description: "Esta es una demo — no hay envío real de correos.",
-              })
-            }
-            className="absolute whitespace-nowrap rounded bg-[#231709] font-fantasy text-[clamp(0.55rem,1.4vw,0.75rem)] text-gold/90 outline-none transition hover:text-gold-light focus-visible:ring-2 focus-visible:ring-gold-light"
-            style={{ top: "59.3%", left: "10%", width: "80%", height: "4.4%" }}
-          >
-            ¿Olvidaste tu contraseña?
-          </button>
-        )}
+        ) : null}
 
         <button
           type="submit"
           disabled={submitting}
           aria-label={submitting ? "Ingresando…" : "Ingresar"}
           className="absolute rounded-[6px] outline-none transition focus-visible:ring-2 focus-visible:ring-gold-light disabled:cursor-not-allowed disabled:opacity-60"
-          style={{ top: "68.5%", left: "20%", width: "58.3%", height: "6.5%" }}
+          style={{ top: "65%", left: "21%", width: "58%", height: "10.5%" }}
         />
 
         <button
           type="button"
           onClick={onSwitchToRegister}
-          className="absolute whitespace-nowrap rounded bg-[#231709] font-sans text-[clamp(0.5rem,1.25vw,0.7rem)] text-parchment/85 outline-none transition hover:text-gold-light focus-visible:ring-2 focus-visible:ring-gold-light"
-          style={{ top: "79.9%", left: "6%", width: "88%", height: "4.6%" }}
+          className="absolute rounded outline-none transition focus-visible:ring-2 focus-visible:ring-gold-light"
+          style={{ top: "82.3%", left: "30%", width: "40%", height: "4%" }}
         >
-          ¿No tienes cuenta? <span className="text-gold-light">Crear cuenta</span>
+          <span className="sr-only">¿No tienes cuenta? Crear cuenta</span>
         </button>
       </ArtPanel>
     </form>

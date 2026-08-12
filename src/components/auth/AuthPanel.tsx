@@ -7,7 +7,7 @@ import { LoginForm } from "@/components/auth/LoginForm";
 type Tab = "register" | "login";
 
 /**
- * Sin pestañas propias: crear-cuenta.png / ingresar-cuenta.png ya traen
+ * Sin pestañas propias: registrar.png / iniciar-sesion.png ya traen
  * su propio link para cambiar de formulario ("¿No tienes cuenta?" /
  * "¿Ya tienes cuenta?"), así que ese es el único control de cambio.
  */
@@ -15,7 +15,7 @@ export function AuthPanel() {
   const [tab, setTab] = useState<Tab>("register");
 
   return (
-    <div className="flex w-full max-w-md flex-col items-center xl:max-w-lg">
+    <div className="flex w-full max-w-md flex-col items-center lg:max-w-none">
       <div id="panel-register" hidden={tab !== "register"} className="w-full">
         {tab === "register" ? (
           <RegisterForm onSwitchToLogin={() => setTab("login")} />

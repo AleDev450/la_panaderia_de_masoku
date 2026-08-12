@@ -56,7 +56,7 @@ export function MusicToggle() {
         aria-pressed={playing}
         aria-label={playing ? "Silenciar música de fondo" : "Reproducir música de fondo"}
         className={clsx(
-          "fixed bottom-4 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full outline-none transition sm:h-14 sm:w-14",
+          "fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full outline-none transition sm:h-14 sm:w-14",
           "focus-visible:ring-2 focus-visible:ring-gold-light",
           playing
             ? "drop-shadow-[0_0_14px_rgba(232,200,119,0.75)]"

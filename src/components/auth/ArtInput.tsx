@@ -19,7 +19,7 @@ interface Props extends Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "styl
 
 /**
  * Input real posicionado en porcentaje sobre el recuadro ya dibujado en el
- * panel de arte (crear-cuenta.png / ingresar-cuenta.png). Fondo opaco y
+ * panel de arte (registrar.png / iniciar-sesion.png). Fondo opaco y
  * cercano al color de relleno del recuadro para tapar el texto de ejemplo
  * horneado en la imagen (p.ej. "PanConQueso"), sin dibujar un borde propio
  * — el marco ya está en el arte.

@@ -10,7 +10,6 @@ import {
   validateFullName,
   validateNickname,
   validatePassword,
-  validatePasswordConfirmation,
   validatePhone,
 } from "@/lib/validation";
 import { ArtPanel } from "@/components/auth/ArtPanel";
@@ -21,7 +20,6 @@ interface FormErrors {
   phone?: string;
   nickname?: string;
   password?: string;
-  confirmPassword?: string;
   ageConsent?: string;
 }
 
@@ -34,7 +32,6 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
   const [phone, setPhone] = useState("");
   const [nickname, setNickname] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [ageConsent, setAgeConsent] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -47,8 +44,6 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
       phone: validatePhone(phone) ?? undefined,
       nickname: validateNickname(nickname) ?? undefined,
       password: validatePassword(password) ?? undefined,
-      confirmPassword:
-        validatePasswordConfirmation(password, confirmPassword) ?? undefined,
       ageConsent: validateAgeConsent(ageConsent) ?? undefined,
     };
     setErrors(nextErrors);
@@ -77,9 +72,9 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
       onSubmit={handleSubmit}
       noValidate
       aria-label="Crear cuenta"
-      className="flex w-full flex-col items-center gap-2 lg:gap-1.5"
+      className="flex w-full flex-col items-center gap-3 lg:gap-2"
     >
-      <ArtPanel src="/images/crear-cuenta.png" alt="" ratio="979 / 1606">
+      <ArtPanel src="/images/home/registrar.png" alt="" ratio="1136 / 1385">
         <ArtInput
           id="fullName"
           label="Nombre completo"
@@ -87,7 +82,7 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
           onChange={(e) => setFullName(e.target.value)}
           error={errors.fullName}
           autoComplete="name"
-          box={{ top: "21.5%", left: "15.3%", width: "69.6%", height: "5.4%" }}
+          box={{ top: "31.2%", left: "28.5%", width: "44%", height: "4.2%" }}
         />
         <ArtInput
           id="phone"
@@ -98,7 +93,7 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
           inputMode="numeric"
           autoComplete="tel-national"
           placeholder="987654321"
-          box={{ top: "32.7%", left: "27.7%", width: "57.2%", height: "5.4%" }}
+          box={{ top: "42.2%", left: "28.5%", width: "44%", height: "4.2%" }}
         />
         <ArtInput
           id="nickname"
@@ -107,7 +102,7 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
           onChange={(e) => setNickname(e.target.value)}
           error={errors.nickname}
           autoComplete="nickname"
-          box={{ top: "43.8%", left: "15.3%", width: "69.6%", height: "5.3%" }}
+          box={{ top: "53.1%", left: "28.5%", width: "44%", height: "4.2%" }}
         />
         <ArtInput
           id="password"
@@ -117,20 +112,10 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
           onChange={(e) => setPassword(e.target.value)}
           error={errors.password}
           autoComplete="new-password"
-          box={{ top: "54.9%", left: "15.3%", width: "69.6%", height: "5.4%" }}
-        />
-        <ArtInput
-          id="confirmPassword"
-          label="Confirmar contraseña"
-          type="password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          error={errors.confirmPassword}
-          autoComplete="new-password"
-          box={{ top: "66.0%", left: "15.3%", width: "69.6%", height: "5.3%" }}
+          box={{ top: "63.4%", left: "28.5%", width: "44%", height: "4.2%" }}
         />
 
-        <div className="absolute" style={{ top: "73.6%", left: "15.2%", width: "70%", height: "3%" }}>
+        <div className="absolute" style={{ top: "69.6%", left: "22%", width: "60%", height: "3.4%" }}>
           <label htmlFor="ageConsent" className="flex h-full cursor-pointer items-start gap-2">
             <input
               id="ageConsent"
@@ -140,7 +125,7 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
               aria-invalid={Boolean(errors.ageConsent)}
               aria-describedby={errors.ageConsent ? "ageConsent-error" : undefined}
               className="mt-[2%] h-[85%] shrink-0 accent-gold"
-              style={{ width: "4.5%" }}
+              style={{ width: "9%" }}
             />
             <span className="sr-only">
               Confirmo que soy mayor de 18 años y acepto las reglas de juego responsable.
@@ -162,17 +147,18 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
           disabled={submitting}
           aria-label={submitting ? "Creando cuenta…" : "Crear cuenta"}
           className="absolute rounded-[6px] outline-none transition focus-visible:ring-2 focus-visible:ring-gold-light disabled:cursor-not-allowed disabled:opacity-60"
-          style={{ top: "81.3%", left: "15.2%", width: "69.6%", height: "6.8%" }}
+          style={{ top: "75.2%", left: "21%", width: "59%", height: "7.6%" }}
         />
-      </ArtPanel>
 
-      <button
-        type="button"
-        onClick={onSwitchToLogin}
-        className="rounded font-fantasy text-sm text-parchment/70 outline-none transition hover:text-gold-light focus-visible:ring-2 focus-visible:ring-gold-light lg:text-xs"
-      >
-        ¿Ya tienes cuenta? <span className="text-gold-light">Iniciar sesión</span>
-      </button>
+        <button
+          type="button"
+          onClick={onSwitchToLogin}
+          className="absolute rounded outline-none transition focus-visible:ring-2 focus-visible:ring-gold-light"
+          style={{ top: "87.5%", left: "30%", width: "40%", height: "4%" }}
+        >
+          <span className="sr-only">Ingresar</span>
+        </button>
+      </ArtPanel>
     </form>
   );
 }

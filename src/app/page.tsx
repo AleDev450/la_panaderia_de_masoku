@@ -3,10 +3,11 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/context/SessionContext";
-import { Logo } from "@/components/Logo";
 import { GameRulesSidebar } from "@/components/auth/GameRulesSidebar";
 import { Mascot } from "@/components/Mascot";
 import { AuthPanel } from "@/components/auth/AuthPanel";
+import { BettingNotice } from "@/components/auth/BettingNotice";
+import { HomeLogo } from "@/components/auth/HomeLogo";
 
 export default function Home() {
   const { user, isReady } = useSession();
@@ -20,40 +21,55 @@ export default function Home() {
 
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-y-auto lg:h-screen lg:overflow-hidden">
+      {/* Fondo a pantalla completa siempre (background.png es ~16:9, así
+          que en la gran mayoría de pantallas de escritorio "cover" no
+          recorta casi nada y la composición coincide con nuevo_index.png).
+          Sin z-index: al ser el primer hijo del contenedor se pinta
+          detrás de todo por orden normal del DOM — evita depender de
+          contextos de apilamiento. */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 bg-[url('/images/plaza-background.png')] bg-cover bg-center"
+        className="pointer-events-none fixed inset-0 bg-[url('/images/home/background.png')] bg-cover bg-center bg-no-repeat"
       />
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 bg-gradient-to-b from-obsidian/20 via-transparent to-obsidian"
+        className="pointer-events-none fixed inset-0 bg-gradient-to-b from-obsidian/10 via-transparent to-obsidian/35"
       />
 
-      {/* Marca en la esquina: el título grande ya no compite por espacio
-          vertical con la fila principal — el cartel de reglas trae su
-          propio encabezado. */}
-      <div className="absolute left-4 top-4 z-10 lg:left-8 lg:top-6">
-        <Logo size="sm" href="" />
-      </div>
+      {/* En escritorio (lg:h-screen arriba le da al contenedor una altura
+          definida, necesaria para que los "top: %" de los hijos en
+          absoluto se calculen bien) cada sección se posiciona en
+          porcentaje sobre el propio contenedor de la página, calibrado
+          contra nuevas imagenes/nuevo_index.png. En pantallas < lg todo
+          vuelve al flujo normal, apilado verticalmente. */}
+      <header className="relative z-[2] flex justify-center pt-6 lg:absolute lg:left-[30.5%] lg:top-[3%] lg:w-[37%] lg:pt-0">
+        <HomeLogo />
+      </header>
 
-      {/* Fila única en pantallas grandes: reglas a la izquierda, mascota
-          al centro, acceso a la derecha — todo cabe en un solo viewport
-          (los paneles se dimensionan por alto de pantalla, no por ancho
-          fijo, ver ArtPanel/GameRulesSidebar/Mascot). En pantallas chicas
-          se apilan y la página puede hacer scroll normalmente. */}
-      <main className="relative z-[1] mx-auto flex w-full max-w-[1800px] flex-1 flex-col items-center justify-center gap-8 px-4 py-10 sm:px-6 lg:flex-row lg:gap-6 lg:px-8 lg:py-4 xl:gap-12">
-        <section aria-label="Cómo funcionan las apuestas 1 contra 1" className="flex w-full justify-center lg:w-auto">
-          <GameRulesSidebar />
-        </section>
+      <section
+        aria-label="Masoku, guardián de la masa"
+        className="flex w-full justify-center px-4 pt-4 lg:absolute lg:left-[2%] lg:top-[13%] lg:block lg:w-[27%] lg:justify-start lg:px-0 lg:pt-0"
+      >
+        <Mascot />
+      </section>
 
-        <section aria-label="Mascota" className="flex w-full justify-center lg:w-auto">
-          <Mascot />
-        </section>
+      <section
+        aria-label="Hoy se hornea"
+        className="flex w-full justify-center px-4 pt-6 lg:absolute lg:left-[32%] lg:top-[40%] lg:w-[32%] lg:px-0 lg:pt-0"
+      >
+        <GameRulesSidebar />
+      </section>
 
-        <section aria-label="Acceso a tu cuenta" className="flex w-full justify-center lg:w-auto">
-          <AuthPanel />
-        </section>
-      </main>
+      <section
+        aria-label="Acceso a tu cuenta"
+        className="flex w-full flex-1 justify-center px-4 pt-6 pb-4 lg:absolute lg:left-[66.5%] lg:top-[19%] lg:w-[27%] lg:flex-none lg:px-0 lg:pt-0 lg:pb-0"
+      >
+        <AuthPanel />
+      </section>
+
+      <footer className="relative z-[2] flex justify-center px-4 py-6 lg:absolute lg:left-[30%] lg:top-[85%] lg:h-[9%] lg:w-[40%] lg:py-0">
+        <BettingNotice />
+      </footer>
     </div>
   );
 }
