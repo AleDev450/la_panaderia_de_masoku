@@ -1,4 +1,5 @@
 import { User } from "@/types";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 /**
  * Mock auth "database" backed by localStorage. Structure kept deliberately
@@ -143,6 +144,49 @@ export async function loginUser(input: LoginInput): Promise<User> {
   }
 
   return toPublicUser(user);
+}
+
+export interface LoginBakeryInput {
+  email: string;
+  password: string;
+}
+
+/**
+ * Login de /bakery contra Supabase Auth real (no el mock de arriba) — usa
+ * la tabla `perfiles` del motor `/exchange` como fuente de rol/saldo, y
+ * mapea la fila al mismo shape `User` que consume el resto de la UI de
+ * panadería (RequireAdmin, Header, /bakery/recargas…) para no duplicar
+ * esas pantallas.
+ */
+export async function loginWithSupabase(input: LoginBakeryInput): Promise<User> {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: input.email,
+    password: input.password,
+  });
+  if (error || !data.user) {
+    throw new UserServiceError("No pudimos iniciar sesión con esas credenciales.");
+  }
+
+  const { data: perfil, error: perfilError } = await supabase
+    .from("perfiles")
+    .select("*")
+    .eq("id", data.user.id)
+    .single();
+  if (perfilError || !perfil) {
+    throw new UserServiceError("Tu cuenta no tiene un perfil asociado en la panadería.");
+  }
+
+  return {
+    id: perfil.id,
+    fullName: perfil.nickname,
+    phone: "",
+    nickname: perfil.nickname,
+    balance: perfil.saldo_disponible,
+    puntos: 0,
+    rol: perfil.rol,
+    createdAt: perfil.created_at,
+  };
 }
 
 /** Vuelve a leer la cuenta desde el store para reflejar cambios hechos por

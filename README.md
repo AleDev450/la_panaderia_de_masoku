@@ -142,17 +142,21 @@ fondo opaco — de lo contrario ambos textos se ven doblados/borrosos.
 Sobre el demo 1:1 (mock, `localStorage`) se agregó una capa de
 administración y progresión de jugadores:
 
-### Cuenta admin de demostración
+### Acceso admin (`/bakery`) vía Supabase Auth
 
-Se crea sola la primera vez que abres la app (`ensureSeedAdmin` en
-`src/services/userService.ts`):
+A diferencia del resto del demo 1:1 (que usa el mock de `localStorage`),
+el login de `/bakery` (`BakeryLoginForm`) autentica contra **Supabase
+Auth real** — `loginWithSupabase` en `src/services/userService.ts` llama
+`supabase.auth.signInWithPassword({ email, password })` y luego lee el
+rol/saldo desde la tabla `perfiles` (la misma que usa `/exchange`), no
+desde `localStorage`.
 
-- Teléfono: `999999999`
-- Nickname: `AdminMasoku`
-- Contraseña: `admin1234`
-
-Inicia sesión con esos datos para ver el enlace **Bakery** en el header y
-acceder a `/bakery`.
+Para entrar necesitas una cuenta creada en **Authentication → Users** de
+tu proyecto Supabase, con una fila correspondiente en `perfiles` marcada
+`rol = 'admin'` (ver paso 4 de "Configuración" en la sección del motor
+`/exchange` más abajo). El resultado se guarda con el mismo shape `User`
+que usa el resto de la UI de panadería (Header, `/bakery/recargas`…), así
+que no hizo falta tocar esas pantallas.
 
 > El panel admin vive en `/bakery` a propósito, no en `/admin` — esa ruta
 > es de las primeras que prueba cualquier scanner automatizado. Esto no

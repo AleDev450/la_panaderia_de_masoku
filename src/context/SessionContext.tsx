@@ -10,13 +10,16 @@ import {
 } from "react";
 import { User } from "@/types";
 import {
+  LoginBakeryInput,
   LoginInput,
   RegisterInput,
   ensureSeedAdmin,
   getUserById,
   loginUser,
+  loginWithSupabase,
   registerUser,
 } from "@/services/userService";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const SESSION_KEY = "lapanca:session";
 
@@ -26,6 +29,9 @@ interface SessionContextValue {
   isAdmin: boolean;
   register: (input: RegisterInput) => Promise<User>;
   login: (input: LoginInput) => Promise<User>;
+  /** Login de /bakery contra Supabase Auth real (superadmin/staff), en vez
+   * del mock de `login`. Ver comentario de `loginWithSupabase` en userService.ts. */
+  loginBakery: (input: LoginBakeryInput) => Promise<User>;
   logout: () => void;
   /** Re-lee la cuenta desde el store — para reflejar saldo o puntos que
    * cambiaron desde otra pantalla (p.ej. una recarga aprobada). */
@@ -78,7 +84,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [persist]
   );
 
-  const logout = useCallback(() => persist(null), [persist]);
+  const loginBakery = useCallback(
+    async (input: LoginBakeryInput) => {
+      const found = await loginWithSupabase(input);
+      persist(found);
+      return found;
+    },
+    [persist]
+  );
+
+  const logout = useCallback(() => {
+    persist(null);
+    // No-op si la sesión activa era del mock local (nunca hubo sesión de
+    // Supabase que cerrar); necesario cuando sí se entró por /bakery.
+    createSupabaseBrowserClient().auth.signOut();
+  }, [persist]);
 
   const refreshUser = useCallback(async () => {
     if (!user) return;
@@ -93,10 +113,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       isAdmin: user?.rol === "admin",
       register,
       login,
+      loginBakery,
       logout,
       refreshUser,
     }),
-    [user, isReady, register, login, logout, refreshUser]
+    [user, isReady, register, login, loginBakery, logout, refreshUser]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
