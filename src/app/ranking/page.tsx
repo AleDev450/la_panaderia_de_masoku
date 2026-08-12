@@ -6,16 +6,17 @@ import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
 import { LevelBadge } from "@/components/LevelBadge";
 import { useSession } from "@/context/SessionContext";
-import { listUsersRanking } from "@/services/userService";
-import { User } from "@/types";
+import { JugadorRanking, getRanking } from "@/actions/perfil";
 import clsx from "clsx";
 
 function RankingContent() {
   const { user } = useSession();
-  const [ranking, setRanking] = useState<User[] | null>(null);
+  const [ranking, setRanking] = useState<JugadorRanking[] | null>(null);
 
   useEffect(() => {
-    listUsersRanking().then(setRanking);
+    getRanking().then((result) => {
+      if (result.ok) setRanking(result.data);
+    });
   }, []);
 
   return (

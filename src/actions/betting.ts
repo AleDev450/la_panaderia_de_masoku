@@ -203,6 +203,12 @@ export interface EventoResumen {
  * quién creó la sala), no para el order book de /exchange.
  */
 export async function getEventosHoy(): Promise<ActionResult<EventoResumen[]>> {
+  // Una Server Action es un endpoint POST invocable por cualquiera, no una
+  // función privada de la página. Como esta usa el cliente service_role
+  // (salta RLS) y devuelve nicknames y montos ajenos, exige sesión.
+  const session = await requireSessionUserId();
+  if (!session.ok) return session;
+
   const admin = createSupabaseAdminClient();
 
   const inicioHoy = new Date();

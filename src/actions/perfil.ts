@@ -160,6 +160,41 @@ export async function getMisSolicitudesTelefono(): Promise<ActionResult<Solicitu
   return { ok: true, data: (data ?? []) as SolicitudTelefono[] };
 }
 
+export interface JugadorRanking {
+  id: string;
+  nickname: string;
+  puntos: number;
+}
+
+/**
+ * El ranking pasa por acá y no por el cliente a propósito: `perfiles`
+ * guarda teléfono, nombre y saldo, y RLS ya no deja que un jugador lea
+ * las filas de otros (ver 0011_rls_hardening.sql). Esta acción usa el
+ * cliente service_role pero **solo selecciona nickname y puntos**, que es
+ * lo único público del ranking.
+ */
+export async function getRanking(): Promise<ActionResult<JugadorRanking[]>> {
+  const session = await requireSession();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("perfiles")
+    .select("id, nickname, puntos")
+    .eq("rol", "user")
+    .order("puntos", { ascending: false });
+
+  if (error) return { ok: false, error: error.message };
+  return {
+    ok: true,
+    data: (data ?? []).map((p) => ({
+      id: p.id,
+      nickname: p.nickname,
+      puntos: Number(p.puntos),
+    })),
+  };
+}
+
 export interface SolicitudConPerfil {
   solicitud: SolicitudTelefono;
   nickname: string;

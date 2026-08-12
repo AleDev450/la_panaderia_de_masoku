@@ -94,15 +94,7 @@ export async function getUserById(userId: string, email?: string): Promise<User 
   }
 }
 
-/** Ranking de "panaderos más gosus": todos los usuarios, ordenados por puntos desc.
- * Sin correo: `perfiles` no lo guarda y el ranking no lo necesita. */
-export async function listUsersRanking(): Promise<User[]> {
-  const supabase = createSupabaseBrowserClient();
-  const { data, error } = await supabase
-    .from("perfiles")
-    .select("*")
-    .eq("rol", "user")
-    .order("puntos", { ascending: false });
-  if (error || !data) return [];
-  return data.map((perfil) => toUser(perfil));
-}
+// El ranking vivía acá y hacía `select("*")` de todos los perfiles desde
+// el navegador — filtraba teléfono, nombre y saldo de cada jugador. Ahora
+// es `getRanking` (src/actions/perfil.ts), que corre en el servidor y solo
+// devuelve nickname y puntos. Ver 0011_rls_hardening.sql.
