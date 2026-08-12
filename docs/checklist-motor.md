@@ -17,12 +17,18 @@ Corre las queries en **SQL Editor** de Supabase. Los pasos de UI, en la app.
 select column_name from information_schema.columns
 where table_name = 'eventos' and column_name in ('categoria', 'cierra_en');
 
--- Esperado: 8 filas
+-- Esperado: 11 filas
 select proname from pg_proc where proname in (
   'crear_apuesta', 'resolver_evento', 'handle_new_user',
   'admin_creditar_saldo', 'admin_otorgar_puntos', 'actualizar_nickname',
-  'admin_resolver_solicitud_telefono', 'admin_resolver_recarga'
+  'admin_resolver_solicitud_telefono', 'admin_resolver_recarga',
+  'admin_banear_usuario', 'admin_cambiar_estado_evento', 'admin_metricas'
 );
+
+-- Esperado: 4 filas (columnas de suspensión, migración 0010)
+select column_name from information_schema.columns
+where table_name = 'perfiles'
+  and column_name in ('baneado', 'baneado_motivo', 'baneado_at', 'baneado_por');
 
 -- Esperado: 2 filas (cola de teléfonos y recargas)
 select tablename from pg_tables
@@ -205,6 +211,66 @@ registro de que declaró 50 pero se le acreditó 30.
 6. Intenta aprobar **la misma recarga otra vez** (recarga la página y
    vuelve a darle) → debe rechazar con "Esta recarga ya fue revisada". Eso
    confirma que no se puede acreditar saldo dos veces.
+
+---
+
+## 5c. Controles de administración
+
+**El admin no juega.** Entra como admin y escribe a mano
+`http://localhost:3000/partidas` → debe rebotarte a `/bakery`. Lo mismo
+con `/mis-apuestas`, `/historial`, `/ranking` y `/recargar`. En el header
+no debe aparecer ninguno de esos enlaces, ni el saldo.
+
+La defensa real está en SQL, no en la UI. Compruébalo saltándote la
+pantalla — con el `id` de tu admin:
+
+```sql
+select crear_apuesta('ID_DEL_ADMIN', 'EVENTO_ID', 'a', 20);
+-- Esperado: ERROR "Un administrador no puede apostar"
+```
+
+**Abrir y cerrar a mano.** En `/bakery/titulos`, sobre un título abierto:
+
+1. **Cerrar** → la insignia pasa a *Cerrado · sin pagar* y un jugador que
+   intente apostar recibe "El evento no está abierto para apuestas".
+2. **Abrir** → vuelve a aceptar apuestas. Prueba esto con un título cuyo
+   contador **ya venció**: al reabrir, `cierra_en` debe empujarse hacia
+   adelante, si no quedaría abierto pero rechazando por tiempo.
+
+```sql
+select estado, cierra_en > now() as contador_vigente
+from eventos where id = 'EVENTO_ID';
+```
+
+**Suspender una cuenta.** En `/bakery/usuarios`, suspende a un jugador con
+un motivo. Luego, **como ese jugador**, intenta apostar → "Tu cuenta está
+suspendida".
+
+```sql
+select nickname, baneado, baneado_motivo, saldo_disponible
+from perfiles where nickname = 'JUGADOR_A';
+```
+
+**Esperado:** `baneado true`, el motivo guardado, y **el saldo intacto** —
+suspender no confisca dinero. Levanta la suspensión y confirma que puede
+volver a apostar.
+
+También verifica que el admin **no puede suspenderse a sí mismo** ni a
+otro admin (la UI solo lista jugadores, pero el RPC lo rechaza igual):
+
+```sql
+select admin_banear_usuario('ID_DEL_ADMIN', 'ID_DEL_ADMIN', true, 'test');
+-- Esperado: ERROR "No puedes suspender tu propia cuenta"
+```
+
+**Métricas.** En `/bakery`, los cuatro números de "Hoy" deben cuadrar con:
+
+```sql
+select * from admin_metricas('ID_DEL_ADMIN');
+```
+
+Tras el escenario de §5 (60 emparejados, A ganó), `pagado_hoy` debe ser
+108 y `ganancia_hoy` 12.
 
 ---
 

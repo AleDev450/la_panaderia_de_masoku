@@ -12,14 +12,15 @@ import {
   getEventosHoy,
   resolverEvento,
 } from "@/actions/betting";
+import { cambiarEstadoEvento } from "@/actions/admin";
 import { CategoriaBadge, CATEGORIA_OPTIONS } from "@/components/partidas/CategoriaBadge";
-import { CategoriaEvento } from "@/lib/supabase/types";
+import { CategoriaEvento, Evento } from "@/lib/supabase/types";
 import { DURACION_MIN_DEFAULT } from "@/types";
 
 function AdminTitulosContent() {
   const { showToast } = useToast();
   const [eventos, setEventos] = useState<EventoResumen[] | null>(null);
-  const [resolviendo, setResolviendo] = useState<string | null>(null);
+  const [procesando, setProcesando] = useState<string | null>(null);
 
   const [nombre, setNombre] = useState("");
   const [ladoA, setLadoA] = useState("");
@@ -74,7 +75,7 @@ function AdminTitulosContent() {
   }
 
   async function handleResolver(eventoId: string, resultado: "a" | "b") {
-    setResolviendo(eventoId);
+    setProcesando(eventoId);
     try {
       const result = await resolverEvento({ eventoId, resultado });
       if (!result.ok) {
@@ -84,7 +85,32 @@ function AdminTitulosContent() {
       showToast({ variant: "success", title: "Resultado declarado" });
       await refresh();
     } finally {
-      setResolviendo(null);
+      setProcesando(null);
+    }
+  }
+
+  async function handleEstado(eventoId: string, abrir: boolean) {
+    setProcesando(eventoId);
+    try {
+      const result = await cambiarEstadoEvento({
+        eventoId,
+        abrir,
+        minutos: abrir ? Number(duracionMin) || DURACION_MIN_DEFAULT : undefined,
+      });
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo cambiar", description: result.error });
+        return;
+      }
+      showToast({
+        variant: abrir ? "success" : "info",
+        title: abrir ? "Apuestas abiertas" : "Apuestas cerradas",
+        description: abrir
+          ? "Los jugadores pueden volver a apostar en este título."
+          : "Ya no entran apuestas nuevas; el resultado sigue sin declararse.",
+      });
+      await refresh();
+    } finally {
+      setProcesando(null);
     }
   }
 
@@ -201,35 +227,75 @@ function AdminTitulosContent() {
                     <div>
                       <p className="font-fantasy font-bold text-parchment">{evento.nombre}</p>
                       <p className="text-xs text-parchment/50">
-                        {evento.lado_a} vs {evento.lado_b} ·{" "}
-                        {evento.estado === "resuelto"
-                          ? `Resuelto: ${evento.resultado === "a" ? evento.lado_a : evento.lado_b}`
-                          : `estado ${evento.estado}`}
+                        {evento.lado_a} vs {evento.lado_b}
                       </p>
                     </div>
-                    <CategoriaBadge categoria={evento.categoria} />
+                    <div className="flex items-center gap-2">
+                      <EstadoBadge evento={evento} />
+                      <CategoriaBadge categoria={evento.categoria} />
+                    </div>
                   </div>
 
                   {evento.estado !== "resuelto" ? (
-                    <div className="mt-3 flex gap-2">
-                      <Button
-                        type="button"
-                        variant="win"
-                        disabled={resolviendo === evento.id}
-                        onClick={() => handleResolver(evento.id, "a")}
-                      >
-                        Declarar {evento.lado_a}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="lose"
-                        disabled={resolviendo === evento.id}
-                        onClick={() => handleResolver(evento.id, "b")}
-                      >
-                        Declarar {evento.lado_b}
-                      </Button>
-                    </div>
-                  ) : null}
+                    <>
+                      {/* Abrir/cerrar apuestas a mano: el contador es el
+                          camino automático, esto lo fuerza cuando hace falta. */}
+                      <div className="mt-3 flex flex-wrap items-center gap-2 border-b border-gold-dark/30 pb-3">
+                        <span className="text-xs text-parchment/50">Apuestas:</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          disabled={procesando === evento.id || evento.estado === "abierto"}
+                          onClick={() => handleEstado(evento.id, true)}
+                          className="min-h-9 px-3 py-1 text-xs"
+                        >
+                          Abrir
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          disabled={procesando === evento.id || evento.estado === "cerrado"}
+                          onClick={() => handleEstado(evento.id, false)}
+                          className="min-h-9 px-3 py-1 text-xs"
+                        >
+                          Cerrar
+                        </Button>
+                      </div>
+
+                      <div className="mt-3">
+                        <p className="mb-2 text-xs text-parchment/50">
+                          Declarar resultado — paga 1.80x y reparte puntos. No
+                          se puede deshacer.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="win"
+                            disabled={procesando === evento.id}
+                            onClick={() => handleResolver(evento.id, "a")}
+                          >
+                            Declarar {evento.lado_a}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="lose"
+                            disabled={procesando === evento.id}
+                            onClick={() => handleResolver(evento.id, "b")}
+                          >
+                            Declarar {evento.lado_b}
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="mt-3 rounded-md border border-gold-dark/60 bg-obsidian/40 px-3 py-2 text-xs text-parchment/60">
+                      Resultado:{" "}
+                      <span className="font-fantasy font-bold text-gold-light">
+                        {evento.resultado === "a" ? evento.lado_a : evento.lado_b}
+                      </span>{" "}
+                      · pagado
+                    </p>
+                  )}
                 </Panel>
               ))}
             </div>
@@ -237,6 +303,42 @@ function AdminTitulosContent() {
         </section>
       </main>
     </>
+  );
+}
+
+/** Ciclo del título: abierto (acepta apuestas) → cerrado (ya no, pero
+ * todavía sin resultado) → resuelto (pagado). Un título "abierto" cuyo
+ * contador ya venció tampoco acepta apuestas, así que se marca aparte. */
+function EstadoBadge({ evento }: { evento: Evento }) {
+  // Mismo patrón que CountdownBadge en PartidaCard: el valor inicial se
+  // calcula en el inicializador perezoso (no en el cuerpo del render, que
+  // debe ser puro) y se refresca con un intervalo.
+  const [vencido, setVencido] = useState(
+    () => new Date(evento.cierra_en).getTime() <= Date.now()
+  );
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setVencido(new Date(evento.cierra_en).getTime() <= Date.now());
+    }, 1000);
+    return () => clearInterval(id);
+  }, [evento.cierra_en]);
+
+  const { texto, clase } =
+    evento.estado === "resuelto"
+      ? { texto: "Pagado", clase: "border-gold text-gold-light" }
+      : evento.estado === "cerrado"
+        ? { texto: "Cerrado · sin pagar", clase: "border-lose/60 text-lose-glow" }
+        : vencido
+          ? { texto: "Cerrado por tiempo", clase: "border-lose/60 text-lose-glow" }
+          : { texto: "Apuestas abiertas", clase: "border-win-glow/60 text-win-glow" };
+
+  return (
+    <span
+      className={`rounded-md border px-2 py-1 text-[11px] font-semibold tracking-wide ${clase}`}
+    >
+      {texto}
+    </span>
   );
 }
 

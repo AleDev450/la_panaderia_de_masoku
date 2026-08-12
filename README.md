@@ -271,6 +271,39 @@ son las que se usan como escudo de cada retador en `/partidas`
 (`src/components/partidas/RetadorBadge.tsx`); si un lado no tiene
 retador todavía, se pinta un escudo neutro con "?" y "Esperando retador".
 
+### El administrador no juega
+
+El admin es staff, no jugador. `crear_apuesta` **lo rechaza en SQL**
+(`0010_admin_control.sql`), y `RequirePlayer` lo saca de las pantallas de
+juego (`/partidas`, `/mis-apuestas`, `/historial`, `/ranking`,
+`/recargar`) mandándolo a `/bakery`. Su navegación solo muestra lo que
+administra — Panel, Títulos, Recargas, Usuarios, Teléfonos — y en el
+header no aparece saldo ni rango, porque no le aplican.
+
+Lo que puede hacer:
+
+- **Abrir y cerrar apuestas cuando quiera**, sin esperar al contador
+  (`admin_cambiar_estado_evento`). El ciclo real es **abierto → cerrado →
+  resuelto**: "cerrado" significa que ya no entran apuestas pero el
+  resultado todavía no se declara ni se paga. Al reabrir un título cuyo
+  contador ya venció, la función empuja `cierra_en` hacia adelante — sin
+  eso quedaría "abierto" pero `crear_apuesta` seguiría rechazando por
+  tiempo.
+- **Ver el movimiento del día** en `/bakery`: cuánto se depositó
+  (recargas aprobadas), cuánto se pagó en premios, y la ganancia —del día
+  y acumulada— que sale de `comisiones_plataforma` (`admin_metricas`).
+- **Ver los usuarios** en `/bakery/usuarios`: saldo disponible y en juego,
+  puntos, teléfono, con buscador.
+- **Suspender cuentas** por incumplimiento. La suspensión **no borra
+  nada**: el usuario conserva saldo e historial y sus apuestas en curso se
+  liquidan normalmente, solo no puede crear nuevas. Un admin no puede
+  suspenderse a sí mismo ni a otro admin.
+
+> El baneo por IP quedó pendiente: `perfiles` ya guarda quién y cuándo
+> suspendió una cuenta, pero bloquear IPs necesita una tabla aparte de
+> direcciones vetadas y un chequeo en el proxy, que este esquema todavía
+> no incluye.
+
 ### Perfil del jugador (`/perfil`)
 
 El panadero edita su propia cuenta desde `/perfil` (accesible desde el
@@ -375,6 +408,10 @@ seguimiento del jugador.
    - `supabase/migrations/0009_recargas.sql` (tabla `recargas` + RLS y RPC
      `admin_resolver_recarga`, que acredita el saldo y cierra la recarga
      en una sola transacción — antes vivían en `localStorage`)
+   - `supabase/migrations/0010_admin_control.sql` (suspensión de cuentas,
+     `crear_apuesta` rechaza a admins y suspendidos, RPC
+     `admin_cambiar_estado_evento` para abrir/cerrar a mano, y
+     `admin_metricas` para el panel — ver "El administrador no juega")
 3. Copia `.env.example` → `.env.local` y completa `NEXT_PUBLIC_SUPABASE_URL`,
    `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` (esta
    última es secreta, solo se usa en el servidor — nunca la expongas al

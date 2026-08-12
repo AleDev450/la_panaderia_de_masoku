@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import clsx from "clsx";
-import { RequireAuth } from "@/components/RequireAuth";
+import { RequirePlayer } from "@/components/RequirePlayer";
 import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
 import { ApuestaConEvento, getMisApuestasConEvento } from "@/actions/betting";
@@ -88,8 +88,8 @@ function HistorialContent() {
 
 export default function HistorialPage() {
   return (
-    <RequireAuth>
+    <RequirePlayer>
       <HistorialContent />
-    </RequireAuth>
+    </RequirePlayer>
   );
 }

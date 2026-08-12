@@ -9,13 +9,23 @@ import { LevelBadge } from "@/components/LevelBadge";
 import { getLevelForPoints } from "@/data/levels";
 import { useState } from "react";
 
-const NAV_LINKS = [
+const NAV_JUGADOR = [
   { href: "/partidas", label: "Partidas" },
   { href: "/mis-apuestas", label: "Mis apuestas" },
   { href: "/historial", label: "Historial" },
   { href: "/ranking", label: "Ranking" },
   { href: "/recargar", label: "Recargar saldo" },
   { href: "/como-jugar", label: "Cómo jugar" },
+];
+
+/** El admin no juega: nada de apuestas, ranking, recargar saldo ni
+ * historial — solo lo que administra (ver RequirePlayer). */
+const NAV_ADMIN = [
+  { href: "/bakery", label: "Panel" },
+  { href: "/bakery/titulos", label: "Títulos" },
+  { href: "/bakery/recargas", label: "Recargas" },
+  { href: "/bakery/usuarios", label: "Usuarios" },
+  { href: "/bakery/telefonos", label: "Teléfonos" },
 ];
 
 export function Header() {
@@ -26,7 +36,7 @@ export function Header() {
 
   if (!user) return null;
 
-  const links = isAdmin ? [...NAV_LINKS, { href: "/bakery", label: "Bakery" }] : NAV_LINKS;
+  const links = isAdmin ? NAV_ADMIN : NAV_JUGADOR;
   const nivel = getLevelForPoints(user.puntos);
 
   function handleLogout() {
@@ -42,25 +52,37 @@ export function Header() {
             Todo el bloque es el acceso a /perfil. */}
         <Link
           href="/perfil"
-          aria-label={`Mi perfil — ${nivel.nombre}, ${user.puntos} puntos`}
+          aria-label={isAdmin ? "Mi perfil — administrador" : `Mi perfil — ${nivel.nombre}, ${user.puntos} puntos`}
           className="flex min-w-0 items-center gap-2.5 rounded-md px-1 py-1 transition hover:bg-gold/10 focus-visible:ring-2 focus-visible:ring-gold-light"
         >
-          <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-gold bg-charcoal-light shadow-[0_0_14px_rgba(201,161,59,0.35)]">
-            <Image
-              src={`/images/levels/nivel-${nivel.id}.png`}
-              alt=""
-              aria-hidden
-              width={40}
-              height={40}
-              className="h-full w-full select-none object-contain p-0.5"
-            />
+          {/* El admin no tiene rango ni puntos: no juega. */}
+          <span
+            className={clsx(
+              "relative inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 bg-charcoal-light",
+              isAdmin
+                ? "border-lose text-lg"
+                : "border-gold shadow-[0_0_14px_rgba(201,161,59,0.35)]"
+            )}
+          >
+            {isAdmin ? (
+              <span aria-hidden>🔒</span>
+            ) : (
+              <Image
+                src={`/images/levels/nivel-${nivel.id}.png`}
+                alt=""
+                aria-hidden
+                width={40}
+                height={40}
+                className="h-full w-full select-none object-contain p-0.5"
+              />
+            )}
           </span>
           <span className="flex min-w-0 flex-col leading-tight">
             <span className="truncate font-fantasy text-lg font-bold tracking-[0.04em] text-gold-light text-glow-gold">
               {user.nickname}
             </span>
             <span className="truncate text-[11px] text-parchment/50">
-              {nivel.nombre} · {user.puntos} pts
+              {isAdmin ? "Administrador" : `${nivel.nombre} · ${user.puntos} pts`}
             </span>
           </span>
         </Link>
@@ -87,12 +109,14 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-3 lg:flex">
-          <div className="rounded-md border border-gold-dark px-3 py-1.5 text-right">
-            <p className="text-xs text-parchment/50">Saldo</p>
-            <p className="font-fantasy text-sm font-bold text-gold-light">
-              S/{user.balance}
-            </p>
-          </div>
+          {!isAdmin ? (
+            <div className="rounded-md border border-gold-dark px-3 py-1.5 text-right">
+              <p className="text-xs text-parchment/50">Saldo</p>
+              <p className="font-fantasy text-sm font-bold text-gold-light">
+                S/{user.balance}
+              </p>
+            </div>
+          ) : null}
           <button
             type="button"
             onClick={handleLogout}
@@ -143,12 +167,14 @@ export function Header() {
           >
             <span className="text-sm font-semibold text-parchment">{user.nickname}</span>
             <span className="font-fantasy text-sm font-bold text-gold-light">
-              S/{user.balance}
+              {isAdmin ? "Administrador" : `S/${user.balance}`}
             </span>
           </Link>
-          <div className="mt-1">
-            <LevelBadge puntos={user.puntos} size="sm" />
-          </div>
+          {!isAdmin ? (
+            <div className="mt-1">
+              <LevelBadge puntos={user.puntos} size="sm" />
+            </div>
+          ) : null}
           <button
             type="button"
             onClick={handleLogout}

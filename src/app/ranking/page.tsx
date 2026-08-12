@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RequireAuth } from "@/components/RequireAuth";
+import { RequirePlayer } from "@/components/RequirePlayer";
 import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
 import { LevelBadge } from "@/components/LevelBadge";
@@ -75,8 +75,8 @@ function RankingContent() {
 
 export default function RankingPage() {
   return (
-    <RequireAuth>
+    <RequirePlayer>
       <RankingContent />
-    </RequireAuth>
+    </RequirePlayer>
   );
 }

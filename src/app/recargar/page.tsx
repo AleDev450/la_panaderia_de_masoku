@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { RequireAuth } from "@/components/RequireAuth";
+import { RequirePlayer } from "@/components/RequirePlayer";
 import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
@@ -24,6 +24,7 @@ function RecargarContent() {
   const [error, setError] = useState<string | undefined>();
   const [submitting, setSubmitting] = useState(false);
   const [misRecargas, setMisRecargas] = useState<RecargaResumen[] | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
     const result = await getMisRecargas();
@@ -36,8 +37,15 @@ function RecargarContent() {
   }, [refresh]);
 
   function handleFile(selected: File | null) {
+    // El blob anterior queda colgado en memoria si no se revoca.
+    setPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return selected ? URL.createObjectURL(selected) : null;
+    });
     setFile(selected);
-    setPreview(selected ? URL.createObjectURL(selected) : null);
+    // Un <input type="file"> es no controlado: resetear el estado de React
+    // no borra el nombre del archivo que muestra el navegador.
+    if (!selected && fileInputRef.current) fileInputRef.current.value = "";
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -118,6 +126,7 @@ function RecargarContent() {
               </label>
               <input
                 id="comprobante"
+                ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
@@ -193,8 +202,8 @@ function RecargarContent() {
 
 export default function RecargarPage() {
   return (
-    <RequireAuth>
+    <RequirePlayer>
       <RecargarContent />
-    </RequireAuth>
+    </RequirePlayer>
   );
 }

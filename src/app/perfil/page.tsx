@@ -30,7 +30,7 @@ const ESTADO_SOLICITUD_COLOR: Record<SolicitudTelefono["estado"], string> = {
 };
 
 function PerfilContent() {
-  const { user, refreshUser } = useSession();
+  const { user, refreshUser, isAdmin } = useSession();
   const { showToast } = useToast();
 
   const [nickname, setNickname] = useState(user?.nickname ?? "");
@@ -124,11 +124,12 @@ function PerfilContent() {
         <Panel className="mt-6 flex flex-wrap items-center justify-between gap-3 p-5">
           <div>
             <p className="font-fantasy text-xl font-bold text-gold-light">{user.nickname}</p>
+            {/* El admin no juega: sin saldo ni rango que mostrar. */}
             <p className="text-xs text-parchment/50">
-              Saldo disponible S/{user.balance}
+              {isAdmin ? "Cuenta de administrador" : `Saldo disponible S/${user.balance}`}
             </p>
           </div>
-          <LevelBadge puntos={user.puntos} />
+          {!isAdmin ? <LevelBadge puntos={user.puntos} /> : null}
         </Panel>
 
         <Panel className="mt-6 p-5">
@@ -171,6 +172,9 @@ function PerfilContent() {
           </form>
         </Panel>
 
+        {/* La cola de cambio de teléfono es para jugadores: el número
+            identifica sus depósitos. Un admin no recarga saldo. */}
+        {isAdmin ? null : (
         <Panel className="mt-4 p-5">
           <h2 className="mb-1 font-fantasy text-lg font-semibold text-gold-light">Teléfono</h2>
           <p className="mb-3 text-xs text-parchment/50">
@@ -226,6 +230,7 @@ function PerfilContent() {
             </ul>
           ) : null}
         </Panel>
+        )}
       </main>
     </>
   );

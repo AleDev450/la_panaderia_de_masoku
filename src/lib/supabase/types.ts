@@ -35,6 +35,11 @@ export type Perfil = {
   full_name: string | null;
   phone: string | null;
   puntos: number;
+  /** Suspensión por incumplimiento — conserva saldo e historial, solo impide apostar. */
+  baneado: boolean;
+  baneado_motivo: string | null;
+  baneado_at: string | null;
+  baneado_por: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -105,6 +110,19 @@ export type Recarga = {
   revisado_por: string | null;
   revisado_at: string | null;
   created_at: string;
+};
+
+/** Fila que devuelve el RPC `admin_metricas` (0010). Postgres entrega los
+ * numeric como string por el driver, así que se tipan como number|string
+ * y la UI los normaliza con Number(). */
+export type AdminMetricas = {
+  depositado_hoy: number;
+  pagado_hoy: number;
+  ganancia_hoy: number;
+  ganancia_total: number;
+  usuarios_total: number;
+  usuarios_baneados: number;
+  eventos_abiertos: number;
 };
 
 export type SolicitudTelefono = {
@@ -215,6 +233,28 @@ export interface Database {
           p_monto_acreditado?: number | null;
         };
         Returns: Recarga;
+      };
+      admin_banear_usuario: {
+        Args: {
+          p_admin_id: string;
+          p_usuario_id: string;
+          p_banear: boolean;
+          p_motivo?: string | null;
+        };
+        Returns: Perfil;
+      };
+      admin_cambiar_estado_evento: {
+        Args: {
+          p_admin_id: string;
+          p_evento_id: string;
+          p_abrir: boolean;
+          p_minutos?: number;
+        };
+        Returns: Evento;
+      };
+      admin_metricas: {
+        Args: { p_admin_id: string };
+        Returns: AdminMetricas[];
       };
     };
   };

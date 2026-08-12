@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import clsx from "clsx";
-import { RequireAuth } from "@/components/RequireAuth";
+import { RequirePlayer } from "@/components/RequirePlayer";
 import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
@@ -156,8 +156,8 @@ function Dato({
 
 export default function MisApuestasPage() {
   return (
-    <RequireAuth>
+    <RequirePlayer>
       <MisApuestasContent />
-    </RequireAuth>
+    </RequirePlayer>
   );
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { RequireAuth } from "@/components/RequireAuth";
+import { RequirePlayer } from "@/components/RequirePlayer";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/Button";
 import { PartidaCard } from "@/components/partidas/PartidaCard";
@@ -154,8 +154,8 @@ function PartidasContent() {
 
 export default function PartidasPage() {
   return (
-    <RequireAuth>
+    <RequirePlayer>
       <PartidasContent />
-    </RequireAuth>
+    </RequirePlayer>
   );
 }
