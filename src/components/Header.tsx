@@ -35,7 +35,22 @@ export function Header() {
   return (
     <header className="panel-stone sticky top-0 z-40 border-x-0 border-t-0 px-4 py-3 sm:px-6">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-        <Logo size="sm" withAvatar href="/partidas" />
+        {/* Identidad del panadero a la izquierda: nickname + rango + puntos
+            (LevelBadge ya pinta insignia, nombre del rango y pts). Todo el
+            bloque es el acceso a /perfil. */}
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <Logo size="sm" withAvatar href="/partidas" />
+          <Link
+            href="/perfil"
+            aria-label="Ir a mi perfil"
+            className="hidden min-w-0 items-center gap-2 rounded-md px-2 py-1 transition hover:bg-gold/10 focus-visible:ring-2 focus-visible:ring-gold-light sm:flex"
+          >
+            <span className="truncate text-sm font-semibold text-parchment">
+              {user.nickname}
+            </span>
+            <LevelBadge puntos={user.puntos} size="sm" />
+          </Link>
+        </div>
 
         <nav
           aria-label="Navegación principal"
@@ -65,10 +80,6 @@ export function Header() {
               S/{user.balance}
             </p>
           </div>
-          <span className="text-sm font-semibold text-parchment">
-            {user.nickname}
-          </span>
-          <LevelBadge puntos={user.puntos} size="sm" />
           <button
             type="button"
             onClick={handleLogout}
@@ -112,12 +123,16 @@ export function Header() {
               {link.label}
             </Link>
           ))}
-          <div className="mt-2 flex items-center justify-between rounded-md border border-gold-dark px-3 py-2">
+          <Link
+            href="/perfil"
+            onClick={() => setMenuOpen(false)}
+            className="mt-2 flex items-center justify-between rounded-md border border-gold-dark px-3 py-2"
+          >
             <span className="text-sm font-semibold text-parchment">{user.nickname}</span>
             <span className="font-fantasy text-sm font-bold text-gold-light">
               S/{user.balance}
             </span>
-          </div>
+          </Link>
           <div className="mt-1">
             <LevelBadge puntos={user.puntos} size="sm" />
           </div>

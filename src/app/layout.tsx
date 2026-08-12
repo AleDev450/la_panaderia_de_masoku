@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Cinzel, Inter } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "@/context/SessionContext";
-import { MatchesProvider } from "@/context/MatchesContext";
 import { ToastProvider } from "@/context/ToastContext";
 import { RecargasProvider } from "@/context/RecargasContext";
 import { MusicToggle } from "@/components/MusicToggle";
@@ -34,9 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col bg-obsidian text-parchment">
         <ToastProvider>
           <SessionProvider>
-            <MatchesProvider>
-              <RecargasProvider>{children}</RecargasProvider>
-            </MatchesProvider>
+            <RecargasProvider>{children}</RecargasProvider>
           </SessionProvider>
         </ToastProvider>
         <MusicToggle />

@@ -1,18 +1,33 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
 import { useRecargas } from "@/context/RecargasContext";
-import { useMatches } from "@/context/MatchesContext";
+import { getEventosHoy } from "@/actions/betting";
+import { getSolicitudesTelefono } from "@/actions/perfil";
 
 function AdminHomeContent() {
   const { recargas } = useRecargas();
-  const { matches } = useMatches();
+  const [abiertos, setAbiertos] = useState<number | null>(null);
+  const [telefonos, setTelefonos] = useState<number | null>(null);
+
+  useEffect(() => {
+    getEventosHoy().then((result) => {
+      if (result.ok) {
+        setAbiertos(result.data.filter(({ evento }) => evento.estado === "abierto").length);
+      }
+    });
+    getSolicitudesTelefono().then((result) => {
+      if (result.ok) {
+        setTelefonos(result.data.filter((s) => s.solicitud.estado === "pendiente").length);
+      }
+    });
+  }, []);
 
   const pendientes = recargas.filter((r) => r.estado === "pendiente").length;
-  const abiertos = matches.filter((m) => m.estado === "abierto").length;
 
   return (
     <>
@@ -50,12 +65,29 @@ function AdminHomeContent() {
                   Títulos de apuesta
                 </h2>
                 <p className="mt-1 text-sm text-parchment/60">
-                  Crea nuevos títulos, ajusta el contador y declara resultados.
+                  Publica títulos del día y declara sus resultados.
                 </p>
               </div>
               <p className="mt-4 font-fantasy text-2xl font-bold text-parchment">
-                {abiertos}{" "}
-                <span className="text-sm font-normal text-parchment/50">abiertos</span>
+                {abiertos ?? "—"}{" "}
+                <span className="text-sm font-normal text-parchment/50">abiertos hoy</span>
+              </p>
+            </Panel>
+          </Link>
+
+          <Link href="/bakery/telefonos">
+            <Panel className="flex h-full flex-col justify-between p-5 transition hover:border-gold-light">
+              <div>
+                <h2 className="font-fantasy text-lg font-semibold text-gold-light">
+                  Cambios de teléfono
+                </h2>
+                <p className="mt-1 text-sm text-parchment/60">
+                  Aprueba o rechaza solicitudes de cambio de número.
+                </p>
+              </div>
+              <p className="mt-4 font-fantasy text-2xl font-bold text-parchment">
+                {telefonos ?? "—"}{" "}
+                <span className="text-sm font-normal text-parchment/50">pendientes</span>
               </p>
             </Panel>
           </Link>

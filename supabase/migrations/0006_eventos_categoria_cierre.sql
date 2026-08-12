@@ -54,6 +54,13 @@ begin
   end if;
   p_monto := round(p_monto, 2);
 
+  -- Mismos límites que anuncia el arte del footer (S/10 a S/100) y que
+  -- valida `crearApuestaSchema` en el cliente — repetidos acá porque el
+  -- Zod del servidor Next.js no es la única línea de defensa.
+  if p_monto < 10 or p_monto > 100 then
+    raise exception 'La apuesta debe estar entre S/10 y S/100' using errcode = 'P0007';
+  end if;
+
   select * into v_evento from eventos where id = p_evento_id for update;
   if not found then
     raise exception 'Evento no encontrado' using errcode = 'P0002';

@@ -12,12 +12,13 @@ import { registerPlayer } from "@/actions/auth";
 
 export class UserServiceError extends Error {}
 
-function toUser(perfil: Perfil): User {
+function toUser(perfil: Perfil, email = ""): User {
   return {
     id: perfil.id,
     fullName: perfil.full_name ?? "",
     phone: perfil.phone ?? "",
     nickname: perfil.nickname,
+    email,
     balance: perfil.saldo_disponible,
     puntos: perfil.puntos,
     rol: perfil.rol,
@@ -82,18 +83,19 @@ export async function loginUser(input: LoginInput): Promise<User> {
     throw new UserServiceError("Correo o contraseña incorrectos.");
   }
 
-  return toUser(await fetchPerfil(data.user.id));
+  return toUser(await fetchPerfil(data.user.id), data.user.email);
 }
 
-export async function getUserById(userId: string): Promise<User | null> {
+export async function getUserById(userId: string, email?: string): Promise<User | null> {
   try {
-    return toUser(await fetchPerfil(userId));
+    return toUser(await fetchPerfil(userId), email);
   } catch {
     return null;
   }
 }
 
-/** Ranking de "panaderos más gosus": todos los usuarios, ordenados por puntos desc. */
+/** Ranking de "panaderos más gosus": todos los usuarios, ordenados por puntos desc.
+ * Sin correo: `perfiles` no lo guarda y el ranking no lo necesita. */
 export async function listUsersRanking(): Promise<User[]> {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
@@ -102,5 +104,5 @@ export async function listUsersRanking(): Promise<User[]> {
     .eq("rol", "user")
     .order("puntos", { ascending: false });
   if (error || !data) return [];
-  return data.map(toUser);
+  return data.map((perfil) => toUser(perfil));
 }

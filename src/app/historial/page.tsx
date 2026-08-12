@@ -1,22 +1,24 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import clsx from "clsx";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
-import { TeamCrest } from "@/components/TeamCrest";
-import { useMatches } from "@/context/MatchesContext";
-import { useSession } from "@/context/SessionContext";
-import { getUserBets } from "@/services/betService";
+import { ApuestaConEvento, getMisApuestasConEvento } from "@/actions/betting";
+import { CategoriaBadge } from "@/components/partidas/CategoriaBadge";
+import { ladoLabel, liquidacionDeApuesta } from "@/lib/apuestas";
 
 function HistorialContent() {
-  const { user } = useSession();
-  const { matches } = useMatches();
-  if (!user) return null;
+  const [apuestas, setApuestas] = useState<ApuestaConEvento[] | null>(null);
 
-  const { paired } = getUserBets(matches, user.id);
-  const ordered = [...paired].sort(
-    (a, b) => new Date(b.paired.pairedAt).getTime() - new Date(a.paired.pairedAt).getTime()
-  );
+  useEffect(() => {
+    getMisApuestasConEvento().then((result) => {
+      if (result.ok) setApuestas(result.data);
+    });
+  }, []);
+
+  const resueltas = (apuestas ?? []).filter(({ evento }) => evento.estado === "resuelto");
 
   return (
     <>
@@ -24,41 +26,59 @@ function HistorialContent() {
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
         <h1 className="font-fantasy text-3xl font-bold text-parchment">Historial</h1>
         <p className="mt-2 text-sm text-parchment/60">
-          Registro de tus duelos 1:1 ya emparejados en LA PANADERÍA DE MASOKU.
+          Tus apuestas en títulos ya resueltos. Lo emparejado se paga a
+          cuota 1.80x; lo que nunca llegó a cubrirse volvió a tu saldo.
         </p>
 
-        {ordered.length === 0 ? (
+        {apuestas === null ? (
+          <p className="mt-8 text-sm text-parchment/50">Cargando…</p>
+        ) : resueltas.length === 0 ? (
           <Panel className="mt-8 border-dashed p-6 text-center text-sm text-parchment/50">
-            Aún no tienes duelos en tu historial.
+            Aún no tienes apuestas resueltas en tu historial.
           </Panel>
         ) : (
           <ul className="mt-8 flex flex-col gap-3">
-            {ordered.map(({ match, paired: duel, userSide }) => (
-              <li key={duel.id}>
-                <Panel className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-3">
-                    <TeamCrest team={match.teamA} size={36} />
-                    <span className="text-xs text-parchment/40">vs</span>
-                    <TeamCrest team={match.teamB} size={36} />
-                    <div>
-                      <p className="text-sm font-semibold text-parchment">{match.titulo}</p>
-                      <p className="text-xs text-parchment/50">
-                        {match.time} · {match.format} ·{" "}
-                        {new Date(duel.pairedAt).toLocaleDateString("es-PE")}
-                      </p>
+            {resueltas.map(({ apuesta, evento }) => {
+              const liq = liquidacionDeApuesta(apuesta, evento);
+              if (!liq) return null;
+
+              return (
+                <li key={apuesta.id}>
+                  <Panel className="flex flex-col gap-3 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-parchment">{evento.nombre}</p>
+                        <p className="mt-0.5 text-xs text-parchment/50">
+                          Tu lado: {ladoLabel(evento, apuesta.lado)} · Resultado:{" "}
+                          <span className="font-semibold text-gold-light">
+                            {ladoLabel(evento, evento.resultado!)}
+                          </span>
+                        </p>
+                      </div>
+                      <CategoriaBadge categoria={evento.categoria} />
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-fantasy text-sm font-bold text-gold-light">
-                      Tu lado: {userSide} · S/{duel.amount}
-                    </p>
-                    <p className="text-[11px] uppercase tracking-wide text-parchment/40">
-                      Duelo emparejado
-                    </p>
-                  </div>
-                </Panel>
-              </li>
-            ))}
+
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span
+                        className={clsx(
+                          "rounded-md border px-2.5 py-1 font-fantasy text-xs font-bold uppercase tracking-wide",
+                          liq.gano
+                            ? "border-win-glow/60 bg-win/10 text-win-glow"
+                            : "border-lose-glow/60 bg-lose/10 text-lose-glow"
+                        )}
+                      >
+                        {liq.gano ? `Ganaste S/${liq.cobrado}` : `Perdiste S/${liq.perdido}`}
+                      </span>
+                      <span className="text-xs text-parchment/50">
+                        Apostaste S/{apuesta.monto_total} · emparejado S/
+                        {apuesta.monto_matcheado}
+                        {liq.devuelto > 0 ? ` · devuelto S/${liq.devuelto}` : ""}
+                      </span>
+                    </div>
+                  </Panel>
+                </li>
+              );
+            })}
           </ul>
         )}
       </main>

@@ -179,6 +179,46 @@ export async function getMisApuestas(eventoId: string): Promise<ActionResult<Apu
   return { ok: true, data: (data ?? []) as Apuesta[] };
 }
 
+export interface ApuestaConEvento {
+  apuesta: Apuesta;
+  evento: Evento;
+}
+
+/**
+ * Todas las apuestas del usuario (de cualquier evento) con el evento
+ * adjunto — lo que consumen /mis-apuestas e /historial. Usa el cliente de
+ * sesión: `apuestas_select_own` ya limita a las filas propias.
+ */
+export async function getMisApuestasConEvento(): Promise<ActionResult<ApuestaConEvento[]>> {
+  const session = await requireSessionUserId();
+  if (!session.ok) return session;
+
+  const supabase = await createSupabaseServerClient();
+  const { data: apuestas, error } = await supabase
+    .from("apuestas")
+    .select("*")
+    .eq("usuario_id", session.userId)
+    .order("created_at", { ascending: false });
+  if (error) return { ok: false, error: error.message };
+  if (!apuestas || apuestas.length === 0) return { ok: true, data: [] };
+
+  const eventoIds = [...new Set(apuestas.map((a) => a.evento_id))];
+  const { data: eventos, error: eventosError } = await supabase
+    .from("eventos")
+    .select("*")
+    .in("id", eventoIds);
+  if (eventosError) return { ok: false, error: eventosError.message };
+
+  const eventosPorId = new Map((eventos ?? []).map((e) => [e.id, e as Evento]));
+
+  const data = apuestas.flatMap((apuesta) => {
+    const evento = eventosPorId.get(apuesta.evento_id);
+    return evento ? [{ apuesta: apuesta as Apuesta, evento }] : [];
+  });
+
+  return { ok: true, data };
+}
+
 /**
  * Crea el evento con el cliente ligado a la sesión (no el de service_role):
  * la policy `eventos_admin_write` ya restringe el insert a `es_admin(auth.uid())`,

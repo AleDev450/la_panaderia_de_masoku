@@ -22,13 +22,11 @@ más abajo si vas a tocar esos formularios.
 - Supabase Auth (registro/login de jugadores y de `/bakery`, ambos reales —
   ver "Cuentas de jugador y de staff" más abajo) + Postgres (Zod + RPC en
   PL/pgSQL) para el motor de emparejamiento real
-- **`/partidas` corre sobre ese mismo motor real** (antes era un demo 1:1
-  mock en `localStorage`; ver "Partidas de hoy" más abajo) — apuestas con
-  emparejamiento FIFO parcial multi-jugador, cuota fija 1.80x, y
-  devolución automática de lo no emparejado al cerrar el título.
-  `/mis-apuestas` e `/historial` **todavía leen el demo mock viejo**
-  (`src/services/betService.ts`) y por ahora no muestran las apuestas
-  reales — pendiente de una siguiente pasada.
+- **Todo el flujo de apuestas corre sobre ese motor real.** El demo 1:1
+  mock en `localStorage` (`betService.ts`, `MatchesContext`, `data/matches`)
+  fue retirado por completo; `/partidas`, `/mis-apuestas` e `/historial`
+  leen Postgres. Emparejamiento FIFO parcial multi-jugador, cuota fija
+  1.80x, y devolución automática de lo no emparejado al liquidar.
 - Las recargas (`/recargar`) siguen con comprobante manual + aprobación
   admin, ahora en montos fijos de S/10 en 10 hasta S/100; acreditan
   directo a `perfiles.saldo_disponible` vía Server Action
@@ -242,22 +240,43 @@ Server Action `adminCreditarSaldo` en `src/actions/perfiles.ts`) o
 
 ### Niveles y ranking (`/ranking`)
 
-Cada usuario tiene un contador de `puntos` (columna `perfiles.puntos`). Al
-resolver un título con duelo emparejado, `MatchesContext.resolveMatch`
-llama al RPC `admin_otorgar_puntos` (vía la Server Action
-`adminOtorgarPuntos`) por cada lado del duelo:
+Cada usuario tiene un contador de `puntos` (columna `perfiles.puntos`),
+que **`resolver_evento` reparte en la misma transacción que el dinero**
+(ver `0007_resolver_evento_puntos.sql`), por cada apuesta que llegó a
+emparejar algo:
 
 - El lado que acertó el resultado: **+5 puntos**.
-- El lado que no: **+1 punto** (participar en un duelo resuelto siempre
+- El lado que no: **+1 punto** (participar en un evento resuelto siempre
   puntúa, nunca 0).
+- Una orden que nunca encontró contraparte se devuelve entera y no
+  puntúa — no hubo participación real.
 
 Los niveles son bandas de 10 puntos con nombres temáticos de panadería
 (`src/data/levels.ts`: Masa → Fermento → Horneado → … → Guardián de la
-Masa). `LevelBadge` los pinta con un emoji provisional por nivel —
-reemplázalo por las imágenes reales de badges apenas estén listas
-(basta con mapear `level.id` a un `<Image>` ahí en vez del emoji).
-`/ranking` lista a todos los usuarios ordenados por puntos — "los
-panaderos más gosus" de La Panadería de Masoku.
+Masa) y `LevelBadge` los pinta con las imágenes de
+`public/images/levels/nivel-N.png`. `/ranking` lista a todos los usuarios
+ordenados por puntos — "los panaderos más gosus". Esas mismas insignias
+son las que se usan como escudo de cada retador en `/partidas`
+(`src/components/partidas/RetadorBadge.tsx`); si un lado no tiene
+retador todavía, se pinta un escudo neutro con "?" y "Esperando retador".
+
+### Perfil del jugador (`/perfil`)
+
+El panadero edita su propia cuenta desde `/perfil` (accesible desde el
+bloque de identidad a la izquierda del header):
+
+- **Nickname** — único. El unique index de `perfiles.nickname` lo
+  garantiza y el RPC `actualizar_nickname` además compara sin distinguir
+  mayúsculas, traduciendo el choque a un mensaje entendible.
+- **Correo** — se cambia en Supabase Auth (no en `perfiles`, que no lo
+  guarda) con `email_confirm: true`, igual que el registro: efectivo de
+  inmediato, sin pedir confirmación por correo.
+- **Teléfono** — **no** se edita directamente. El jugador manda una
+  solicitud y un admin la aprueba desde `/bakery/telefonos`; recién ahí
+  se escribe en `perfiles.phone`. Se trata distinto a propósito: es el
+  dato con el que el equipo identifica los depósitos de una recarga, así
+  que dejarlo editable abriría la puerta a reclamar depósitos ajenos. Un
+  unique index parcial limita a una solicitud pendiente por usuario.
 
 ## Conectar una API REST (Laravel u otra)
 
@@ -324,9 +343,16 @@ staff" arriba).
      agrega los RPC `admin_creditar_saldo` / `admin_otorgar_puntos` — ver
      "Cuentas de jugador y de staff" arriba)
    - `supabase/migrations/0006_eventos_categoria_cierre.sql` (columnas
-     `eventos.categoria` / `eventos.cierra_en`, y `crear_apuesta` ahora
-     rechaza apuestas nuevas después de `cierra_en` — necesaria para que
-     `/partidas` funcione)
+     `eventos.categoria` / `eventos.cierra_en`; `crear_apuesta` ahora
+     rechaza apuestas después de `cierra_en` y fuera del rango S/10–S/100
+     — necesaria para que `/partidas` funcione)
+   - `supabase/migrations/0007_resolver_evento_puntos.sql`
+     (`resolver_evento` además reparte los puntos de progresión: +5 al
+     lado que acertó, +1 al que no, dentro de la misma transacción que la
+     liquidación del dinero)
+   - `supabase/migrations/0008_solicitudes_telefono.sql` (tabla
+     `solicitudes_telefono` + RLS, RPC `admin_resolver_solicitud_telefono`
+     y `actualizar_nickname` — ver "Perfil del jugador" abajo)
 3. Copia `.env.example` → `.env.local` y completa `NEXT_PUBLIC_SUPABASE_URL`,
    `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` (esta
    última es secreta, solo se usa en el servidor — nunca la expongas al

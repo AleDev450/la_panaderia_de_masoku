@@ -14,6 +14,7 @@ export type TipoMovimientoSaldo =
   | "devolucion"
   | "pago_ganancia"
   | "cancelacion";
+export type EstadoSolicitud = "pendiente" | "aprobada" | "rechazada";
 
 // These use `type` (object literal aliases), not `interface`: TypeScript
 // only grants object *literal* types an implicit string index signature,
@@ -90,6 +91,18 @@ export type ComisionPlataforma = {
   created_at: string;
 };
 
+export type SolicitudTelefono = {
+  id: string;
+  usuario_id: string;
+  telefono_actual: string | null;
+  telefono_nuevo: string;
+  motivo: string | null;
+  estado: EstadoSolicitud;
+  revisado_por: string | null;
+  revisado_at: string | null;
+  created_at: string;
+};
+
 // Shape required by @supabase/postgrest-js's `GenericSchema` — every
 // table needs `Relationships` even if empty, and `Views` must exist even
 // unused, or the RPC/`.from()` generics silently collapse to `never`.
@@ -128,6 +141,11 @@ export interface Database {
         Insert: Partial<ComisionPlataforma>;
         Update: Partial<ComisionPlataforma>;
       } & NoRelationships;
+      solicitudes_telefono: {
+        Row: SolicitudTelefono;
+        Insert: Partial<SolicitudTelefono>;
+        Update: Partial<SolicitudTelefono>;
+      } & NoRelationships;
     };
     Views: Record<string, never>;
     Functions: {
@@ -158,6 +176,14 @@ export interface Database {
       };
       admin_otorgar_puntos: {
         Args: { p_admin_id: string; p_usuario_id: string; p_puntos: number };
+        Returns: Perfil;
+      };
+      admin_resolver_solicitud_telefono: {
+        Args: { p_admin_id: string; p_solicitud_id: string; p_aprobar: boolean };
+        Returns: SolicitudTelefono;
+      };
+      actualizar_nickname: {
+        Args: { p_usuario_id: string; p_nickname: string };
         Returns: Perfil;
       };
     };

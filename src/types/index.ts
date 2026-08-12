@@ -5,86 +5,17 @@ export interface User {
   fullName: string;
   phone: string; // 9 digits, without +51 prefix
   nickname: string;
+  /** Vive en Supabase Auth, no en `perfiles` — lo inyecta SessionContext desde la sesión. */
+  email: string;
   balance: number;
   puntos: number;
   rol: Rol;
   createdAt: string;
 }
 
-export interface Team {
-  id: string;
-  name: string;
-  crest: TeamCrest;
-  colorFrom: string;
-  colorTo: string;
-}
-
-/** Original, non-licensed crest identifiers rendered as inline SVG icons. */
-export type TeamCrest =
-  | "forge"
-  | "moon"
-  | "bakers"
-  | "raven"
-  | "stag"
-  | "eye"
-  | "generic";
-
-export type BetSide = "GANA" | "PIERDE";
-
-export interface Bet {
-  id: string;
-  matchId: string;
-  userId: string;
-  userNickname: string;
-  side: BetSide;
-  amount: number;
-  createdAt: string;
-}
-
-export interface PendingChallenge {
-  status: "pending";
-  id: string;
-  matchId: string;
-  amount: number;
-  side: BetSide;
-  creatorBet: Bet;
-}
-
-export interface PairedBet {
-  status: "paired";
-  id: string;
-  matchId: string;
-  amount: number;
-  ganaBet: Bet;
-  pierdeBet: Bet;
-  pairedAt: string;
-}
-
-export type Duel = PendingChallenge | PairedBet;
-
-export type MatchFormat = "BO3";
-
-/** Lifecycle of a título de apuesta: abierto acepta retos, cerrado ya no
- * (por vencimiento del contador), resuelto ya tiene resultado declarado. */
-export type MatchEstado = "abierto" | "cerrado" | "resuelto";
-
-export interface Match {
-  id: string;
-  /** Título de la apuesta, definido por un admin (p.ej. "¿Crimson Forge gana la serie?"). */
-  titulo: string;
-  teamA: Team;
-  teamB: Team;
-  time: string;
-  format: MatchFormat;
-  duel: Duel | null;
-  /** Minutos desde `creadoEn` hasta que se cierra el título (default 10, editable por admin). */
-  duracionMin: number;
-  creadoEn: string;
-  estado: MatchEstado;
-  /** GANA => teamA ganó la serie; PIERDE => teamA la perdió. Solo si estado === 'resuelto'. */
-  resultado?: BetSide;
-}
-
+/** Límites por apuesta — los mismos que anuncia el arte del footer
+ * ("APUESTA MÍNIMA S/10 · MÁXIMA S/100"). Se validan en el schema Zod
+ * (`crearApuestaSchema`) y otra vez en `crear_apuesta` (SQL). */
 export const BET_MIN = 10;
 export const BET_MAX = 100;
 export const DURACION_MIN_DEFAULT = 10;

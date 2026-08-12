@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BET_MAX, BET_MIN } from "@/types";
 
 const money = z
   .number()
@@ -10,7 +11,11 @@ const money = z
 export const crearApuestaSchema = z.object({
   eventoId: z.string().uuid("Evento inválido."),
   lado: z.enum(["a", "b"]),
-  monto: money,
+  // Los mismos límites que anuncia el arte del footer; `crear_apuesta`
+  // los vuelve a validar en SQL (esta capa no es la única defensa).
+  monto: money
+    .min(BET_MIN, `La apuesta mínima es S/${BET_MIN}.`)
+    .max(BET_MAX, `La apuesta máxima es S/${BET_MAX}.`),
 });
 export type CrearApuestaInput = z.infer<typeof crearApuestaSchema>;
 

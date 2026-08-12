@@ -39,19 +39,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
 
-    async function syncFromSession(userId: string | undefined) {
-      const fresh = userId ? await getUserById(userId) : null;
+    async function syncFromSession(userId: string | undefined, email: string | undefined) {
+      const fresh = userId ? await getUserById(userId, email) : null;
       setUser(fresh);
     }
 
     supabase.auth.getSession().then(({ data }) => {
-      syncFromSession(data.session?.user.id).finally(() => setIsReady(true));
+      syncFromSession(data.session?.user.id, data.session?.user.email).finally(() =>
+        setIsReady(true)
+      );
     });
 
     // Mantiene el estado al día si la sesión cambia en otra pestaña, expira,
     // o se refresca el token — fuente de verdad real, no un cache propio.
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      syncFromSession(session?.user.id);
+      syncFromSession(session?.user.id, session?.user.email);
     });
 
     return () => listener.subscription.unsubscribe();
@@ -76,7 +78,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     if (!user) return;
-    const fresh = await getUserById(user.id);
+    // Relee el correo desde la sesión: puede haber cambiado desde /perfil.
+    const { data } = await createSupabaseBrowserClient().auth.getUser();
+    const fresh = await getUserById(user.id, data.user?.email ?? user.email);
     if (fresh) setUser(fresh);
   }, [user]);
 
