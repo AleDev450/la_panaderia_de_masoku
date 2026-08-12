@@ -2,7 +2,7 @@ import Image from "next/image";
 
 export function GameRulesSidebar() {
   return (
-    <div className="flex flex-col items-center gap-5 lg:block">
+    <div className="flex w-full flex-col items-center gap-5 lg:block">
       {/* El cartel "Hoy se hornea" trae el VS de panes dibujado — se
           mantiene decorativo y se duplica como texto accesible. */}
       <div

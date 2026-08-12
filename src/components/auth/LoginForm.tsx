@@ -55,7 +55,7 @@ export function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => vo
           value={identifier}
           onChange={(e) => setIdentifier(e.target.value)}
           autoComplete="username"
-          box={{ top: "36.1%", left: "28%", width: "44%", height: "4.2%" }}
+          box={{ top: "36.1%", left: "28%", width: "44%", height: "4.8%" }}
         />
         <ArtInput
           id="login-password"
@@ -64,7 +64,7 @@ export function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => vo
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
-          box={{ top: "53.6%", left: "28%", width: "44%", height: "4.2%" }}
+          box={{ top: "52.4%", left: "28%", width: "44%", height: "5.4%" }}
         />
 
         {error ? (

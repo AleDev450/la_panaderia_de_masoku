@@ -55,7 +55,7 @@ export default function Home() {
 
       <section
         aria-label="Hoy se hornea"
-        className="flex w-full justify-center px-4 pt-6 lg:absolute lg:left-[32%] lg:top-[40%] lg:w-[32%] lg:px-0 lg:pt-0"
+        className="flex w-full justify-center px-4 pt-6 lg:absolute lg:left-[40%] lg:top-[50%] lg:w-[26%] lg:px-0 lg:pt-0"
       >
         <GameRulesSidebar />
       </section>
@@ -67,7 +67,7 @@ export default function Home() {
         <AuthPanel />
       </section>
 
-      <footer className="relative z-[2] flex justify-center px-4 py-6 lg:absolute lg:left-[30%] lg:top-[85%] lg:h-[9%] lg:w-[40%] lg:py-0">
+      <footer className="relative z-[2] flex justify-center px-4 py-6 lg:absolute lg:left-[4%] lg:top-[78%] lg:h-[20%] lg:w-[90%] lg:py-0">
         <BettingNotice />
       </footer>
     </div>
