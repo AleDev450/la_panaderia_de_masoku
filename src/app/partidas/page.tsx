@@ -79,7 +79,7 @@ function PartidasContent() {
   return (
     <>
       <Header />
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
         <div className="text-center">
           <h1 className="font-fantasy text-3xl font-bold tracking-wide text-parchment sm:text-4xl">
             Partidas de hoy
@@ -131,7 +131,9 @@ function PartidasContent() {
               : "Nadie ha abierto sala en esta categoría. Sé el primero."}
           </p>
         ) : (
-          <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          // Dos columnas como máximo: con tres, cada sala quedaba tan
+          // angosta que el campo de monto no se leía.
+          <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2">
             {salas.map((resumen) => (
               <PartidaCard key={resumen.evento.id} resumen={resumen} onApostar={handleApostar} />
             ))}

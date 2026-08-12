@@ -168,7 +168,7 @@ export function CrearSalaModal({
                   inputMode="decimal"
                   value={monto}
                   onChange={(e) => setMonto(e.target.value)}
-                  className="min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-lg font-semibold text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+                  className="min-h-12 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-lg font-semibold text-parchment outline-none [appearance:textfield] focus-visible:ring-2 focus-visible:ring-gold-light [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 />
                 <p className="mt-1.5 text-xs text-parchment/50">
                   Otros panaderos podrán cubrir tu monto por partes, desde el

@@ -45,51 +45,63 @@ export function LadoPanel({
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col items-center gap-3 rounded-md border border-gold-dark/40 p-3">
+    <div className="flex min-w-0 flex-1 flex-col items-center gap-3 rounded-md border border-gold-dark/40 p-4">
       <p
         className={clsx(
-          "font-fantasy text-xs font-bold uppercase tracking-wide",
+          "font-fantasy text-sm font-bold uppercase tracking-wide",
           lado === "a" ? "text-win-glow" : "text-lose-glow"
         )}
       >
         {resumen.label}
       </p>
 
-      <RetadorBadge retador={resumen.retador} />
+      <RetadorBadge retador={resumen.retador} size={56} />
 
       {tieneRetador ? (
-        <p className="text-center text-[11px] text-parchment/50">
-          Pidió S/{resumen.montoObjetivo} · faltan S/{resumen.montoPendiente}
+        <p className="text-center text-xs text-parchment/60">
+          Pidió S/{resumen.montoObjetivo} ·{" "}
+          <span className="font-semibold text-gold-light">
+            faltan S/{resumen.montoPendiente}
+          </span>
         </p>
       ) : null}
 
       {disabled ? (
         <p className="text-center text-[11px] text-parchment/40">Título cerrado</p>
       ) : (
-        <form onSubmit={handleSubmit} className="flex w-full flex-col gap-1.5">
-          <div className="flex gap-1.5">
+        // Input y botón apilados, no lado a lado: la tarjeta ya está
+        // partida en dos columnas, y meterlos en la misma fila dejaba el
+        // campo tan angosto que no se leía el monto que escribías.
+        <form onSubmit={handleSubmit} className="mt-auto flex w-full flex-col gap-2">
+          <div className="relative">
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-fantasy text-sm font-bold text-parchment/40"
+            >
+              S/
+            </span>
             <input
               type="number"
               min={1}
               step="0.01"
               inputMode="decimal"
-              placeholder={tieneRetador ? `hasta S/${resumen.montoPendiente}` : "S/"}
+              placeholder={tieneRetador ? String(resumen.montoPendiente) : "0"}
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
               aria-label={`Monto a apostar en ${resumen.label}`}
-              className="min-h-9 w-0 flex-1 rounded-md border border-gold-dark bg-obsidian/60 px-2 text-sm text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+              className="min-h-12 w-full rounded-md border border-gold-dark bg-obsidian/60 py-2 pl-9 pr-3 text-center font-fantasy text-lg font-bold text-parchment outline-none [appearance:textfield] focus-visible:ring-2 focus-visible:ring-gold-light [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
-            <Button
-              type="submit"
-              variant={lado === "a" ? "win" : "lose"}
-              disabled={submitting}
-              className="min-h-9 px-3 py-0 text-xs"
-            >
-              {submitting ? "…" : "Apostar"}
-            </Button>
           </div>
+          <Button
+            type="submit"
+            variant={lado === "a" ? "win" : "lose"}
+            disabled={submitting}
+            className="w-full"
+          >
+            {submitting ? "Apostando…" : "Apostar"}
+          </Button>
           {error ? (
-            <p role="alert" className="text-[11px] text-lose-glow">
+            <p role="alert" className="text-center text-[11px] text-lose-glow">
               {error}
             </p>
           ) : null}
