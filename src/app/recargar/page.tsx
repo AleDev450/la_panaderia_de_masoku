@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import clsx from "clsx";
 import { RequirePlayer } from "@/components/RequirePlayer";
 import { Header } from "@/components/Header";
@@ -90,11 +91,53 @@ function RecargarContent() {
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
         <h1 className="font-fantasy text-3xl font-bold text-parchment">Recargar saldo</h1>
         <p className="mt-2 text-sm text-parchment/60">
-          Adjunta una imagen del comprobante de tu depósito — así el equipo
-          puede verificar la hora y aprobar tu recarga.
+          Yapea el monto al QR, guarda la captura y súbela acá. El equipo
+          verifica la hora y el monto del depósito antes de acreditarte.
         </p>
 
         <Panel className="mt-6 p-5">
+          <h2 className="font-fantasy text-lg font-semibold text-gold-light">
+            1 · Yapea el monto
+          </h2>
+          <p className="mt-1 text-sm text-parchment/60">
+            Escanea el QR desde la app de Yape, o tómale captura y súbelo
+            desde tu galería.
+          </p>
+
+          <div className="mt-4 flex justify-center">
+            {/* Fondo blanco fijo: el QR necesita contraste alto para que la
+                cámara lo lea, y el tema del sitio es oscuro. */}
+            <a
+              href="/images/yape-qr.jpg"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Abrir el QR de Yape en grande"
+              className="rounded-lg bg-white p-2 transition hover:brightness-105 focus-visible:ring-2 focus-visible:ring-gold-light"
+            >
+              <Image
+                src="/images/yape-qr.jpg"
+                alt="Código QR de Yape para depositar"
+                width={916}
+                height={1016}
+                className="h-auto w-full max-w-[16rem] select-none"
+                priority
+              />
+            </a>
+          </div>
+
+          <p className="mt-3 text-center text-xs text-parchment/50">
+            Toca el QR para verlo en grande
+          </p>
+        </Panel>
+
+        <Panel className="mt-4 p-5">
+          <h2 className="mb-1 font-fantasy text-lg font-semibold text-gold-light">
+            2 · Registra tu depósito
+          </h2>
+          <p className="mb-4 text-sm text-parchment/60">
+            El monto debe coincidir con el del comprobante — si no cuadra, el
+            equipo acredita lo que diga la captura.
+          </p>
           <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
             <fieldset>
               <legend className="mb-1.5 block text-sm text-parchment/80">
@@ -122,8 +165,12 @@ function RecargarContent() {
 
             <div>
               <label htmlFor="comprobante" className="mb-1.5 block text-sm text-parchment/80">
-                Comprobante (imagen)
+                Captura del Yape
               </label>
+              <p className="mb-1.5 text-xs text-parchment/50">
+                Debe verse la hora y el monto — es con eso que el equipo
+                confirma tu depósito.
+              </p>
               <input
                 id="comprobante"
                 ref={fileInputRef}

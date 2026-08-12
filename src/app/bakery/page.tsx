@@ -44,11 +44,17 @@ function AdminHomeContent() {
 
         <section className="mt-8">
           <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">Hoy</h2>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <Metrica
               label="Depositado"
               valor={metricas ? `S/${metricas.depositado_hoy}` : "—"}
               detalle="Recargas aprobadas"
+            />
+            <Metrica
+              label="Retirado"
+              valor={metricas ? `S/${metricas.retirado_hoy}` : "—"}
+              detalle="Retiros pagados"
+              tono="lose"
             />
             <Metrica
               label="Pagado"
@@ -85,6 +91,13 @@ function AdminHomeContent() {
             descripcion="Revisa comprobantes, corrige montos y acredita saldo."
             valor={pendientes}
             unidad="pendientes"
+          />
+          <Tarjeta
+            href="/bakery/retiros"
+            titulo="Retiros"
+            descripcion="Yapea a los jugadores y marca como pagado."
+            valor={metricas?.retiros_pendientes ?? null}
+            unidad="por pagar"
           />
           <Tarjeta
             href="/bakery/usuarios"

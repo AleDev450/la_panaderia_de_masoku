@@ -15,8 +15,8 @@ quien eligió el lado contrario.
 1. El staff publica un **título del día** (pregunta + lado A + lado B +
    categoría + minutos hasta el cierre).
 2. Un jugador **abre sala**: elige un título, un lado y un monto
-   (S/10–S/100). Necesita saldo, que carga subiendo el comprobante de un
-   depósito para que el staff lo apruebe.
+   (S/10–S/100). Necesita saldo, que carga yapeando al QR de la casa y
+   subiendo la captura para que el staff la apruebe.
 3. Otros lo **cubren por partes**. El emparejamiento es FIFO y parcial:
    varias personas pueden cubrir a una sola, con montos distintos. Nadie
    se empareja consigo mismo.
@@ -25,6 +25,9 @@ quien eligió el lado contrario.
    0.20 por unidad emparejada — ganancia fija, sin riesgo de mercado.
 5. Se reparten puntos: **+5** al que acertó, **+1** al que no (solo si
    llegó a emparejar algo). Los puntos suben el rango del panadero.
+6. Para **retirar**, el jugador solicita un monto de su saldo disponible.
+   Ese monto se aparta al instante — no se puede apostar ni pedir dos
+   veces — y el staff lo yapea al número registrado y marca como pagado.
 
 ## Tecnologías
 
@@ -97,8 +100,9 @@ src/
     mis-apuestas/         Apuestas activas, con cancelación parcial
     historial/            Apuestas resueltas: lo cobrado y lo devuelto
     ranking/               Ranking de puntos / niveles
-    recargar/               Subir comprobante de recarga
-    perfil/                  Nickname, correo, solicitud de cambio de teléfono
+    recargar/               Yapear al QR y subir el comprobante
+    retirar/                 Solicitar retiro del saldo disponible
+    perfil/                   Nickname, correo, solicitud de cambio de teléfono
     como-jugar/               Reglas del motor
   components/            Header, LevelBadge, guards de ruta, partidas/, auth/, ui/
   context/               Estado global: sesión y notificaciones
@@ -161,13 +165,18 @@ Lo que puede hacer:
   reabrir un título vencido, la función empuja el contador hacia adelante
   — si no, quedaría abierto pero rechazando por tiempo.
 - **Declarar resultados**, lo que dispara la liquidación completa.
-- **Revisar recargas**: ve nickname, nombre y teléfono del jugador, amplía
+- **Revisar recargas**: el jugador yapea al QR (`public/images/yape-qr.jpg`)
+  y sube la captura. El staff ve nickname, nombre y teléfono del jugador, amplía
   el comprobante para leer la hora y el monto, y **corrige el monto** si no
   coincide con lo declarado. Se guardan por separado `monto_solicitado` y
   `monto_acreditado`, así queda registro de la discrepancia. Aprobar
   acredita el saldo y cierra la recarga en una sola transacción.
-- **Ver usuarios y el movimiento del día**: depositado, pagado en premios,
-  y ganancia del día y acumulada.
+- **Pagar retiros**: la cola muestra a quién yapear, a qué número y cuánto,
+  con el total pendiente. El saldo del jugador ya está apartado desde que
+  lo solicitó; marcarlo pagado lo saca definitivamente del sistema, y
+  rechazarlo se lo devuelve con un motivo que el jugador ve.
+- **Ver usuarios y el movimiento del día**: depositado, retirado, pagado en
+  premios, y ganancia del día y acumulada.
 - **Suspender cuentas** por incumplimiento. No borra nada: el usuario
   conserva saldo e historial y sus apuestas en curso se liquidan
   normalmente, solo no puede crear nuevas. Nadie puede suspenderse a sí

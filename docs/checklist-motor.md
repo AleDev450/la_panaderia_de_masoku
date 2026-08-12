@@ -3,7 +3,7 @@
 "Compiló" no prueba nada de lo que importa acá: el emparejamiento parcial,
 la cuota 1.80x, la devolución de lo no cubierto y los puntos viven en
 PL/pgSQL, donde ningún test de TypeScript llega. Este checklist es la
-única forma de saber que las migraciones `0006`–`0008` quedaron bien
+única forma de saber que las migraciones `0006`–`0012` quedaron bien
 aplicadas.
 
 Corre las queries en **SQL Editor** de Supabase. Los pasos de UI, en la app.
@@ -17,12 +17,13 @@ Corre las queries en **SQL Editor** de Supabase. Los pasos de UI, en la app.
 select column_name from information_schema.columns
 where table_name = 'eventos' and column_name in ('categoria', 'cierra_en');
 
--- Esperado: 11 filas
+-- Esperado: 13 filas
 select proname from pg_proc where proname in (
   'crear_apuesta', 'resolver_evento', 'handle_new_user',
   'admin_creditar_saldo', 'admin_otorgar_puntos', 'actualizar_nickname',
   'admin_resolver_solicitud_telefono', 'admin_resolver_recarga',
-  'admin_banear_usuario', 'admin_cambiar_estado_evento', 'admin_metricas'
+  'admin_banear_usuario', 'admin_cambiar_estado_evento', 'admin_metricas',
+  'solicitar_retiro', 'admin_resolver_retiro'
 );
 
 -- Esperado: 4 filas (columnas de suspensión, migración 0010)
@@ -30,9 +31,12 @@ select column_name from information_schema.columns
 where table_name = 'perfiles'
   and column_name in ('baneado', 'baneado_motivo', 'baneado_at', 'baneado_por');
 
--- Esperado: 2 filas (cola de teléfonos y recargas)
+-- Esperado: 3 filas (cola de teléfonos, recargas y retiros)
 select tablename from pg_tables
-where tablename in ('solicitudes_telefono', 'recargas');
+where tablename in ('solicitudes_telefono', 'recargas', 'retiros');
+
+-- Esperado: true (0012 agregó el tipo de movimiento del retiro)
+select 'retiro' = any(enum_range(null::tipo_movimiento_saldo)::text[]) as tiene_retiro;
 
 -- Esperado: que el cuerpo mencione 'puntos' (0007 aplicada) y que
 -- crear_apuesta mencione 'cierra_en' (0006 aplicada)
@@ -211,6 +215,48 @@ registro de que declaró 50 pero se le acreditó 30.
 6. Intenta aprobar **la misma recarga otra vez** (recarga la página y
    vuelve a darle) → debe rechazar con "Esta recarga ya fue revisada". Eso
    confirma que no se puede acreditar saldo dos veces.
+
+---
+
+## 5bis. Retiros
+
+Lo que hay que probar es que **el saldo se aparta al solicitar**, no al
+pagar. Si no, el mismo dinero se podría apostar o pedir dos veces mientras
+la solicitud espera.
+
+Como jugador con saldo (digamos S/148 disponible tras §5), en `/retirar`
+pide **S/100**.
+
+```sql
+select saldo_disponible, saldo_retenido from perfiles where nickname = 'JUGADOR_A';
+select monto, telefono_destino, estado from retiros order by created_at desc limit 1;
+```
+
+**Esperado:** `saldo_disponible` bajó 100 y `saldo_retenido` subió 100 — el
+dinero sigue en el sistema pero ya no es gastable. El retiro queda
+`pendiente` con el teléfono del perfil como destino.
+
+Ahora comprueba que **ese saldo ya no se puede usar**:
+
+- Intenta apostar más de lo que queda disponible → "Saldo disponible
+  insuficiente".
+- Intenta pedir un segundo retiro → "Ya tienes un retiro pendiente de pago".
+
+**Marcar pagado** (como staff, en la cola de retiros):
+
+```sql
+select saldo_disponible, saldo_retenido from perfiles where nickname = 'JUGADOR_A';
+select tipo, monto from movimientos_saldo
+where usuario_id = (select id from perfiles where nickname = 'JUGADOR_A')
+order by created_at desc limit 2;
+```
+
+**Esperado:** `saldo_retenido` bajó 100 y `saldo_disponible` **no cambió** —
+el dinero salió del sistema. Queda un movimiento `retiro` de 100.
+
+**Rechazar** (repite con otro retiro): `saldo_retenido` baja 100 y
+`saldo_disponible` sube 100, con un movimiento `devolucion`. El jugador ve
+el motivo en `/retirar`.
 
 ---
 

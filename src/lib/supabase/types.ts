@@ -13,7 +13,9 @@ export type TipoMovimientoSaldo =
   | "retencion"
   | "devolucion"
   | "pago_ganancia"
-  | "cancelacion";
+  | "cancelacion"
+  | "retiro";
+export type EstadoRetiro = "pendiente" | "pagado" | "rechazado";
 export type EstadoSolicitud = "pendiente" | "aprobada" | "rechazada";
 export type EstadoRecarga = "pendiente" | "aprobada" | "rechazada";
 
@@ -117,12 +119,27 @@ export type Recarga = {
  * y la UI los normaliza con Number(). */
 export type AdminMetricas = {
   depositado_hoy: number;
+  retirado_hoy: number;
   pagado_hoy: number;
   ganancia_hoy: number;
   ganancia_total: number;
   usuarios_total: number;
   usuarios_baneados: number;
   eventos_abiertos: number;
+  retiros_pendientes: number;
+};
+
+export type Retiro = {
+  id: string;
+  usuario_id: string;
+  monto: number;
+  /** Copia del teléfono al momento de pedir el retiro. */
+  telefono_destino: string;
+  estado: EstadoRetiro;
+  motivo_rechazo: string | null;
+  revisado_por: string | null;
+  revisado_at: string | null;
+  created_at: string;
 };
 
 export type SolicitudTelefono = {
@@ -184,6 +201,11 @@ export interface Database {
         Row: Recarga;
         Insert: Partial<Recarga>;
         Update: Partial<Recarga>;
+      } & NoRelationships;
+      retiros: {
+        Row: Retiro;
+        Insert: Partial<Retiro>;
+        Update: Partial<Retiro>;
       } & NoRelationships;
     };
     Views: Record<string, never>;
@@ -255,6 +277,19 @@ export interface Database {
       admin_metricas: {
         Args: { p_admin_id: string };
         Returns: AdminMetricas[];
+      };
+      solicitar_retiro: {
+        Args: { p_usuario_id: string; p_monto: number };
+        Returns: Retiro;
+      };
+      admin_resolver_retiro: {
+        Args: {
+          p_admin_id: string;
+          p_retiro_id: string;
+          p_pagar: boolean;
+          p_motivo?: string | null;
+        };
+        Returns: Retiro;
       };
     };
   };

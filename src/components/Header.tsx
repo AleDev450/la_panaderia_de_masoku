@@ -14,7 +14,8 @@ const NAV_JUGADOR = [
   { href: "/mis-apuestas", label: "Mis apuestas" },
   { href: "/historial", label: "Historial" },
   { href: "/ranking", label: "Ranking" },
-  { href: "/recargar", label: "Recargar saldo" },
+  { href: "/recargar", label: "Recargar" },
+  { href: "/retirar", label: "Retirar" },
   { href: "/como-jugar", label: "Cómo jugar" },
 ];
 
@@ -24,6 +25,7 @@ const NAV_ADMIN = [
   { href: "/bakery", label: "Panel" },
   { href: "/bakery/titulos", label: "Títulos" },
   { href: "/bakery/recargas", label: "Recargas" },
+  { href: "/bakery/retiros", label: "Retiros" },
   { href: "/bakery/usuarios", label: "Usuarios" },
   { href: "/bakery/telefonos", label: "Teléfonos" },
 ];

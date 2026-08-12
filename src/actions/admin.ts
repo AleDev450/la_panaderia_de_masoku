@@ -60,12 +60,14 @@ export async function getMetricas(): Promise<ActionResult<AdminMetricas>> {
     ok: true,
     data: {
       depositado_hoy: Number(fila.depositado_hoy),
+      retirado_hoy: Number(fila.retirado_hoy),
       pagado_hoy: Number(fila.pagado_hoy),
       ganancia_hoy: Number(fila.ganancia_hoy),
       ganancia_total: Number(fila.ganancia_total),
       usuarios_total: Number(fila.usuarios_total),
       usuarios_baneados: Number(fila.usuarios_baneados),
       eventos_abiertos: Number(fila.eventos_abiertos),
+      retiros_pendientes: Number(fila.retiros_pendientes),
     },
   };
 }
