@@ -9,7 +9,15 @@
 -- la resolución sigue siendo una acción manual del admin, igual que hoy).
 -- =============================================================================
 
-create type categoria_evento as enum ('dota2', 'csgo', 'lol', 'valorant', 'otros');
+-- Postgres no tiene `create type if not exists`; el DO block deja la
+-- migración re-ejecutable sin chocar con "type already exists".
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'categoria_evento') then
+    create type categoria_evento as enum ('dota2', 'csgo', 'lol', 'valorant', 'otros');
+  end if;
+end
+$$;
 
 alter table eventos
   add column if not exists categoria categoria_evento not null default 'otros',

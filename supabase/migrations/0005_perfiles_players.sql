@@ -77,6 +77,10 @@ $$;
 drop policy if exists perfiles_insert_own on perfiles;
 drop policy if exists perfiles_select_own on perfiles;
 
+-- `drop ... if exists` antes del create para que esta migración se pueda
+-- re-ejecutar sin chocar con "policy already exists" (Postgres no tiene
+-- `create policy if not exists`).
+drop policy if exists perfiles_select_authenticated on perfiles;
 create policy perfiles_select_authenticated on perfiles
   for select using (auth.role() = 'authenticated');
 
