@@ -100,7 +100,7 @@ function RecargarContent() {
             1 · Yapea el monto
           </h2>
           <p className="mt-1 text-sm text-parchment/60">
-            Escanea el QR desde la app de Yape, o tómale captura y súbelo
+            Escanea el QR desde la app de Yape, tómale captura y súbelo
             desde tu galería.
           </p>
 
