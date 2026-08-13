@@ -15,9 +15,7 @@ import {
   resolverRecarga,
 } from "@/actions/recargas";
 
-/** El borrado masivo es una herramienta de pruebas: la Server Action
- * también se niega en producción, esto solo evita mostrar el botón. */
-const ES_DESARROLLO = process.env.NODE_ENV !== "production";
+import { HERRAMIENTAS_PRUEBA } from "@/lib/flags";
 
 function AdminRecargasContent() {
   const { showToast } = useToast();
@@ -114,15 +112,16 @@ function AdminRecargasContent() {
           antes de aprobar.
         </p>
 
-        {ES_DESARROLLO && (recargas?.length ?? 0) > 0 ? (
+        {HERRAMIENTAS_PRUEBA && (recargas?.length ?? 0) > 0 ? (
           <Panel className="mt-6 flex flex-wrap items-center justify-between gap-3 border-dashed border-lose/40 p-4">
             <div>
               <p className="font-fantasy text-sm font-bold text-lose-glow">
                 Herramienta de pruebas
               </p>
               <p className="mt-0.5 text-xs text-parchment/50">
-                Borra las {recargas?.length} recargas de la tabla. Solo visible
-                en desarrollo.
+                Borra las {recargas?.length} recargas de la tabla. Desactívalo
+                con NEXT_PUBLIC_HERRAMIENTAS_PRUEBA=false antes de abrir el
+                registro al público.
               </p>
             </div>
             <Button

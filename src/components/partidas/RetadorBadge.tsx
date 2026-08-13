@@ -37,32 +37,44 @@ function EscudoVacante({ size }: { size: number }) {
 export function RetadorBadge({
   retador,
   size = 48,
+  /** Solo la insignia, sin el nickname debajo — para listas donde el
+   * nombre ya se muestra al costado. */
+  soloEscudo = false,
 }: {
   retador: { nickname: string; puntos: number } | null;
   size?: number;
+  soloEscudo?: boolean;
 }) {
   if (!retador) {
     return (
-      <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+      <div className="flex min-w-0 flex-col items-center gap-1.5">
         <EscudoVacante size={size} />
-        <p className="text-center text-xs text-parchment/50">Esperando retador</p>
+        {soloEscudo ? null : (
+          <p className="text-center text-xs text-parchment/50">Esperando retador</p>
+        )}
       </div>
     );
   }
 
   const level = getLevelForPoints(retador.puntos);
+  const insignia = (
+    <Image
+      src={`/images/levels/nivel-${level.id}.png`}
+      alt=""
+      aria-hidden
+      width={size}
+      height={size}
+      title={`${level.nombre} · ${retador.puntos} pts`}
+      className="shrink-0 select-none object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]"
+      style={{ width: size, height: size }}
+    />
+  );
+
+  if (soloEscudo) return insignia;
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
-      <Image
-        src={`/images/levels/nivel-${level.id}.png`}
-        alt=""
-        aria-hidden
-        width={size}
-        height={size}
-        className="shrink-0 select-none object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]"
-        style={{ width: size, height: size }}
-      />
+    <div className="flex min-w-0 flex-col items-center gap-1.5">
+      {insignia}
       <p className="w-full truncate text-center text-xs font-semibold text-parchment/85 sm:text-sm">
         {retador.nickname}
       </p>

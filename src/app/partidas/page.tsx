@@ -13,6 +13,7 @@ import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
 import { crearApuesta, getEventosHoy, EventoResumen } from "@/actions/betting";
 import { CategoriaEvento } from "@/lib/supabase/types";
+import { pagoPorMatcheado } from "@/lib/apuestas";
 
 function PartidasContent() {
   const router = useRouter();
@@ -38,6 +39,10 @@ function PartidasContent() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time bootstrap on mount
     refresh();
+    // Otros jugadores entran a las salas mientras miras: sin esto habría
+    // que recargar a mano para ver quién cubrió tu apuesta.
+    const id = setInterval(refresh, 10_000);
+    return () => clearInterval(id);
   }, [refresh]);
 
   const visibles = useMemo(
@@ -52,14 +57,16 @@ function PartidasContent() {
   // títulos disponibles para abrir sala desde el modal. Un título con
   // resultado (aunque todavía se esté confirmando el pago) ya no admite
   // sala nueva: la partida terminó.
-  const salas = visibles.filter((r) => r.ladoA.retador || r.ladoB.retador);
+  const salas = visibles.filter(
+    (r) => r.ladoA.participantes.length > 0 || r.ladoB.participantes.length > 0
+  );
   const disponibles = (eventos ?? []).filter(
     (r) =>
       r.evento.estado === "abierto" &&
       r.evento.resultado_preliminar === null &&
       new Date(r.evento.cierra_en).getTime() > ahora &&
-      !r.ladoA.retador &&
-      !r.ladoB.retador
+      r.ladoA.participantes.length === 0 &&
+      r.ladoB.participantes.length === 0
   );
 
   async function handleApostar(eventoId: string, lado: "a" | "b", monto: number) {
@@ -80,13 +87,20 @@ function PartidasContent() {
     const result = await crearApuesta({ eventoId, lado, monto });
     if (!result.ok) throw new Error(result.error);
 
+    // Cada apuesta es una orden independiente: apostar otra vez al mismo
+    // lado suma exposición, no "edita" la anterior. Se dice explícito
+    // porque el reparto entre emparejado y pendiente confunde si no.
+    const matcheado = Number(result.data.monto_matcheado);
+    const pendiente = Number(result.data.monto_pendiente);
     showToast({
       variant: "success",
-      title: "Apuesta registrada",
+      title: `Apostaste S/${result.data.monto_total}`,
       description:
-        result.data.monto_matcheado > 0
-          ? `Se emparejaron S/${result.data.monto_matcheado} de inmediato.`
-          : "Esperando retador para emparejar tu monto.",
+        matcheado > 0 && pendiente > 0
+          ? `S/${matcheado} ya tienen rival; S/${pendiente} esperan a que alguien los cubra.`
+          : matcheado > 0
+            ? `Ya tiene rival: si ganas cobras S/${pagoPorMatcheado(matcheado)}.`
+            : "Nadie lo ha cubierto todavía. Si nadie lo hace, se te devuelve al cerrar.",
     });
     await Promise.all([refresh(), refreshUser()]);
   }
@@ -150,7 +164,12 @@ function PartidasContent() {
           // angosta que el campo de monto no se leía.
           <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2">
             {salas.map((resumen) => (
-              <PartidaCard key={resumen.evento.id} resumen={resumen} onApostar={handleApostar} />
+              <PartidaCard
+                key={resumen.evento.id}
+                resumen={resumen}
+                miUsuarioId={user?.id}
+                onApostar={handleApostar}
+              />
             ))}
           </div>
         )}

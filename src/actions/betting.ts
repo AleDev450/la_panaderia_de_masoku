@@ -180,13 +180,23 @@ export async function crearEvento(input: CrearEventoInput): Promise<ActionResult
   return { ok: true, data: data as Evento };
 }
 
+export interface ParticipanteLado {
+  usuarioId: string;
+  nickname: string;
+  puntos: number;
+  /** Todo lo que puso esa persona en este lado (puede haber apostado varias veces). */
+  monto: number;
+  montoMatcheado: number;
+}
+
 export interface LadoResumen {
   label: string;
-  /** Monto original pedido por el primer retador abierto de este lado; null = nadie ha apostado todavía. */
-  montoObjetivo: number | null;
-  /** Cuánto le falta a ese primer retador para completarse. */
-  montoPendiente: number;
-  retador: { nickname: string; puntos: number } | null;
+  /** Todos los que apostaron a este lado, ya estén emparejados o no. */
+  participantes: ParticipanteLado[];
+  totalApostado: number;
+  /** Lo que este lado todavía no tiene cubierto. Es exactamente lo que
+   * emparejaría de inmediato alguien que apueste al lado CONTRARIO. */
+  totalPendiente: number;
 }
 
 export interface EventoResumen {
@@ -226,12 +236,14 @@ export async function getEventosHoy(): Promise<ActionResult<EventoResumen[]>> {
   if (!eventos || eventos.length === 0) return { ok: true, data: [] };
 
   const eventoIds = eventos.map((e) => e.id);
+  // Todas las apuestas vivas, no solo las que aún tienen monto sin cubrir.
+  // Antes se filtraba por `monto_pendiente > 0` y eso escondía a quien ya
+  // estaba 100% emparejado — justo el rival contra el que estás jugando.
   const { data: apuestas, error: apuestasError } = await admin
     .from("apuestas")
-    .select("evento_id, lado, usuario_id, monto_total, monto_pendiente")
+    .select("evento_id, lado, usuario_id, monto_total, monto_matcheado, monto_pendiente")
     .in("evento_id", eventoIds)
-    .in("estado", ["pendiente", "parcial"])
-    .gt("monto_pendiente", 0)
+    .neq("estado", "cancelada")
     .order("created_at", { ascending: true });
   if (apuestasError) return { ok: false, error: apuestasError.message };
 
@@ -248,22 +260,45 @@ export async function getEventosHoy(): Promise<ActionResult<EventoResumen[]>> {
     }
   }
 
-  // La primera apuesta abierta (ya ordenada asc por created_at) de cada
-  // lado es "el retador visible" de ese lado en la tarjeta.
-  const primeraApuestaPorEventoLado = new Map<string, (typeof apuestas)[number]>();
+  // Se agrupa por persona, no por apuesta: si alguien apostó dos veces al
+  // mismo lado sigue siendo un solo rival, con la suma de sus montos.
+  // Así "1 vs 3" cuenta personas, que es como lo lee un jugador.
+  const participantesPorEventoLado = new Map<string, Map<string, ParticipanteLado>>();
   for (const a of apuestas ?? []) {
     const key = `${a.evento_id}:${a.lado}`;
-    if (!primeraApuestaPorEventoLado.has(key)) primeraApuestaPorEventoLado.set(key, a);
+    let porUsuario = participantesPorEventoLado.get(key);
+    if (!porUsuario) {
+      porUsuario = new Map();
+      participantesPorEventoLado.set(key, porUsuario);
+    }
+    const perfil = perfilesPorId.get(a.usuario_id);
+    const previo = porUsuario.get(a.usuario_id);
+    porUsuario.set(a.usuario_id, {
+      usuarioId: a.usuario_id,
+      nickname: perfil?.nickname ?? "—",
+      puntos: perfil?.puntos ?? 0,
+      monto: (previo?.monto ?? 0) + Number(a.monto_total),
+      montoMatcheado: (previo?.montoMatcheado ?? 0) + Number(a.monto_matcheado),
+    });
+  }
+
+  const pendientePorEventoLado = new Map<string, number>();
+  for (const a of apuestas ?? []) {
+    const key = `${a.evento_id}:${a.lado}`;
+    pendientePorEventoLado.set(
+      key,
+      (pendientePorEventoLado.get(key) ?? 0) + Number(a.monto_pendiente)
+    );
   }
 
   function resumenDeLado(eventoId: string, lado: "a" | "b", label: string): LadoResumen {
-    const primera = primeraApuestaPorEventoLado.get(`${eventoId}:${lado}`);
-    if (!primera) return { label, montoObjetivo: null, montoPendiente: 0, retador: null };
+    const key = `${eventoId}:${lado}`;
+    const participantes = [...(participantesPorEventoLado.get(key)?.values() ?? [])];
     return {
       label,
-      montoObjetivo: Number(primera.monto_total),
-      montoPendiente: Number(primera.monto_pendiente),
-      retador: perfilesPorId.get(primera.usuario_id) ?? null,
+      participantes,
+      totalApostado: participantes.reduce((sum, p) => sum + p.monto, 0),
+      totalPendiente: pendientePorEventoLado.get(key) ?? 0,
     };
   }
 

@@ -10,6 +10,7 @@ import {
 } from "@/lib/validation/recargas";
 import { Recarga } from "@/lib/supabase/types";
 import { ActionResult } from "@/actions/betting";
+import { HERRAMIENTAS_PRUEBA } from "@/lib/flags";
 
 async function requireSessionUserId(): Promise<
   { ok: true; userId: string } | { ok: false; error: string }
@@ -119,16 +120,15 @@ export async function getRecargas(): Promise<ActionResult<RecargaConUsuario[]>> 
 }
 
 /**
- * Admin-only, solo para pruebas: vacía la tabla de recargas.
+ * Admin-only, herramienta de pruebas: vacía la tabla de recargas.
  *
- * No revierte el saldo ya acreditado (ver 0014). La acción se niega fuera
- * de desarrollo: es una puerta demasiado peligrosa para dejarla abierta en
- * producción aunque la UI no muestre el botón, porque una Server Action es
- * un endpoint POST invocable directamente.
+ * No revierte el saldo ya acreditado (ver 0014). El flag se revalida acá y
+ * no solo en la UI: una Server Action es un endpoint POST invocable
+ * directamente, así que esconder el botón no protegería nada.
  */
 export async function borrarTodasLasRecargas(): Promise<ActionResult<number>> {
-  if (process.env.NODE_ENV === "production") {
-    return { ok: false, error: "No disponible en producción." };
+  if (!HERRAMIENTAS_PRUEBA) {
+    return { ok: false, error: "Las herramientas de prueba están desactivadas." };
   }
 
   const session = await requireSessionUserId();

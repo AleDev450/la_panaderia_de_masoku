@@ -29,9 +29,11 @@ function formatoRestante(ms: number): string {
 
 export function PartidaCard({
   resumen,
+  miUsuarioId,
   onApostar,
 }: {
   resumen: EventoResumen;
+  miUsuarioId?: string;
   onApostar: (eventoId: string, lado: "a" | "b", monto: number) => Promise<void>;
 }) {
   const { evento, ladoA, ladoB, miLado } = resumen;
@@ -62,19 +64,23 @@ export function PartidaCard({
         <LadoPanel
           lado="a"
           resumen={ladoA}
+          resumenContrario={ladoB}
           disabled={cerrado}
           // En una sala se elige un bando: si ya entraste por un lado, el
           // contrario queda bloqueado (crear_apuesta lo rechaza igual).
           bloqueadoPorMiLado={miLado === "b"}
           terminada={terminada}
+          miUsuarioId={miUsuarioId}
           onApostar={(lado, monto) => onApostar(evento.id, lado, monto)}
         />
         <LadoPanel
           lado="b"
           resumen={ladoB}
+          resumenContrario={ladoA}
           disabled={cerrado}
           bloqueadoPorMiLado={miLado === "a"}
           terminada={terminada}
+          miUsuarioId={miUsuarioId}
           onApostar={(lado, monto) => onApostar(evento.id, lado, monto)}
         />
       </div>

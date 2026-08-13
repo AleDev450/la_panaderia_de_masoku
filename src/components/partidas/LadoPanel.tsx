@@ -9,24 +9,32 @@ import { LadoResumen } from "@/actions/betting";
 export function LadoPanel({
   lado,
   resumen,
+  /** Resumen del lado contrario: lo que tu apuesta cubriría al entrar. */
+  resumenContrario,
   disabled,
   bloqueadoPorMiLado = false,
   terminada = false,
+  miUsuarioId,
   onApostar,
 }: {
   lado: "a" | "b";
   resumen: LadoResumen;
+  resumenContrario: LadoResumen;
   disabled: boolean;
   /** Ya apostaste al lado contrario de esta sala. */
   bloqueadoPorMiLado?: boolean;
   terminada?: boolean;
+  miUsuarioId?: string;
   onApostar: (lado: "a" | "b", monto: number) => Promise<void>;
 }) {
   const [monto, setMonto] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
-  const tieneRetador = resumen.retador !== null;
+  const { participantes } = resumen;
+  // Lo que emparejarías al instante si apuestas de este lado es lo que le
+  // falta cubrir al lado CONTRARIO, no a este.
+  const cubrible = resumenContrario.totalPendiente;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -60,16 +68,50 @@ export function LadoPanel({
         {resumen.label}
       </p>
 
-      <RetadorBadge retador={resumen.retador} size={56} />
+      {participantes.length === 0 ? (
+        <RetadorBadge retador={null} size={56} />
+      ) : (
+        <>
+          <ul className="flex w-full flex-col gap-2">
+            {participantes.map((p) => (
+              <li
+                key={p.usuarioId}
+                className={clsx(
+                  "flex items-center gap-2 rounded-md border px-2 py-1.5",
+                  p.usuarioId === miUsuarioId
+                    ? "border-gold-light/60 bg-gold/10"
+                    : "border-gold-dark/30"
+                )}
+              >
+                <RetadorBadge retador={p} size={32} soloEscudo />
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-parchment/85">
+                  {p.nickname}
+                  {p.usuarioId === miUsuarioId ? (
+                    <span className="ml-1 text-[10px] font-normal text-gold/70">(tú)</span>
+                  ) : null}
+                </span>
+                <span className="shrink-0 font-fantasy text-xs font-bold text-gold-light">
+                  S/{p.monto}
+                </span>
+              </li>
+            ))}
+          </ul>
 
-      {tieneRetador ? (
-        <p className="text-center text-xs text-parchment/60">
-          Pidió S/{resumen.montoObjetivo} ·{" "}
-          <span className="font-semibold text-gold-light">
-            faltan S/{resumen.montoPendiente}
-          </span>
-        </p>
-      ) : null}
+          <p className="text-center text-xs text-parchment/60">
+            {participantes.length}{" "}
+            {participantes.length === 1 ? "apostador" : "apostadores"} · S/
+            {resumen.totalApostado} en juego
+            {resumen.totalPendiente > 0 ? (
+              <>
+                {" · "}
+                <span className="font-semibold text-gold-light">
+                  S/{resumen.totalPendiente} sin cubrir
+                </span>
+              </>
+            ) : null}
+          </p>
+        </>
+      )}
 
       {terminada ? (
         <p className="mt-auto text-center text-[11px] text-parchment/40">
@@ -86,6 +128,11 @@ export function LadoPanel({
         // partida en dos columnas, y meterlos en la misma fila dejaba el
         // campo tan angosto que no se leía el monto que escribías.
         <form onSubmit={handleSubmit} className="mt-auto flex w-full flex-col gap-2">
+          {cubrible > 0 ? (
+            <p className="text-center text-[11px] text-parchment/50">
+              Hasta S/{cubrible} se empareja al instante
+            </p>
+          ) : null}
           <div className="relative">
             <span
               aria-hidden
@@ -98,7 +145,7 @@ export function LadoPanel({
               min={1}
               step="0.01"
               inputMode="decimal"
-              placeholder={tieneRetador ? String(resumen.montoPendiente) : "0"}
+              placeholder={cubrible > 0 ? String(cubrible) : "0"}
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
               aria-label={`Monto a apostar en ${resumen.label}`}
