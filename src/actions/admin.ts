@@ -64,18 +64,25 @@ export async function getMetricas(): Promise<ActionResult<AdminMetricas>> {
   const fila = (data as AdminMetricas[])?.[0];
   if (!fila) return { ok: false, error: "No pudimos calcular las métricas." };
 
+  // `?? 0` y no solo Number(): si el RPC en la base todavía tiene una
+  // firma vieja (una migración sin aplicar), los campos nuevos llegan
+  // undefined y `Number(undefined)` es NaN — el panel mostraría "S/NaN"
+  // en vez de un número, que es justo el tipo de síntoma que hace perder
+  // una tarde buscando el bug donde no está.
+  const num = (v: unknown) => Number(v ?? 0);
+
   return {
     ok: true,
     data: {
-      depositado_hoy: Number(fila.depositado_hoy),
-      retirado_hoy: Number(fila.retirado_hoy),
-      pagado_hoy: Number(fila.pagado_hoy),
-      ganancia_hoy: Number(fila.ganancia_hoy),
-      ganancia_total: Number(fila.ganancia_total),
-      usuarios_total: Number(fila.usuarios_total),
-      usuarios_baneados: Number(fila.usuarios_baneados),
-      eventos_abiertos: Number(fila.eventos_abiertos),
-      retiros_pendientes: Number(fila.retiros_pendientes),
+      depositado_hoy: num(fila.depositado_hoy),
+      retirado_hoy: num(fila.retirado_hoy),
+      pagado_hoy: num(fila.pagado_hoy),
+      ganancia_hoy: num(fila.ganancia_hoy),
+      ganancia_total: num(fila.ganancia_total),
+      usuarios_total: num(fila.usuarios_total),
+      usuarios_baneados: num(fila.usuarios_baneados),
+      eventos_abiertos: num(fila.eventos_abiertos),
+      retiros_pendientes: num(fila.retiros_pendientes),
     },
   };
 }

@@ -118,6 +118,31 @@ export async function getRecargas(): Promise<ActionResult<RecargaConUsuario[]>> 
   };
 }
 
+/**
+ * Admin-only, solo para pruebas: vacía la tabla de recargas.
+ *
+ * No revierte el saldo ya acreditado (ver 0014). La acción se niega fuera
+ * de desarrollo: es una puerta demasiado peligrosa para dejarla abierta en
+ * producción aunque la UI no muestre el botón, porque una Server Action es
+ * un endpoint POST invocable directamente.
+ */
+export async function borrarTodasLasRecargas(): Promise<ActionResult<number>> {
+  if (process.env.NODE_ENV === "production") {
+    return { ok: false, error: "No disponible en producción." };
+  }
+
+  const session = await requireSessionUserId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_borrar_recargas", {
+    p_admin_id: session.userId,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: Number(data ?? 0) };
+}
+
 /** Admin-only: el RPC re-valida `es_admin()` y acredita el saldo en la misma transacción. */
 export async function resolverRecarga(
   input: ResolverRecargaInput

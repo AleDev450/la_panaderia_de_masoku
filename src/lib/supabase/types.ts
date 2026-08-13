@@ -269,6 +269,10 @@ export interface Database {
         Args: { p_usuario_id: string; p_nickname: string };
         Returns: Perfil;
       };
+      admin_borrar_recargas: {
+        Args: { p_admin_id: string };
+        Returns: number;
+      };
       admin_resolver_recarga: {
         Args: {
           p_admin_id: string;

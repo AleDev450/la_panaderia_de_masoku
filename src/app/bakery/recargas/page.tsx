@@ -8,13 +8,24 @@ import { Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
 import { ComprobanteLightbox } from "@/components/bakery/ComprobanteLightbox";
 import { useToast } from "@/context/ToastContext";
-import { RecargaConUsuario, getRecargas, resolverRecarga } from "@/actions/recargas";
+import {
+  RecargaConUsuario,
+  borrarTodasLasRecargas,
+  getRecargas,
+  resolverRecarga,
+} from "@/actions/recargas";
+
+/** El borrado masivo es una herramienta de pruebas: la Server Action
+ * también se niega en producción, esto solo evita mostrar el botón. */
+const ES_DESARROLLO = process.env.NODE_ENV !== "production";
 
 function AdminRecargasContent() {
   const { showToast } = useToast();
   const [recargas, setRecargas] = useState<RecargaConUsuario[] | null>(null);
   const [procesando, setProcesando] = useState<string | null>(null);
   const [ampliada, setAmpliada] = useState<RecargaConUsuario | null>(null);
+  const [confirmarBorrado, setConfirmarBorrado] = useState(false);
+  const [borrando, setBorrando] = useState(false);
   /** Monto editado por recarga; ausente = se acredita lo que declaró el jugador. */
   const [montos, setMontos] = useState<Record<string, string>>({});
 
@@ -68,6 +79,26 @@ function AdminRecargasContent() {
     }
   }
 
+  async function handleBorrarTodo() {
+    setBorrando(true);
+    try {
+      const result = await borrarTodasLasRecargas();
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo borrar", description: result.error });
+        return;
+      }
+      showToast({
+        variant: "info",
+        title: `${result.data} recarga(s) borradas`,
+        description: "El saldo ya acreditado no se revirtió.",
+      });
+      setConfirmarBorrado(false);
+      await refresh();
+    } finally {
+      setBorrando(false);
+    }
+  }
+
   const pendientes = (recargas ?? []).filter((r) => r.recarga.estado === "pendiente");
   const revisadas = (recargas ?? []).filter((r) => r.recarga.estado !== "pendiente");
 
@@ -82,6 +113,29 @@ function AdminRecargasContent() {
           Si el monto del comprobante no coincide con lo declarado, corrígelo
           antes de aprobar.
         </p>
+
+        {ES_DESARROLLO && (recargas?.length ?? 0) > 0 ? (
+          <Panel className="mt-6 flex flex-wrap items-center justify-between gap-3 border-dashed border-lose/40 p-4">
+            <div>
+              <p className="font-fantasy text-sm font-bold text-lose-glow">
+                Herramienta de pruebas
+              </p>
+              <p className="mt-0.5 text-xs text-parchment/50">
+                Borra las {recargas?.length} recargas de la tabla. Solo visible
+                en desarrollo.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="lose"
+              disabled={borrando}
+              onClick={() => setConfirmarBorrado(true)}
+              className="min-h-9 px-3 py-1 text-xs"
+            >
+              Borrar todas
+            </Button>
+          </Panel>
+        ) : null}
 
         <section className="mt-8">
           <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
@@ -215,6 +269,53 @@ function AdminRecargasContent() {
           </section>
         ) : null}
       </main>
+
+      {confirmarBorrado ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Borrar todas las recargas"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setConfirmarBorrado(false);
+          }}
+        >
+          <div className="panel-stone w-full max-w-md rounded-xl p-5">
+            <h2 className="font-fantasy text-lg font-bold text-lose-glow">
+              Borrar {recargas?.length} recarga(s)
+            </h2>
+            <p className="mt-2 text-sm text-parchment/70">
+              Se vacía la tabla entera: pendientes, aprobadas y rechazadas.
+              No se puede deshacer.
+            </p>
+            <p className="mt-2 rounded-md border border-gold-dark/60 bg-obsidian/40 px-3 py-2 text-xs text-parchment/60">
+              El <strong className="text-parchment/80">saldo ya acreditado no se revierte</strong>:
+              los jugadores conservan su dinero, pero quedará sin una recarga
+              que lo explique.
+            </p>
+
+            <div className="mt-5 flex gap-2">
+              <Button
+                type="button"
+                variant="lose"
+                disabled={borrando}
+                onClick={handleBorrarTodo}
+                className="flex-1"
+              >
+                {borrando ? "Borrando…" : "Sí, borrar todo"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setConfirmarBorrado(false)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {ampliada ? (
         <ComprobanteLightbox
