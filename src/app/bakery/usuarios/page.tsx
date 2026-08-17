@@ -10,6 +10,7 @@ import { LevelBadge } from "@/components/LevelBadge";
 import { useToast } from "@/context/ToastContext";
 import {
   UsuarioAdmin,
+  ajustarSaldo,
   banearUsuario,
   cambiarPasswordUsuario,
   eliminarUsuario,
@@ -28,6 +29,9 @@ function AdminUsuariosContent() {
   const [eliminando, setEliminando] = useState<UsuarioAdmin | null>(null);
   const [cambiandoPassword, setCambiandoPassword] = useState<UsuarioAdmin | null>(null);
   const [passwordNueva, setPasswordNueva] = useState("");
+  const [ajustandoSaldo, setAjustandoSaldo] = useState<UsuarioAdmin | null>(null);
+  const [nuevoSaldo, setNuevoSaldo] = useState("");
+  const [motivoAjusteSaldo, setMotivoAjusteSaldo] = useState("");
   const [reiniciando, setReiniciando] = useState(false);
   const [confirmarReinicio, setConfirmarReinicio] = useState(false);
   const [textoConfirmacion, setTextoConfirmacion] = useState("");
@@ -116,6 +120,32 @@ function AdminUsuariosContent() {
       });
       setCambiandoPassword(null);
       setPasswordNueva("");
+    } finally {
+      setProcesando(null);
+    }
+  }
+
+  async function aplicarAjusteSaldo(usuario: UsuarioAdmin) {
+    setProcesando(usuario.id);
+    try {
+      const result = await ajustarSaldo({
+        usuarioId: usuario.id,
+        nuevoSaldo: Number(nuevoSaldo),
+        motivo: motivoAjusteSaldo,
+      });
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo ajustar", description: result.error });
+        return;
+      }
+      showToast({
+        variant: "info",
+        title: "Saldo ajustado",
+        description: `${usuario.nickname} ahora tiene S/${result.data.saldo_disponible} disponible.`,
+      });
+      setAjustandoSaldo(null);
+      setNuevoSaldo("");
+      setMotivoAjusteSaldo("");
+      await refresh();
     } finally {
       setProcesando(null);
     }
@@ -274,6 +304,19 @@ function AdminUsuariosContent() {
                       type="button"
                       variant="ghost"
                       disabled={procesando === u.id}
+                      onClick={() => {
+                        setAjustandoSaldo(u);
+                        setNuevoSaldo(String(u.saldoDisponible));
+                        setMotivoAjusteSaldo("");
+                      }}
+                      className="min-h-9 px-3 py-1 text-xs"
+                    >
+                      Ajustar saldo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={procesando === u.id}
                       onClick={() => setEliminando(u)}
                       className="min-h-9 border border-lose-glow/40 px-3 py-1 text-xs text-lose-glow"
                     >
@@ -427,6 +470,85 @@ function AdminUsuariosContent() {
                 type="button"
                 variant="ghost"
                 onClick={() => setCambiandoPassword(null)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {ajustandoSaldo ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Ajustar saldo de ${ajustandoSaldo.nickname}`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setAjustandoSaldo(null);
+          }}
+        >
+          <div className="panel-stone w-full max-w-md rounded-xl p-5">
+            <h2 className="font-fantasy text-lg font-bold text-gold-light">
+              Ajustar saldo de {ajustandoSaldo.nickname}
+            </h2>
+            <p className="mt-2 text-sm text-parchment/70">
+              Saldo disponible actual: S/{ajustandoSaldo.saldoDisponible}. Esto
+              no toca el saldo en juego (S/{ajustandoSaldo.saldoRetenido}) ni
+              corrige por sí solo la reconciliación de Yape — si este saldo
+              no corresponde a una recarga real, corrige eso aparte en{" "}
+              <span className="font-semibold text-parchment/90">
+                Pagos y ajustes de Yape
+              </span>
+              .
+            </p>
+
+            <label htmlFor="nuevo-saldo" className="mt-4 mb-1.5 block text-sm text-parchment/80">
+              Saldo disponible nuevo
+            </label>
+            <input
+              id="nuevo-saldo"
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              value={nuevoSaldo}
+              onChange={(e) => setNuevoSaldo(e.target.value)}
+              className="min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            />
+
+            <label
+              htmlFor="motivo-ajuste-saldo"
+              className="mt-3 mb-1.5 block text-sm text-parchment/80"
+            >
+              Motivo
+            </label>
+            <input
+              id="motivo-ajuste-saldo"
+              value={motivoAjusteSaldo}
+              onChange={(e) => setMotivoAjusteSaldo(e.target.value)}
+              placeholder="Ej. Saldo de prueba, no es real"
+              className="w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-sm text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            />
+
+            <div className="mt-5 flex gap-2">
+              <Button
+                type="button"
+                disabled={
+                  procesando === ajustandoSaldo.id ||
+                  nuevoSaldo === "" ||
+                  motivoAjusteSaldo.trim().length < 3
+                }
+                onClick={() => aplicarAjusteSaldo(ajustandoSaldo)}
+                className="flex-1"
+              >
+                {procesando === ajustandoSaldo.id ? "Guardando…" : "Ajustar"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setAjustandoSaldo(null)}
                 className="flex-1"
               >
                 Cancelar

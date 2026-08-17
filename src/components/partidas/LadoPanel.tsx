@@ -30,11 +30,27 @@ export function LadoPanel({
   const [monto, setMonto] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  // Monto a la espera de confirmación: se llena cuando este lado ya tiene
+  // dinero sin cubrir y el jugador está por sumarle más (ver handleSubmit).
+  const [confirmando, setConfirmando] = useState<number | null>(null);
 
   const { participantes } = resumen;
   // Lo que emparejarías al instante si apuestas de este lado es lo que le
   // falta cubrir al lado CONTRARIO, no a este.
   const cubrible = resumenContrario.totalPendiente;
+
+  async function ejecutarApuesta(montoNumber: number) {
+    setSubmitting(true);
+    try {
+      await onApostar(lado, montoNumber);
+      setMonto("");
+      setConfirmando(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No pudimos registrar tu apuesta.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,15 +62,15 @@ export function LadoPanel({
       return;
     }
 
-    setSubmitting(true);
-    try {
-      await onApostar(lado, montoNumber);
-      setMonto("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No pudimos registrar tu apuesta.");
-    } finally {
-      setSubmitting(false);
+    // Este lado ya tiene apuestas sin rival — lo más probable es que la
+    // tuya tampoco encuentre uno. Se avisa antes de mandarla en vez de
+    // dejar que se entere recién cuando cierre la sala y se la devuelvan.
+    if (resumen.totalPendiente > 0) {
+      setConfirmando(montoNumber);
+      return;
     }
+
+    await ejecutarApuesta(montoNumber);
   }
 
   return (
@@ -123,6 +139,37 @@ export function LadoPanel({
         </p>
       ) : disabled ? (
         <p className="mt-auto text-center text-[11px] text-parchment/40">Apuestas cerradas</p>
+      ) : confirmando !== null ? (
+        <div className="mt-auto flex w-full flex-col gap-2 rounded-md border border-gold-light/50 bg-gold/10 p-3">
+          <p className="text-center text-[11px] text-parchment/80">
+            Este lado ya tiene{" "}
+            <span className="font-semibold text-gold-light">
+              S/{resumen.totalPendiente} sin cubrir
+            </span>
+            . Tu apuesta puede quedar pendiente y se te devuelve si nadie la
+            cubre antes de que cierre la sala.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={lado === "a" ? "win" : "lose"}
+              disabled={submitting}
+              onClick={() => ejecutarApuesta(confirmando)}
+              className="flex-1"
+            >
+              {submitting ? "Apostando…" : "Apostar igual"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={submitting}
+              onClick={() => setConfirmando(null)}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+          </div>
+        </div>
       ) : (
         // Input y botón apilados, no lado a lado: la tarjeta ya está
         // partida en dos columnas, y meterlos en la misma fila dejaba el

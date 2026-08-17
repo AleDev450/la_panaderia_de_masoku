@@ -90,12 +90,15 @@ function AdminHomeContent() {
                 = Ganancia S/{metricas.ganancia_total} + Depósitos de
                 jugadores sin retirar S/{metricas.saldos_usuarios_total} −
                 Pagos ya realizados S/{metricas.pagos_manuales_total}
+                {metricas.ajustes_yape_total !== 0
+                  ? ` ${metricas.ajustes_yape_total > 0 ? "+" : "−"} Ajustes S/${Math.abs(metricas.ajustes_yape_total)}`
+                  : ""}
               </p>
               <Link
                 href="/bakery/pagos"
                 className="mt-3 inline-block text-xs font-semibold text-gold-light underline"
               >
-                Ver historial de pagos y registrar uno nuevo →
+                Ver historial de pagos, ajustes y registrar uno nuevo →
               </Link>
             </Panel>
           </section>

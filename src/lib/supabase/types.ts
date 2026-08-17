@@ -137,7 +137,9 @@ export type AdminMetricas = {
   saldos_usuarios_total: number;
   /** Retiros propios del admin o pagos a trabajadores (0022_pagos_manuales.sql), histórico. */
   pagos_manuales_total: number;
-  /** ganancia_total + saldos_usuarios_total − pagos_manuales_total, calculado directo de recargas/retiros. */
+  /** Correcciones manuales +/- a yape_esperado (0024_ajustes_saldo_y_yape.sql), histórico. */
+  ajustes_yape_total: number;
+  /** recargas_aprobadas − retiros_pagados − pagos_manuales + ajustes_yape, calculado directo de esas tablas. */
   yape_esperado: number;
 };
 
@@ -146,6 +148,25 @@ export type PagoManual = {
   admin_id: string;
   concepto: string;
   monto: number;
+  created_at: string;
+};
+
+export type AjusteSaldo = {
+  id: string;
+  admin_id: string;
+  usuario_id: string;
+  saldo_anterior: number;
+  saldo_nuevo: number;
+  motivo: string;
+  created_at: string;
+};
+
+export type AjusteYape = {
+  id: string;
+  admin_id: string;
+  /** Puede ser negativo — corrige yape_esperado hacia abajo. */
+  monto: number;
+  motivo: string;
   created_at: string;
 };
 
@@ -237,6 +258,16 @@ export interface Database {
         Row: PagoManual;
         Insert: Partial<PagoManual>;
         Update: Partial<PagoManual>;
+      } & NoRelationships;
+      ajustes_saldo: {
+        Row: AjusteSaldo;
+        Insert: Partial<AjusteSaldo>;
+        Update: Partial<AjusteSaldo>;
+      } & NoRelationships;
+      ajustes_yape: {
+        Row: AjusteYape;
+        Insert: Partial<AjusteYape>;
+        Update: Partial<AjusteYape>;
       } & NoRelationships;
     };
     Views: Record<string, never>;
@@ -357,6 +388,19 @@ export interface Database {
       admin_registrar_pago_manual: {
         Args: { p_admin_id: string; p_concepto: string; p_monto: number };
         Returns: PagoManual;
+      };
+      admin_ajustar_saldo: {
+        Args: {
+          p_admin_id: string;
+          p_usuario_id: string;
+          p_nuevo_saldo: number;
+          p_motivo: string;
+        };
+        Returns: Perfil;
+      };
+      admin_registrar_ajuste_yape: {
+        Args: { p_admin_id: string; p_monto: number; p_motivo: string };
+        Returns: AjusteYape;
       };
     };
   };

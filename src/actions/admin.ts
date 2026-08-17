@@ -3,10 +3,17 @@
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { AdminMetricas, Evento, PagoManual, Perfil } from "@/lib/supabase/types";
+import { AdminMetricas, AjusteSaldo, AjusteYape, Evento, PagoManual, Perfil } from "@/lib/supabase/types";
 import { ActionResult } from "@/actions/betting";
 import { AdminCambiarPasswordInput, adminCambiarPasswordSchema } from "@/lib/validation/perfil";
-import { RegistrarPagoManualInput, registrarPagoManualSchema } from "@/lib/validation/pagos";
+import {
+  AjustarSaldoInput,
+  RegistrarAjusteYapeInput,
+  RegistrarPagoManualInput,
+  ajustarSaldoSchema,
+  registrarAjusteYapeSchema,
+  registrarPagoManualSchema,
+} from "@/lib/validation/pagos";
 import { HERRAMIENTAS_PRUEBA } from "@/lib/flags";
 
 async function requireAdminId(): Promise<
@@ -88,6 +95,7 @@ export async function getMetricas(): Promise<ActionResult<AdminMetricas>> {
       retiros_pendientes: num(fila.retiros_pendientes),
       saldos_usuarios_total: num(fila.saldos_usuarios_total),
       pagos_manuales_total: num(fila.pagos_manuales_total),
+      ajustes_yape_total: num(fila.ajustes_yape_total),
       yape_esperado: num(fila.yape_esperado),
     },
   };
@@ -148,6 +156,124 @@ export async function getPagosManuales(): Promise<ActionResult<PagoManualConAdmi
     data: pagos.map((p) => ({
       pago: p as PagoManual,
       adminNickname: nicknamePorId.get(p.admin_id) ?? "—",
+    })),
+  };
+}
+
+/**
+ * Corrige el saldo_disponible de un jugador a mano — ej. deshacer saldo de
+ * prueba que se le dio para testear. No toca saldo_retenido (apuestas en
+ * curso) ni el número de "En Yape deberías tener": ese se calcula de
+ * recargas/retiros/pagos_manuales/ajustes_yape, no de saldos — ver
+ * 0024_ajustes_saldo_y_yape.sql.
+ */
+export async function ajustarSaldo(input: AjustarSaldoInput): Promise<ActionResult<Perfil>> {
+  const parsed = ajustarSaldoSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_ajustar_saldo", {
+    p_admin_id: session.userId,
+    p_usuario_id: parsed.data.usuarioId,
+    p_nuevo_saldo: parsed.data.nuevoSaldo,
+    p_motivo: parsed.data.motivo,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as Perfil };
+}
+
+export interface AjusteSaldoConNombres {
+  ajuste: AjusteSaldo;
+  adminNickname: string;
+  usuarioNickname: string;
+}
+
+export async function getAjustesSaldo(): Promise<ActionResult<AjusteSaldoConNombres[]>> {
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data: ajustes, error } = await admin
+    .from("ajustes_saldo")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) return { ok: false, error: error.message };
+  if (!ajustes || ajustes.length === 0) return { ok: true, data: [] };
+
+  const ids = [...new Set([...ajustes.map((a) => a.admin_id), ...ajustes.map((a) => a.usuario_id)])];
+  const { data: perfiles } = await admin.from("perfiles").select("id, nickname").in("id", ids);
+  const nicknamePorId = new Map((perfiles ?? []).map((p) => [p.id, p.nickname]));
+
+  return {
+    ok: true,
+    data: ajustes.map((a) => ({
+      ajuste: a as AjusteSaldo,
+      adminNickname: nicknamePorId.get(a.admin_id) ?? "—",
+      usuarioNickname: nicknamePorId.get(a.usuario_id) ?? "—",
+    })),
+  };
+}
+
+/**
+ * Corrección +/- a "En Yape deberías tener" — para cuando ese número ya
+ * quedó mal por algo que no pasa por el flujo normal (ej. se aprobó una
+ * recarga de prueba, inflando recargas_aprobadas sin que haya entrado
+ * plata real). No mueve saldo de nadie, solo el reporte.
+ */
+export async function registrarAjusteYape(
+  input: RegistrarAjusteYapeInput
+): Promise<ActionResult<AjusteYape>> {
+  const parsed = registrarAjusteYapeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_registrar_ajuste_yape", {
+    p_admin_id: session.userId,
+    p_monto: parsed.data.monto,
+    p_motivo: parsed.data.motivo,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as AjusteYape };
+}
+
+export interface AjusteYapeConAdmin {
+  ajuste: AjusteYape;
+  adminNickname: string;
+}
+
+export async function getAjustesYape(): Promise<ActionResult<AjusteYapeConAdmin[]>> {
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data: ajustes, error } = await admin
+    .from("ajustes_yape")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) return { ok: false, error: error.message };
+  if (!ajustes || ajustes.length === 0) return { ok: true, data: [] };
+
+  const adminIds = [...new Set(ajustes.map((a) => a.admin_id))];
+  const { data: perfiles } = await admin.from("perfiles").select("id, nickname").in("id", adminIds);
+  const nicknamePorId = new Map((perfiles ?? []).map((p) => [p.id, p.nickname]));
+
+  return {
+    ok: true,
+    data: ajustes.map((a) => ({
+      ajuste: a as AjusteYape,
+      adminNickname: nicknamePorId.get(a.admin_id) ?? "—",
     })),
   };
 }
