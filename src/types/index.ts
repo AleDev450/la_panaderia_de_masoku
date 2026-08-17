@@ -26,7 +26,8 @@ export const DURACION_MIN_DEFAULT = 10;
 // Niveles ("panaderos más gosus")
 // ---------------------------------------------------------------------------
 
-export const PUNTOS_POR_GANAR = 5;
+/** Debe coincidir con `liquidar_evento` (0018_puntos_ganar_3.sql). */
+export const PUNTOS_POR_GANAR = 3;
 export const PUNTOS_POR_PERDER = 1;
 
 export interface Level {
