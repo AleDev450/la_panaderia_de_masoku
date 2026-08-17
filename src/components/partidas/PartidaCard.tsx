@@ -19,8 +19,16 @@ function useCuentaRegresiva(cierraEn: string) {
   return restanteMs;
 }
 
+// "Abrir sin límite" (0023) empuja cierra_en ~100 años al futuro en vez de
+// usar un campo nullable — ver esa migración. Ningún conteo explícito pasa
+// de 1440 min (24h, el máximo que acepta `admin_cambiar_estado_evento`),
+// así que cualquier resto por encima de una semana es inequívocamente "sin
+// límite" y no debe mostrarse como reloj.
+const SIN_LIMITE_UMBRAL_MS = 7 * 24 * 60 * 60 * 1000;
+
 function formatoRestante(ms: number): string {
   if (ms <= 0) return "Cerrado";
+  if (ms > SIN_LIMITE_UMBRAL_MS) return "Sin límite";
   const totalSeg = Math.floor(ms / 1000);
   const min = Math.floor(totalSeg / 60);
   const seg = totalSeg % 60;

@@ -29,6 +29,8 @@ function AdminTitulosContent() {
   const [eventos, setEventos] = useState<EventoResumen[] | null>(null);
   const [procesando, setProcesando] = useState<string | null>(null);
 
+  const [minutosExtra, setMinutosExtra] = useState<Record<string, string>>({});
+
   const [nombre, setNombre] = useState("");
   const [ladoA, setLadoA] = useState("");
   const [ladoB, setLadoB] = useState("");
@@ -56,6 +58,19 @@ function AdminTitulosContent() {
     const previo: Promise<unknown> = esHoy ? liquidarVencidos() : Promise.resolve();
     previo.then(() => refresh());
   }, [refresh, esHoy]);
+
+  // Partidas ya pagadas bajan al fondo del panel de hoy: siguen visibles
+  // (no desaparecen) pero no tapan lo que todavía necesita atención. Solo
+  // aplica al día en curso — en un rango de fechas pasado casi todo ya
+  // está resuelto, así que reordenar ahí no ayuda.
+  const eventosOrdenados = useMemo(() => {
+    if (!eventos || !esHoy) return eventos;
+    return [...eventos].sort((a, b) => {
+      const aResuelto = a.evento.estado === "resuelto" ? 1 : 0;
+      const bResuelto = b.evento.estado === "resuelto" ? 1 : 0;
+      return aResuelto - bResuelto;
+    });
+  }, [eventos, esHoy]);
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -155,13 +170,13 @@ function AdminTitulosContent() {
     }
   }
 
-  async function handleEstado(eventoId: string, abrir: boolean) {
+  async function handleEstado(eventoId: string, abrir: boolean, minutos?: number) {
     setProcesando(eventoId);
     try {
       const result = await cambiarEstadoEvento({
         eventoId,
         abrir,
-        minutos: abrir ? Number(duracionMin) || DURACION_MIN_DEFAULT : undefined,
+        minutos: abrir ? minutos : undefined,
       });
       if (!result.ok) {
         showToast({ variant: "warning", title: "No se pudo cambiar", description: result.error });
@@ -171,7 +186,9 @@ function AdminTitulosContent() {
         variant: abrir ? "success" : "info",
         title: abrir ? "Apuestas abiertas" : "Apuestas cerradas",
         description: abrir
-          ? "Los jugadores pueden volver a apostar en este título."
+          ? minutos
+            ? `Los jugadores pueden apostar por ${minutos} minutos más.`
+            : "Los jugadores pueden apostar sin límite de tiempo, hasta que lo cierres."
           : "Ya no entran apuestas nuevas; el resultado sigue sin declararse.",
       });
       await refresh();
@@ -350,9 +367,9 @@ function AdminTitulosContent() {
             </div>
           </div>
 
-          {eventos === null ? (
+          {eventosOrdenados === null ? (
             <p className="text-sm text-parchment/50">Cargando…</p>
-          ) : eventos.length === 0 ? (
+          ) : eventosOrdenados.length === 0 ? (
             <Panel className="border-dashed p-6 text-center text-sm text-parchment/50">
               {esHoy
                 ? "Todavía no publicaste ningún título hoy."
@@ -360,7 +377,7 @@ function AdminTitulosContent() {
             </Panel>
           ) : (
             <div className="flex flex-col gap-3">
-              {eventos.map(({ evento }) => (
+              {eventosOrdenados.map(({ evento }) => (
                 <Panel key={evento.id} className="p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
@@ -376,19 +393,20 @@ function AdminTitulosContent() {
                   </div>
 
                   {evento.estado !== "resuelto" && evento.resultado_preliminar === null ? (
-                    // Abrir/cerrar apuestas a mano: el contador es el camino
-                    // automático, esto lo fuerza cuando hace falta. Se oculta
-                    // una vez declarado el resultado.
+                    // Abrir/cerrar apuestas a mano: por defecto sin límite de
+                    // tiempo (el admin cierra cuando quiera); el campo de
+                    // minutos es la opción aparte para una ventana puntual.
+                    // Se oculta una vez declarado el resultado.
                     <div className="mt-3 flex flex-wrap items-center gap-2 border-b border-gold-dark/30 pb-3">
                       <span className="text-xs text-parchment/50">Apuestas:</span>
                       <Button
                         type="button"
                         variant="ghost"
-                        disabled={procesando === evento.id || evento.estado === "abierto"}
+                        disabled={procesando === evento.id}
                         onClick={() => handleEstado(evento.id, true)}
                         className="min-h-9 px-3 py-1 text-xs"
                       >
-                        Abrir
+                        Abrir sin límite
                       </Button>
                       <Button
                         type="button"
@@ -399,6 +417,34 @@ function AdminTitulosContent() {
                       >
                         Cerrar
                       </Button>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min={1}
+                          max={1440}
+                          value={minutosExtra[evento.id] ?? String(DURACION_MIN_DEFAULT)}
+                          onChange={(e) =>
+                            setMinutosExtra((prev) => ({ ...prev, [evento.id]: e.target.value }))
+                          }
+                          aria-label="Minutos adicionales"
+                          className="min-h-9 w-16 rounded-md border border-gold-dark bg-obsidian/60 px-2 py-1 text-xs text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          disabled={procesando === evento.id}
+                          onClick={() =>
+                            handleEstado(
+                              evento.id,
+                              true,
+                              Number(minutosExtra[evento.id]) || DURACION_MIN_DEFAULT
+                            )
+                          }
+                          className="min-h-9 px-3 py-1 text-xs"
+                        >
+                          Abrir por ese tiempo
+                        </Button>
+                      </div>
                     </div>
                   ) : null}
 
