@@ -53,12 +53,14 @@ function PartidasContent() {
     [eventos, categoria]
   );
 
-  // Una "sala" es un título en el que alguien ya apostó; los demás son
-  // títulos disponibles para abrir sala desde el modal. Un título con
-  // resultado (aunque todavía se esté confirmando el pago) ya no admite
-  // sala nueva: la partida terminó.
+  // Una "sala" es un título en el que alguien ya apostó y que TODAVÍA no
+  // terminó — una vez declarado el resultado (aunque el pago siga sin
+  // confirmarse), la partida sale de esta lista: revisar partidas pasadas
+  // es cosa del admin en /bakery/titulos, no del listado de salas activas.
+  const terminada = (r: EventoResumen) =>
+    r.evento.estado === "resuelto" || r.evento.resultado_preliminar !== null;
   const salas = visibles.filter(
-    (r) => r.ladoA.participantes.length > 0 || r.ladoB.participantes.length > 0
+    (r) => !terminada(r) && (r.ladoA.participantes.length > 0 || r.ladoB.participantes.length > 0)
   );
   const estaDisponible = (r: EventoResumen) =>
     r.evento.estado === "abierto" &&
