@@ -5,7 +5,7 @@ import Image from "next/image";
 export function Mascot() {
   return (
     <div className="relative flex items-end justify-center lg:block">
-      <div className="relative w-56 sm:w-72 md:w-80 lg:h-auto lg:w-full" style={{ aspectRatio: "1103 / 1426" }}>
+      <div className="relative w-56 sm:w-72 md:w-80 lg:h-auto lg:w-full" style={{ aspectRatio: "1120 / 1632" }}>
         <Image
           src="/images/home/masoku.png"
           alt="Masoku, panadero de batalla, mascota oficial de La Panadería de Masoku"

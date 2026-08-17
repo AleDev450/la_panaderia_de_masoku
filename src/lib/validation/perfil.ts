@@ -29,3 +29,21 @@ export const resolverSolicitudTelefonoSchema = z.object({
   aprobar: z.boolean(),
 });
 export type ResolverSolicitudTelefonoInput = z.infer<typeof resolverSolicitudTelefonoSchema>;
+
+/** Misma regla que en el registro (`validatePassword` en `src/lib/validation.ts`). */
+const password = z
+  .string()
+  .min(8, "La contraseña debe tener al menos 8 caracteres.")
+  .regex(/[a-zA-Z]/, "La contraseña debe combinar letras y números.")
+  .regex(/[0-9]/, "La contraseña debe combinar letras y números.");
+
+export const cambiarPasswordSchema = z.object({
+  password,
+});
+export type CambiarPasswordInput = z.infer<typeof cambiarPasswordSchema>;
+
+export const adminCambiarPasswordSchema = z.object({
+  usuarioId: z.string().uuid("Usuario inválido."),
+  password,
+});
+export type AdminCambiarPasswordInput = z.infer<typeof adminCambiarPasswordSchema>;

@@ -9,7 +9,7 @@ import { Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
-import { getMisRetiros, solicitarRetiro } from "@/actions/retiros";
+import { RequisitoRetiroInfo, getMisRetiros, getRequisitoRetiro, solicitarRetiro } from "@/actions/retiros";
 import { ESTADO_RETIRO_COLOR, ESTADO_RETIRO_LABEL, RETIRO_MIN } from "@/lib/retiros";
 import { Retiro } from "@/lib/supabase/types";
 
@@ -20,10 +20,15 @@ function RetirarContent() {
   const [error, setError] = useState<string | undefined>();
   const [enviando, setEnviando] = useState(false);
   const [retiros, setRetiros] = useState<Retiro[] | null>(null);
+  const [requisito, setRequisito] = useState<RequisitoRetiroInfo | null>(null);
 
   const refresh = useCallback(async () => {
-    const result = await getMisRetiros();
-    if (result.ok) setRetiros(result.data);
+    const [retirosResult, requisitoResult] = await Promise.all([
+      getMisRetiros(),
+      getRequisitoRetiro(),
+    ]);
+    if (retirosResult.ok) setRetiros(retirosResult.data);
+    if (requisitoResult.ok) setRequisito(requisitoResult.data);
   }, []);
 
   useEffect(() => {
@@ -35,6 +40,7 @@ function RetirarContent() {
 
   const tienePendiente = (retiros ?? []).some((r) => r.estado === "pendiente");
   const sinTelefono = !user.phone;
+  const faltaApostar = (requisito?.falta ?? 0) > 0;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -99,6 +105,31 @@ function RetirarContent() {
           </div>
         </Panel>
 
+        {requisito && requisito.montoRequerido > 0 ? (
+          <Panel
+            className={clsx(
+              "mt-4 p-5",
+              faltaApostar ? "border-lose/50" : "border-win/40"
+            )}
+          >
+            <p className="text-sm text-parchment/80">
+              Por cada recarga aprobada ({requisito.recargasAprobadas}) hay
+              que apostar al menos S/5 antes de poder retirar. Llevas
+              apostado S/{requisito.montoApostado} de S/{requisito.montoRequerido}{" "}
+              requeridos.
+            </p>
+            {faltaApostar ? (
+              <p className="mt-2 text-sm font-semibold text-lose-glow">
+                Te falta apostar S/{requisito.falta} para poder retirar.
+              </p>
+            ) : (
+              <p className="mt-2 text-sm font-semibold text-win-glow">
+                Cumpliste el requisito — ya puedes retirar.
+              </p>
+            )}
+          </Panel>
+        ) : null}
+
         {sinTelefono ? (
           <Panel className="mt-4 border-lose/50 p-5">
             <p className="text-sm text-parchment/80">
@@ -107,6 +138,13 @@ function RetirarContent() {
                 Ve a tu perfil
               </Link>{" "}
               para solicitarlo.
+            </p>
+          </Panel>
+        ) : faltaApostar ? (
+          <Panel className="mt-4 border-lose/50 p-5">
+            <p className="text-sm text-parchment/80">
+              Todavía no puedes retirar: te falta apostar S/{requisito?.falta}{" "}
+              (ver arriba).
             </p>
           </Panel>
         ) : tienePendiente ? (

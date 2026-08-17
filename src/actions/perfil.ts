@@ -5,10 +5,12 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   ActualizarEmailInput,
   ActualizarNicknameInput,
+  CambiarPasswordInput,
   ResolverSolicitudTelefonoInput,
   SolicitarCambioTelefonoInput,
   actualizarEmailSchema,
   actualizarNicknameSchema,
+  cambiarPasswordSchema,
   resolverSolicitudTelefonoSchema,
   solicitarCambioTelefonoSchema,
 } from "@/lib/validation/perfil";
@@ -95,6 +97,32 @@ export async function actualizarEmail(
   }
 
   return { ok: true, data: { email: data.user.email ?? parsed.data.email } };
+}
+
+/**
+ * Cambia la contraseña de la cuenta ya logueada. Se usa el cliente de
+ * sesión (no el admin): `auth.updateUser` con una sesión válida no pide la
+ * contraseña actual — es el mismo comportamiento que "cambiar contraseña"
+ * en cualquier app que ya te tiene logueado.
+ */
+export async function cambiarPassword(
+  input: CambiarPasswordInput
+): Promise<ActionResult<null>> {
+  const parsed = cambiarPasswordSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Debes iniciar sesión." };
+
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+  if (error) return { ok: false, error: "No pudimos cambiar tu contraseña." };
+
+  return { ok: true, data: null };
 }
 
 /**

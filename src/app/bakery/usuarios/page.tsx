@@ -8,7 +8,15 @@ import { Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
 import { LevelBadge } from "@/components/LevelBadge";
 import { useToast } from "@/context/ToastContext";
-import { UsuarioAdmin, banearUsuario, eliminarUsuario, getUsuarios } from "@/actions/admin";
+import {
+  UsuarioAdmin,
+  banearUsuario,
+  cambiarPasswordUsuario,
+  eliminarUsuario,
+  getUsuarios,
+  resetearPlataforma,
+} from "@/actions/admin";
+import { HERRAMIENTAS_PRUEBA } from "@/lib/flags";
 
 function AdminUsuariosContent() {
   const { showToast } = useToast();
@@ -18,6 +26,11 @@ function AdminUsuariosContent() {
   const [confirmando, setConfirmando] = useState<UsuarioAdmin | null>(null);
   const [motivo, setMotivo] = useState("");
   const [eliminando, setEliminando] = useState<UsuarioAdmin | null>(null);
+  const [cambiandoPassword, setCambiandoPassword] = useState<UsuarioAdmin | null>(null);
+  const [passwordNueva, setPasswordNueva] = useState("");
+  const [reiniciando, setReiniciando] = useState(false);
+  const [confirmarReinicio, setConfirmarReinicio] = useState(false);
+  const [textoConfirmacion, setTextoConfirmacion] = useState("");
 
   const refresh = useCallback(async () => {
     const result = await getUsuarios();
@@ -85,6 +98,50 @@ function AdminUsuariosContent() {
     }
   }
 
+  async function aplicarCambioPassword(usuario: UsuarioAdmin) {
+    setProcesando(usuario.id);
+    try {
+      const result = await cambiarPasswordUsuario({
+        usuarioId: usuario.id,
+        password: passwordNueva,
+      });
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo cambiar", description: result.error });
+        return;
+      }
+      showToast({
+        variant: "success",
+        title: "Contraseña actualizada",
+        description: `Nueva contraseña asignada a ${usuario.nickname}.`,
+      });
+      setCambiandoPassword(null);
+      setPasswordNueva("");
+    } finally {
+      setProcesando(null);
+    }
+  }
+
+  async function handleReiniciarPlataforma() {
+    setReiniciando(true);
+    try {
+      const result = await resetearPlataforma();
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo reiniciar", description: result.error });
+        return;
+      }
+      showToast({
+        variant: "info",
+        title: `${result.data} usuario(s) eliminados`,
+        description: "Apuestas, recargas, retiros y rankings quedaron en cero.",
+      });
+      setConfirmarReinicio(false);
+      setTextoConfirmacion("");
+      await refresh();
+    } finally {
+      setReiniciando(false);
+    }
+  }
+
   return (
     <>
       <Header />
@@ -94,6 +151,32 @@ function AdminUsuariosContent() {
           Suspender una cuenta no borra nada: el usuario conserva su saldo e
           historial, solo deja de poder apostar.
         </p>
+
+        {HERRAMIENTAS_PRUEBA && (usuarios?.length ?? 0) > 0 ? (
+          <Panel className="mt-6 flex flex-wrap items-center justify-between gap-3 border-dashed border-lose/40 p-4">
+            <div>
+              <p className="font-fantasy text-sm font-bold text-lose-glow">
+                Herramienta de pruebas
+              </p>
+              <p className="mt-0.5 text-xs text-parchment/50">
+                Borra los {usuarios?.length} usuarios (cuenta y todo su
+                historial), reinicia rankings, recargas y retiros, y borra
+                también los títulos/salas creados. Desactívalo con
+                NEXT_PUBLIC_HERRAMIENTAS_PRUEBA=false antes de abrir el
+                registro al público.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="lose"
+              disabled={reiniciando}
+              onClick={() => setConfirmarReinicio(true)}
+              className="min-h-9 px-3 py-1 text-xs"
+            >
+              Reiniciar plataforma
+            </Button>
+          </Panel>
+        ) : null}
 
         <input
           type="search"
@@ -175,6 +258,18 @@ function AdminUsuariosContent() {
                         Suspender cuenta
                       </Button>
                     )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={procesando === u.id}
+                      onClick={() => {
+                        setCambiandoPassword(u);
+                        setPasswordNueva("");
+                      }}
+                      className="min-h-9 px-3 py-1 text-xs"
+                    >
+                      Cambiar contraseña
+                    </Button>
                     <Button
                       type="button"
                       variant="ghost"
@@ -281,6 +376,121 @@ function AdminUsuariosContent() {
                 type="button"
                 variant="ghost"
                 onClick={() => setEliminando(null)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {cambiandoPassword ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Cambiar contraseña de ${cambiandoPassword.nickname}`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCambiandoPassword(null);
+          }}
+        >
+          <div className="panel-stone w-full max-w-md rounded-xl p-5">
+            <h2 className="font-fantasy text-lg font-bold text-gold-light">
+              Cambiar contraseña de {cambiandoPassword.nickname}
+            </h2>
+            <p className="mt-2 text-sm text-parchment/70">
+              Se reemplaza de inmediato. Mínimo 8 caracteres, combinando
+              letras y números — comunícasela al usuario por fuera de la app.
+            </p>
+
+            <input
+              type="text"
+              autoComplete="off"
+              placeholder="Contraseña nueva"
+              value={passwordNueva}
+              onChange={(e) => setPasswordNueva(e.target.value)}
+              aria-label="Contraseña nueva"
+              className="mt-4 min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            />
+
+            <div className="mt-5 flex gap-2">
+              <Button
+                type="button"
+                disabled={procesando === cambiandoPassword.id || passwordNueva.length < 8}
+                onClick={() => aplicarCambioPassword(cambiandoPassword)}
+                className="flex-1"
+              >
+                {procesando === cambiandoPassword.id ? "Guardando…" : "Cambiar"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setCambiandoPassword(null)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {confirmarReinicio ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Reiniciar la plataforma"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setConfirmarReinicio(false);
+              setTextoConfirmacion("");
+            }
+          }}
+        >
+          <div className="panel-stone w-full max-w-md rounded-xl p-5">
+            <h2 className="font-fantasy text-lg font-bold text-lose-glow">
+              Reiniciar la plataforma
+            </h2>
+            <p className="mt-2 text-sm text-parchment/70">
+              Borra <strong className="text-parchment/90">todos</strong> los
+              usuarios (cuenta y saldo), su historial de apuestas, sus
+              recargas y retiros, y también los títulos/salas creados. Los
+              rankings quedan en cero porque los usuarios que los formaban
+              ya no existen. No se puede deshacer.
+            </p>
+
+            <label
+              htmlFor="confirmar-reinicio"
+              className="mt-4 mb-1.5 block text-sm text-parchment/80"
+            >
+              Escribe REINICIAR para confirmar
+            </label>
+            <input
+              id="confirmar-reinicio"
+              value={textoConfirmacion}
+              onChange={(e) => setTextoConfirmacion(e.target.value)}
+              className="min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            />
+
+            <div className="mt-5 flex gap-2">
+              <Button
+                type="button"
+                variant="lose"
+                disabled={reiniciando || textoConfirmacion !== "REINICIAR"}
+                onClick={handleReiniciarPlataforma}
+                className="flex-1"
+              >
+                {reiniciando ? "Reiniciando…" : "Reiniciar todo"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setConfirmarReinicio(false);
+                  setTextoConfirmacion("");
+                }}
                 className="flex-1"
               >
                 Cancelar

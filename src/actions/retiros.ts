@@ -70,6 +70,45 @@ export async function solicitarRetiro(
   return { ok: true, data: data as Retiro };
 }
 
+export interface RequisitoRetiroInfo {
+  recargasAprobadas: number;
+  montoApostado: number;
+  montoRequerido: number;
+  falta: number;
+}
+
+/**
+ * Progreso del requisito "apuesta S/5 por cada recarga antes de retirar"
+ * (ver 0016_limites_y_requisito_retiro.sql). Es solo para mostrar en la UI
+ * antes de intentar — el chequeo real que de verdad bloquea el retiro vive
+ * en `solicitar_retiro`, no acá.
+ */
+export async function getRequisitoRetiro(): Promise<ActionResult<RequisitoRetiroInfo>> {
+  const session = await requireSessionUserId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("requisito_retiro", {
+    p_usuario_id: session.userId,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  const fila = data?.[0];
+  const recargasAprobadas = Number(fila?.recargas_aprobadas ?? 0);
+  const montoApostado = Number(fila?.monto_apostado ?? 0);
+  const montoRequerido = Number(fila?.monto_requerido ?? 0);
+
+  return {
+    ok: true,
+    data: {
+      recargasAprobadas,
+      montoApostado,
+      montoRequerido,
+      falta: Math.max(0, Math.round((montoRequerido - montoApostado) * 100) / 100),
+    },
+  };
+}
+
 export async function getMisRetiros(): Promise<ActionResult<Retiro[]>> {
   const session = await requireSessionUserId();
   if (!session.ok) return session;

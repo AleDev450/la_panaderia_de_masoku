@@ -5,6 +5,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { AdminMetricas, Evento, Perfil } from "@/lib/supabase/types";
 import { ActionResult } from "@/actions/betting";
+import { AdminCambiarPasswordInput, adminCambiarPasswordSchema } from "@/lib/validation/perfil";
+import { HERRAMIENTAS_PRUEBA } from "@/lib/flags";
 
 async function requireAdminId(): Promise<
   { ok: true; userId: string } | { ok: false; error: string }
@@ -170,6 +172,57 @@ export async function eliminarUsuario(input: EliminarUsuarioInput): Promise<Acti
   }
 
   return { ok: true, data: null };
+}
+
+/** Admin-only: resetea la contraseña de un jugador que perdió acceso. */
+export async function cambiarPasswordUsuario(
+  input: AdminCambiarPasswordInput
+): Promise<ActionResult<null>> {
+  const parsed = adminCambiarPasswordSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(parsed.data.usuarioId, {
+    password: parsed.data.password,
+  });
+  if (error) return { ok: false, error: "No pudimos cambiar la contraseña." };
+
+  return { ok: true, data: null };
+}
+
+/**
+ * Herramienta de pruebas: borra TODOS los jugadores (perfil + cuenta de
+ * Auth), su historial de apuestas, recargas, retiros, solicitudes de
+ * teléfono y los eventos/salas creados. Las cuentas admin no se tocan. Ver
+ * 0017_resetear_plataforma.sql — sin guardas, a propósito, por eso queda
+ * detrás del mismo flag que `borrarTodasLasRecargas`.
+ */
+export async function resetearPlataforma(): Promise<ActionResult<number>> {
+  if (!HERRAMIENTAS_PRUEBA) {
+    return { ok: false, error: "Las herramientas de prueba están desactivadas." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_resetear_plataforma", {
+    p_admin_id: session.userId,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  const usuarioIds = data ?? [];
+  // Mejor esfuerzo: si una cuenta de Auth falla al borrarse, las demás
+  // igual se procesan — no vale la pena revertir el borrado ya hecho en
+  // `perfiles` por un solo error de red.
+  await Promise.all(usuarioIds.map((id) => admin.auth.admin.deleteUser(id)));
+
+  return { ok: true, data: usuarioIds.length };
 }
 
 export async function banearUsuario(

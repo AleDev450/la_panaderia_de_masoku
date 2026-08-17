@@ -13,10 +13,12 @@ export interface User {
   createdAt: string;
 }
 
-/** Límites por apuesta — los mismos que anuncia el arte del footer
- * ("APUESTA MÍNIMA S/10 · MÁXIMA S/100"). Se validan en el schema Zod
- * (`crearApuestaSchema`) y otra vez en `crear_apuesta` (SQL). */
-export const BET_MIN = 10;
+/** Límites por apuesta — se validan en el schema Zod (`crearApuestaSchema`)
+ * y otra vez en `crear_apuesta` (SQL, 0016_limites_y_requisito_retiro.sql).
+ * OJO: el arte del footer ("aviso-apuestas.png") tiene "S/10" pintado a
+ * mano en la imagen — cambiar este número no lo actualiza, hay que
+ * regenerar ese PNG aparte. */
+export const BET_MIN = 5;
 export const BET_MAX = 100;
 export const DURACION_MIN_DEFAULT = 10;
 

@@ -7,11 +7,13 @@ import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
 import { LevelBadge } from "@/components/LevelBadge";
+import { LevelProgress } from "@/components/LevelProgress";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
 import {
   actualizarEmail,
   actualizarNickname,
+  cambiarPassword,
   getMisSolicitudesTelefono,
   solicitarCambioTelefono,
 } from "@/actions/perfil";
@@ -37,8 +39,12 @@ function PerfilContent() {
   const [email, setEmail] = useState(user?.email ?? "");
   const [telefonoNuevo, setTelefonoNuevo] = useState("");
   const [motivo, setMotivo] = useState("");
+  const [passwordNueva, setPasswordNueva] = useState("");
+  const [passwordConfirmacion, setPasswordConfirmacion] = useState("");
   const [solicitudes, setSolicitudes] = useState<SolicitudTelefono[] | null>(null);
-  const [guardando, setGuardando] = useState<"nickname" | "email" | "telefono" | null>(null);
+  const [guardando, setGuardando] = useState<
+    "nickname" | "email" | "telefono" | "password" | null
+  >(null);
 
   const refreshSolicitudes = useCallback(async () => {
     const result = await getMisSolicitudesTelefono();
@@ -90,6 +96,31 @@ function PerfilContent() {
     }
   }
 
+  async function handlePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (passwordNueva !== passwordConfirmacion) {
+      showToast({
+        variant: "warning",
+        title: "No coinciden",
+        description: "La confirmación no es igual a la contraseña nueva.",
+      });
+      return;
+    }
+    setGuardando("password");
+    try {
+      const result = await cambiarPassword({ password: passwordNueva });
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo cambiar", description: result.error });
+        return;
+      }
+      showToast({ variant: "success", title: "Contraseña actualizada" });
+      setPasswordNueva("");
+      setPasswordConfirmacion("");
+    } finally {
+      setGuardando(null);
+    }
+  }
+
   async function handleTelefono(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setGuardando("telefono");
@@ -121,15 +152,22 @@ function PerfilContent() {
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
         <h1 className="font-fantasy text-3xl font-bold text-parchment">Mi perfil</h1>
 
-        <Panel className="mt-6 flex flex-wrap items-center justify-between gap-3 p-5">
-          <div>
-            <p className="font-fantasy text-xl font-bold text-gold-light">{user.nickname}</p>
-            {/* El admin no juega: sin saldo ni rango que mostrar. */}
-            <p className="text-xs text-parchment/50">
-              {isAdmin ? "Cuenta de administrador" : `Saldo disponible S/${user.balance}`}
-            </p>
+        <Panel className="mt-6 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-fantasy text-xl font-bold text-gold-light">{user.nickname}</p>
+              {/* El admin no juega: sin saldo ni rango que mostrar. */}
+              <p className="text-xs text-parchment/50">
+                {isAdmin ? "Cuenta de administrador" : `Saldo disponible S/${user.balance}`}
+              </p>
+            </div>
+            {!isAdmin ? <LevelBadge puntos={user.puntos} /> : null}
           </div>
-          {!isAdmin ? <LevelBadge puntos={user.puntos} /> : null}
+          {!isAdmin ? (
+            <div className="mt-4">
+              <LevelProgress puntos={user.puntos} />
+            </div>
+          ) : null}
         </Panel>
 
         <Panel className="mt-6 p-5">
@@ -168,6 +206,39 @@ function PerfilContent() {
             />
             <Button type="submit" disabled={guardando === "email" || email === user.email}>
               {guardando === "email" ? "Guardando…" : "Guardar"}
+            </Button>
+          </form>
+        </Panel>
+
+        <Panel className="mt-4 p-5">
+          <h2 className="mb-1 font-fantasy text-lg font-semibold text-gold-light">Contraseña</h2>
+          <p className="mb-3 text-xs text-parchment/50">
+            Mínimo 8 caracteres, combinando letras y números.
+          </p>
+          <form onSubmit={handlePassword} className="flex flex-col gap-2">
+            <input
+              type="password"
+              autoComplete="new-password"
+              placeholder="Contraseña nueva"
+              value={passwordNueva}
+              onChange={(e) => setPasswordNueva(e.target.value)}
+              aria-label="Contraseña nueva"
+              className="min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            />
+            <input
+              type="password"
+              autoComplete="new-password"
+              placeholder="Confirma la contraseña nueva"
+              value={passwordConfirmacion}
+              onChange={(e) => setPasswordConfirmacion(e.target.value)}
+              aria-label="Confirmar contraseña nueva"
+              className="min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            />
+            <Button
+              type="submit"
+              disabled={guardando === "password" || !passwordNueva || !passwordConfirmacion}
+            >
+              {guardando === "password" ? "Guardando…" : "Cambiar contraseña"}
             </Button>
           </form>
         </Panel>

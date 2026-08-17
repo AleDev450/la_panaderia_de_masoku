@@ -148,6 +148,12 @@ export type Retiro = {
   created_at: string;
 };
 
+export type RequisitoRetiro = {
+  recargas_aprobadas: number;
+  monto_apostado: number;
+  monto_requerido: number;
+};
+
 export type SolicitudTelefono = {
   id: string;
   usuario_id: string;
@@ -320,6 +326,14 @@ export interface Database {
           p_motivo?: string | null;
         };
         Returns: Retiro;
+      };
+      requisito_retiro: {
+        Args: { p_usuario_id: string };
+        Returns: RequisitoRetiro[];
+      };
+      admin_resetear_plataforma: {
+        Args: { p_admin_id: string };
+        Returns: string[];
       };
     };
   };
