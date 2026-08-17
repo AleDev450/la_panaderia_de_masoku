@@ -289,6 +289,8 @@ export interface UsuarioAdmin {
   baneado: boolean;
   baneadoMotivo: string | null;
   createdAt: string;
+  /** Suma de recargas APROBADAS (plata real por Yape) — 0 si nunca depositó. */
+  depositadoTotal: number;
 }
 
 export async function getUsuarios(): Promise<ActionResult<UsuarioAdmin[]>> {
@@ -303,6 +305,21 @@ export async function getUsuarios(): Promise<ActionResult<UsuarioAdmin[]>> {
     .order("created_at", { ascending: false });
   if (error) return { ok: false, error: error.message };
 
+  // Aparte y no con un join: `recargas` puede tener varias filas aprobadas
+  // por usuario, así que se suma acá en vez de traer la tabla completa a
+  // la UI. Sirve para distinguir quién tiene saldo respaldado por un
+  // depósito real de quién tiene saldo de prueba (ajustado a mano, ver
+  // 0024_ajustes_saldo_y_yape.sql) sin ningún depósito detrás.
+  const { data: recargas } = await admin
+    .from("recargas")
+    .select("usuario_id, monto_acreditado")
+    .eq("estado", "aprobada");
+  const depositadoPorUsuario = new Map<string, number>();
+  for (const r of recargas ?? []) {
+    const previo = depositadoPorUsuario.get(r.usuario_id) ?? 0;
+    depositadoPorUsuario.set(r.usuario_id, previo + Number(r.monto_acreditado ?? 0));
+  }
+
   return {
     ok: true,
     data: ((data ?? []) as Perfil[]).map((p) => ({
@@ -316,6 +333,7 @@ export async function getUsuarios(): Promise<ActionResult<UsuarioAdmin[]>> {
       baneado: p.baneado,
       baneadoMotivo: p.baneado_motivo,
       createdAt: p.created_at,
+      depositadoTotal: Math.round((depositadoPorUsuario.get(p.id) ?? 0) * 100) / 100,
     })),
   };
 }

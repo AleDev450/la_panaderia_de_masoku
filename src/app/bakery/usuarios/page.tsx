@@ -23,6 +23,7 @@ function AdminUsuariosContent() {
   const { showToast } = useToast();
   const [usuarios, setUsuarios] = useState<UsuarioAdmin[] | null>(null);
   const [busqueda, setBusqueda] = useState("");
+  const [filtroDeposito, setFiltroDeposito] = useState<"todos" | "con" | "sin">("todos");
   const [procesando, setProcesando] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState<UsuarioAdmin | null>(null);
   const [motivo, setMotivo] = useState("");
@@ -48,14 +49,20 @@ function AdminUsuariosContent() {
 
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    if (!q) return usuarios ?? [];
-    return (usuarios ?? []).filter(
-      (u) =>
-        u.nickname.toLowerCase().includes(q) ||
-        (u.fullName ?? "").toLowerCase().includes(q) ||
-        (u.phone ?? "").includes(q)
-    );
-  }, [usuarios, busqueda]);
+    return (usuarios ?? [])
+      .filter(
+        (u) =>
+          !q ||
+          u.nickname.toLowerCase().includes(q) ||
+          (u.fullName ?? "").toLowerCase().includes(q) ||
+          (u.phone ?? "").includes(q)
+      )
+      .filter((u) => {
+        if (filtroDeposito === "con") return u.depositadoTotal > 0;
+        if (filtroDeposito === "sin") return u.depositadoTotal === 0;
+        return true;
+      });
+  }, [usuarios, busqueda, filtroDeposito]);
 
   async function aplicarBaneo(usuario: UsuarioAdmin, banear: boolean, motivoTexto?: string) {
     setProcesando(usuario.id);
@@ -217,16 +224,47 @@ function AdminUsuariosContent() {
           className="mt-6 min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
         />
 
+        <div className="mt-3 flex flex-wrap gap-2">
+          {[
+            { value: "todos" as const, label: "Todos" },
+            { value: "con" as const, label: "Depositaron" },
+            { value: "sin" as const, label: "Sin depósito real" },
+          ].map((opcion) => (
+            <button
+              key={opcion.value}
+              type="button"
+              aria-pressed={filtroDeposito === opcion.value}
+              onClick={() => setFiltroDeposito(opcion.value)}
+              className={clsx(
+                "min-h-9 rounded-md border px-3 py-1.5 text-xs font-semibold transition focus-visible:ring-2 focus-visible:ring-gold-light",
+                filtroDeposito === opcion.value
+                  ? "border-gold bg-gold-dark/40 text-gold-light"
+                  : "border-gold-dark/60 text-parchment/60 hover:border-gold-light"
+              )}
+            >
+              {opcion.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1.5 text-xs text-parchment/40">
+          &quot;Sin depósito real&quot; es saldo que nunca vino de una
+          recarga aprobada — candidato a ajustar si era de prueba.
+        </p>
+
         <section className="mt-6">
           {usuarios === null ? (
             <p className="text-sm text-parchment/50">Cargando…</p>
           ) : filtrados.length === 0 ? (
             <Panel className="border-dashed p-6 text-center text-sm text-parchment/50">
-              {busqueda ? "Ningún usuario coincide." : "Todavía no hay usuarios registrados."}
+              {busqueda || filtroDeposito !== "todos"
+                ? "Ningún usuario coincide con el filtro."
+                : "Todavía no hay usuarios registrados."}
             </Panel>
           ) : (
             <div className="flex flex-col gap-3">
-              {filtrados.map((u) => (
+              {filtrados.map((u) => {
+                const saldoSinDeposito = u.depositadoTotal === 0 && u.saldoDisponible + u.saldoRetenido > 0;
+                return (
                 <Panel
                   key={u.id}
                   className={clsx("flex flex-col gap-3 p-4", u.baneado && "border-lose/60")}
@@ -240,6 +278,14 @@ function AdminUsuariosContent() {
                         {u.baneado ? (
                           <span className="rounded-md border border-lose px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-lose-glow">
                             Suspendido
+                          </span>
+                        ) : null}
+                        {saldoSinDeposito ? (
+                          <span
+                            title="Tiene saldo pero nunca aprobaste una recarga suya"
+                            className="rounded-md border border-gold-light px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-gold-light"
+                          >
+                            Saldo sin depósito
                           </span>
                         ) : null}
                       </p>
@@ -257,9 +303,10 @@ function AdminUsuariosContent() {
                     <LevelBadge puntos={u.puntos} size="sm" />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <Dato label="Disponible" valor={`S/${u.saldoDisponible}`} />
                     <Dato label="En juego" valor={`S/${u.saldoRetenido}`} />
+                    <Dato label="Depositado" valor={`S/${u.depositadoTotal}`} />
                     <Dato label="Puntos" valor={String(u.puntos)} />
                   </div>
 
@@ -324,7 +371,8 @@ function AdminUsuariosContent() {
                     </Button>
                   </div>
                 </Panel>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
