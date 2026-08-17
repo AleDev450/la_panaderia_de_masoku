@@ -401,6 +401,14 @@ export interface Database {
         };
         Returns: Retiro;
       };
+      admin_revertir_retiro: {
+        Args: { p_admin_id: string; p_retiro_id: string; p_motivo: string };
+        Returns: Retiro;
+      };
+      admin_eliminar_evento_prueba: {
+        Args: { p_admin_id: string; p_evento_id: string };
+        Returns: void;
+      };
       requisito_retiro: {
         Args: { p_usuario_id: string };
         Returns: RequisitoRetiro[];

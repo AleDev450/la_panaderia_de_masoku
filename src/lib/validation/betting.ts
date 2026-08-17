@@ -38,3 +38,8 @@ export const crearEventoSchema = z.object({
   duracionMin: z.number().int().min(1, "La duración debe ser de al menos 1 minuto."),
 });
 export type CrearEventoInput = z.infer<typeof crearEventoSchema>;
+
+export const eliminarEventoPruebaSchema = z.object({
+  eventoId: z.string().uuid("Evento inválido."),
+});
+export type EliminarEventoPruebaInput = z.infer<typeof eliminarEventoPruebaSchema>;

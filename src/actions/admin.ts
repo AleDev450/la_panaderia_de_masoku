@@ -14,6 +14,10 @@ import {
   registrarAjusteYapeSchema,
   registrarPagoManualSchema,
 } from "@/lib/validation/pagos";
+import {
+  EliminarEventoPruebaInput,
+  eliminarEventoPruebaSchema,
+} from "@/lib/validation/betting";
 import { HERRAMIENTAS_PRUEBA } from "@/lib/flags";
 
 async function requireAdminId(): Promise<
@@ -557,4 +561,35 @@ export async function cambiarEstadoEvento(
 
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: data as Evento };
+}
+
+/**
+ * Herramienta de pruebas: borra un título YA RESUELTO junto con sus
+ * apuestas, emparejamientos, comisión y movimientos de saldo, revirtiendo
+ * su efecto en el saldo y puntos de cada jugador que apostó ahí — como si
+ * nunca hubiera pasado. Ver 0027_eliminar_evento_prueba_y_revertir_retiro.sql.
+ */
+export async function eliminarEventoPrueba(
+  input: EliminarEventoPruebaInput
+): Promise<ActionResult<null>> {
+  if (!HERRAMIENTAS_PRUEBA) {
+    return { ok: false, error: "Las herramientas de prueba están desactivadas." };
+  }
+
+  const parsed = eliminarEventoPruebaSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.rpc("admin_eliminar_evento_prueba", {
+    p_admin_id: session.userId,
+    p_evento_id: parsed.data.eventoId,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: null };
 }

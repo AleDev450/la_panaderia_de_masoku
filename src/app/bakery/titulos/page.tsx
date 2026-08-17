@@ -17,12 +17,14 @@ import {
   confirmarPago,
   corregirResultado,
   declararResultado,
+  eliminarEventoPrueba,
   liquidarVencidos,
 } from "@/actions/admin";
 import { ResolverPanel } from "@/components/bakery/ResolverPanel";
 import { CategoriaBadge, CATEGORIA_OPTIONS } from "@/components/partidas/CategoriaBadge";
 import { CategoriaEvento, Evento } from "@/lib/supabase/types";
 import { DURACION_MIN_DEFAULT } from "@/types";
+import { HERRAMIENTAS_PRUEBA } from "@/lib/flags";
 
 function AdminTitulosContent() {
   const { showToast } = useToast();
@@ -30,6 +32,8 @@ function AdminTitulosContent() {
   const [procesando, setProcesando] = useState<string | null>(null);
 
   const [minutosExtra, setMinutosExtra] = useState<Record<string, string>>({});
+  const [eliminandoEvento, setEliminandoEvento] = useState<Evento | null>(null);
+  const [eliminandoProcesando, setEliminandoProcesando] = useState(false);
 
   const [nombre, setNombre] = useState("");
   const [ladoA, setLadoA] = useState("");
@@ -194,6 +198,26 @@ function AdminTitulosContent() {
       await refresh();
     } finally {
       setProcesando(null);
+    }
+  }
+
+  async function handleEliminarPrueba(evento: Evento) {
+    setEliminandoProcesando(true);
+    try {
+      const result = await eliminarEventoPrueba({ eventoId: evento.id });
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo eliminar", description: result.error });
+        return;
+      }
+      showToast({
+        variant: "info",
+        title: "Título eliminado",
+        description: `"${evento.nombre}" y sus apuestas quedaron revertidas del saldo de los jugadores.`,
+      });
+      setEliminandoEvento(null);
+      await refresh();
+    } finally {
+      setEliminandoProcesando(false);
     }
   }
 
@@ -456,12 +480,77 @@ function AdminTitulosContent() {
                     onConfirmar={() => handleConfirmar(evento.id)}
                     onVentanaVencida={handleVencidos}
                   />
+
+                  {HERRAMIENTAS_PRUEBA && evento.estado === "resuelto" ? (
+                    <div className="mt-3 border-t border-gold-dark/30 pt-3 text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setEliminandoEvento(evento)}
+                        className="min-h-8 border border-lose-glow/40 px-2 py-1 text-xs text-lose-glow"
+                      >
+                        Eliminar (era de prueba)
+                      </Button>
+                    </div>
+                  ) : null}
                 </Panel>
               ))}
             </div>
           )}
         </section>
       </main>
+
+      {eliminandoEvento ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Eliminar ${eliminandoEvento.nombre}`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEliminandoEvento(null);
+          }}
+        >
+          <div className="panel-stone w-full max-w-md rounded-xl p-5">
+            <h2 className="font-fantasy text-lg font-bold text-lose-glow">
+              Eliminar &quot;{eliminandoEvento.nombre}&quot;
+            </h2>
+            <p className="mt-2 text-sm text-parchment/70">
+              Borra el título, sus apuestas, emparejamientos, comisión y
+              movimientos de saldo — y revierte lo que ganó o perdió cada
+              jugador que apostó ahí, como si nunca hubiera pasado (incluye
+              bajarle los puntos que ganó). No se puede deshacer.
+            </p>
+            <p className="mt-2 rounded-md border border-gold-dark/60 bg-obsidian/40 px-3 py-2 text-xs text-parchment/60">
+              Si un ganador ya se gastó o retiró esa plata y no le alcanza
+              para devolverla, se le deja el saldo en S/0 en vez de
+              bloquear todo el borrado — se acepta esa pérdida puntual, no
+              se persigue la plata. Si además retiró vía Yape, ese retiro
+              sigue marcado como pagado — revierte eso aparte en{" "}
+              <strong className="text-parchment/80">Retiros</strong>.
+            </p>
+
+            <div className="mt-5 flex gap-2">
+              <Button
+                type="button"
+                variant="lose"
+                disabled={eliminandoProcesando}
+                onClick={() => handleEliminarPrueba(eliminandoEvento)}
+                className="flex-1"
+              >
+                {eliminandoProcesando ? "Eliminando…" : "Sí, eliminar"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setEliminandoEvento(null)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

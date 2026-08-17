@@ -36,6 +36,12 @@ const resolverRetiroSchema = z.object({
 });
 export type ResolverRetiroInput = z.infer<typeof resolverRetiroSchema>;
 
+const revertirRetiroSchema = z.object({
+  retiroId: z.string().uuid("Retiro inválido."),
+  motivo: z.string().trim().min(3, "Indica el motivo de la reversión.").max(300, "Máximo 300 caracteres."),
+});
+export type RevertirRetiroInput = z.infer<typeof revertirRetiroSchema>;
+
 /**
  * El RPC retiene el saldo en la misma transacción que crea la solicitud
  * — ver 0012_retiros.sql por qué eso no puede quedar en el cliente.
@@ -189,6 +195,31 @@ export async function resolverRetiro(
     p_retiro_id: parsed.data.retiroId,
     p_pagar: parsed.data.pagar,
     p_motivo: parsed.data.motivo ?? null,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as Retiro };
+}
+
+/**
+ * Deshace un retiro ya pagado — para cuando resulta que salió de saldo de
+ * prueba y no de plata real. Le devuelve el monto al jugador y lo pasa a
+ * 'rechazado' con el motivo (ver 0027).
+ */
+export async function revertirRetiro(input: RevertirRetiroInput): Promise<ActionResult<Retiro>> {
+  const parsed = revertirRetiroSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireSessionUserId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_revertir_retiro", {
+    p_admin_id: session.userId,
+    p_retiro_id: parsed.data.retiroId,
+    p_motivo: parsed.data.motivo,
   });
 
   if (error) return { ok: false, error: error.message };

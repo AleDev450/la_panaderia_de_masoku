@@ -7,7 +7,7 @@ import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/context/ToastContext";
-import { RetiroConUsuario, getRetiros, resolverRetiro } from "@/actions/retiros";
+import { RetiroConUsuario, getRetiros, resolverRetiro, revertirRetiro } from "@/actions/retiros";
 
 function AdminRetirosContent() {
   const { showToast } = useToast();
@@ -15,6 +15,8 @@ function AdminRetirosContent() {
   const [procesando, setProcesando] = useState<string | null>(null);
   const [rechazando, setRechazando] = useState<RetiroConUsuario | null>(null);
   const [motivo, setMotivo] = useState("");
+  const [revirtiendo, setRevirtiendo] = useState<RetiroConUsuario | null>(null);
+  const [motivoReversion, setMotivoReversion] = useState("");
 
   const refresh = useCallback(async () => {
     const result = await getRetiros();
@@ -48,6 +50,36 @@ function AdminRetirosContent() {
       });
       setRechazando(null);
       setMotivo("");
+      await refresh();
+    } finally {
+      setProcesando(null);
+    }
+  }
+
+  async function handleRevertir(item: RetiroConUsuario) {
+    const { retiro, usuario } = item;
+    if (!motivoReversion.trim()) {
+      showToast({
+        variant: "warning",
+        title: "Falta el motivo",
+        description: "Indica por qué se revierte este retiro.",
+      });
+      return;
+    }
+    setProcesando(retiro.id);
+    try {
+      const result = await revertirRetiro({ retiroId: retiro.id, motivo: motivoReversion.trim() });
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo revertir", description: result.error });
+        return;
+      }
+      showToast({
+        variant: "info",
+        title: "Retiro revertido",
+        description: `S/${retiro.monto} volvieron al saldo de ${usuario.nickname}.`,
+      });
+      setRevirtiendo(null);
+      setMotivoReversion("");
       await refresh();
     } finally {
       setProcesando(null);
@@ -150,24 +182,48 @@ function AdminRetirosContent() {
               Historial
             </h2>
             <div className="flex flex-col gap-2">
-              {revisados.map(({ retiro, usuario }) => (
+              {revisados.map((item) => {
+                const { retiro, usuario } = item;
+                return (
                 <Panel
                   key={retiro.id}
                   className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm"
                 >
                   <span className="text-parchment/80">
                     {usuario.nickname} · S/{retiro.monto} → {retiro.telefono_destino}
+                    {retiro.estado === "rechazado" && retiro.motivo_rechazo ? (
+                      <span className="ml-1 text-xs text-parchment/40">
+                        ({retiro.motivo_rechazo})
+                      </span>
+                    ) : null}
                   </span>
-                  <span
-                    className={clsx(
-                      "text-xs font-semibold",
-                      retiro.estado === "pagado" ? "text-win-glow" : "text-lose-glow"
-                    )}
-                  >
-                    {retiro.estado === "pagado" ? "Pagado" : "Rechazado"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={clsx(
+                        "text-xs font-semibold",
+                        retiro.estado === "pagado" ? "text-win-glow" : "text-lose-glow"
+                      )}
+                    >
+                      {retiro.estado === "pagado" ? "Pagado" : "Rechazado"}
+                    </span>
+                    {retiro.estado === "pagado" ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={procesando === retiro.id}
+                        onClick={() => {
+                          setRevirtiendo(item);
+                          setMotivoReversion("");
+                        }}
+                        className="min-h-8 px-2 py-1 text-xs"
+                      >
+                        Revertir
+                      </Button>
+                    ) : null}
+                  </div>
                 </Panel>
-              ))}
+                );
+              })}
             </div>
           </section>
         ) : null}
@@ -216,6 +272,62 @@ function AdminRetirosContent() {
                 type="button"
                 variant="ghost"
                 onClick={() => setRechazando(null)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {revirtiendo ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Revertir retiro de ${revirtiendo.usuario.nickname}`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setRevirtiendo(null);
+          }}
+        >
+          <div className="panel-stone w-full max-w-md rounded-xl p-5">
+            <h2 className="font-fantasy text-lg font-bold text-gold-light">
+              Revertir retiro de {revirtiendo.usuario.nickname}
+            </h2>
+            <p className="mt-2 text-sm text-parchment/70">
+              Para cuando este pago salió de saldo que resultó ser de
+              prueba, no de plata real. Los S/{revirtiendo.retiro.monto} vuelven
+              a su saldo disponible y el retiro queda como rechazado.
+            </p>
+
+            <label
+              htmlFor="motivo-reversion"
+              className="mt-4 mb-1.5 block text-sm text-parchment/80"
+            >
+              Motivo
+            </label>
+            <input
+              id="motivo-reversion"
+              value={motivoReversion}
+              onChange={(e) => setMotivoReversion(e.target.value)}
+              placeholder="Ej. Salió de saldo de prueba, no era plata real"
+              className="w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-sm text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            />
+
+            <div className="mt-5 flex gap-2">
+              <Button
+                type="button"
+                disabled={procesando === revirtiendo.retiro.id}
+                onClick={() => handleRevertir(revirtiendo)}
+                className="flex-1"
+              >
+                {procesando === revirtiendo.retiro.id ? "Revirtiendo…" : "Revertir"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setRevirtiendo(null)}
                 className="flex-1"
               >
                 Cancelar
