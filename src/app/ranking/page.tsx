@@ -7,6 +7,7 @@ import { Panel } from "@/components/ui/Panel";
 import { LevelBadge } from "@/components/LevelBadge";
 import { useSession } from "@/context/SessionContext";
 import { JugadorRanking, getRanking } from "@/actions/perfil";
+import { PUNTOS_POR_GANAR, PUNTOS_POR_PERDER } from "@/types";
 import clsx from "clsx";
 
 function RankingContent() {
@@ -29,9 +30,9 @@ function RankingContent() {
         <p className="mt-2 text-sm text-parchment/60">
           Los panaderos más gosus de LA PANADERÍA DE MASOKU — gana un duelo emparejado y
           suman {" "}
-          <span className="font-semibold text-win-glow">5 puntos</span>; si
+          <span className="font-semibold text-win-glow">{PUNTOS_POR_GANAR} puntos</span>; si
           pierdes, igual sumas{" "}
-          <span className="font-semibold text-gold-light">1 punto</span>.
+          <span className="font-semibold text-gold-light">{PUNTOS_POR_PERDER} punto</span>.
         </p>
 
         {ranking === null ? (
