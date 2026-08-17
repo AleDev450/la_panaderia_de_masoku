@@ -31,3 +31,19 @@ export const resolverRecargaSchema = z.object({
     .optional(),
 });
 export type ResolverRecargaInput = z.infer<typeof resolverRecargaSchema>;
+
+export const corregirMontoRecargaSchema = z.object({
+  recargaId: z.string().uuid("Recarga inválida."),
+  montoNuevo: z
+    .number()
+    .positive("El monto debe ser mayor a 0.")
+    .refine((v) => Math.round(v * 100) === v * 100, {
+      message: "El monto admite máximo 2 decimales.",
+    }),
+  motivo: z
+    .string()
+    .trim()
+    .min(3, "Indica el motivo de la corrección.")
+    .max(200, "Máximo 200 caracteres."),
+});
+export type CorregirMontoRecargaInput = z.infer<typeof corregirMontoRecargaSchema>;

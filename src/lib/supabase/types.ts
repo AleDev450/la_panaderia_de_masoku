@@ -120,6 +120,16 @@ export type Recarga = {
   created_at: string;
 };
 
+export type CorreccionRecarga = {
+  id: string;
+  admin_id: string;
+  recarga_id: string;
+  monto_anterior: number;
+  monto_nuevo: number;
+  motivo: string;
+  created_at: string;
+};
+
 /** Fila que devuelve el RPC `admin_metricas` (0010). Postgres entrega los
  * numeric como string por el driver, así que se tipan como number|string
  * y la UI los normaliza con Number(). */
@@ -249,6 +259,11 @@ export interface Database {
         Insert: Partial<Recarga>;
         Update: Partial<Recarga>;
       } & NoRelationships;
+      correcciones_recarga: {
+        Row: CorreccionRecarga;
+        Insert: Partial<CorreccionRecarga>;
+        Update: Partial<CorreccionRecarga>;
+      } & NoRelationships;
       retiros: {
         Row: Retiro;
         Insert: Partial<Retiro>;
@@ -339,6 +354,15 @@ export interface Database {
           p_recarga_id: string;
           p_aprobar: boolean;
           p_monto_acreditado?: number | null;
+        };
+        Returns: Recarga;
+      };
+      admin_corregir_monto_recarga: {
+        Args: {
+          p_admin_id: string;
+          p_recarga_id: string;
+          p_monto_nuevo: number;
+          p_motivo: string;
         };
         Returns: Recarga;
       };

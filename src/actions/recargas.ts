@@ -3,8 +3,10 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
+  CorregirMontoRecargaInput,
   CrearRecargaInput,
   ResolverRecargaInput,
+  corregirMontoRecargaSchema,
   crearRecargaSchema,
   resolverRecargaSchema,
 } from "@/lib/validation/recargas";
@@ -161,6 +163,35 @@ export async function resolverRecarga(
     p_recarga_id: parsed.data.recargaId,
     p_aprobar: parsed.data.aprobar,
     p_monto_acreditado: parsed.data.montoAcreditado ?? null,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as Recarga };
+}
+
+/**
+ * Corrige el monto acreditado de una recarga YA aprobada — para cuando se
+ * aprobó de más (ej. saldo de prueba marcado como depósito real). Ajusta
+ * el saldo del jugador por la diferencia en la misma transacción; ver
+ * 0025_corregir_monto_recarga.sql.
+ */
+export async function corregirMontoRecarga(
+  input: CorregirMontoRecargaInput
+): Promise<ActionResult<Recarga>> {
+  const parsed = corregirMontoRecargaSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireSessionUserId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_corregir_monto_recarga", {
+    p_admin_id: session.userId,
+    p_recarga_id: parsed.data.recargaId,
+    p_monto_nuevo: parsed.data.montoNuevo,
+    p_motivo: parsed.data.motivo,
   });
 
   if (error) return { ok: false, error: error.message };

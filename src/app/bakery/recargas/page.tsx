@@ -11,6 +11,7 @@ import { useToast } from "@/context/ToastContext";
 import {
   RecargaConUsuario,
   borrarTodasLasRecargas,
+  corregirMontoRecarga,
   getRecargas,
   resolverRecarga,
 } from "@/actions/recargas";
@@ -26,6 +27,10 @@ function AdminRecargasContent() {
   const [borrando, setBorrando] = useState(false);
   /** Monto editado por recarga; ausente = se acredita lo que declaró el jugador. */
   const [montos, setMontos] = useState<Record<string, string>>({});
+  const [corrigiendo, setCorrigiendo] = useState<RecargaConUsuario | null>(null);
+  const [montoCorregido, setMontoCorregido] = useState("");
+  const [motivoCorreccion, setMotivoCorreccion] = useState("");
+  const [enviandoCorreccion, setEnviandoCorreccion] = useState(false);
 
   const refresh = useCallback(async () => {
     const result = await getRecargas();
@@ -94,6 +99,43 @@ function AdminRecargasContent() {
       await refresh();
     } finally {
       setBorrando(false);
+    }
+  }
+
+  async function handleCorregirMonto(item: RecargaConUsuario) {
+    const { recarga } = item;
+    const montoNumber = Number(montoCorregido);
+    if (!Number.isFinite(montoNumber) || montoNumber <= 0 || !motivoCorreccion.trim()) {
+      showToast({
+        variant: "warning",
+        title: "Datos incompletos",
+        description: "Indica un monto mayor a 0 y el motivo de la corrección.",
+      });
+      return;
+    }
+
+    setEnviandoCorreccion(true);
+    try {
+      const result = await corregirMontoRecarga({
+        recargaId: recarga.id,
+        montoNuevo: montoNumber,
+        motivo: motivoCorreccion.trim(),
+      });
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo corregir", description: result.error });
+        return;
+      }
+      showToast({
+        variant: "info",
+        title: "Monto corregido",
+        description: `Ahora acredita S/${result.data.monto_acreditado} en vez de S/${recarga.monto_acreditado}.`,
+      });
+      setCorrigiendo(null);
+      setMontoCorregido("");
+      setMotivoCorreccion("");
+      await refresh();
+    } finally {
+      setEnviandoCorreccion(false);
     }
   }
 
@@ -239,7 +281,9 @@ function AdminRecargasContent() {
               Historial
             </h2>
             <div className="flex flex-col gap-2">
-              {revisadas.map(({ recarga, usuario }) => (
+              {revisadas.map((item) => {
+                const { recarga, usuario } = item;
+                return (
                 <Panel
                   key={recarga.id}
                   className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm"
@@ -254,16 +298,33 @@ function AdminRecargasContent() {
                       </span>
                     ) : null}
                   </span>
-                  <span
-                    className={clsx(
-                      "text-xs font-semibold",
-                      recarga.estado === "aprobada" ? "text-win-glow" : "text-lose-glow"
-                    )}
-                  >
-                    {recarga.estado === "aprobada" ? "Aprobada" : "Rechazada"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={clsx(
+                        "text-xs font-semibold",
+                        recarga.estado === "aprobada" ? "text-win-glow" : "text-lose-glow"
+                      )}
+                    >
+                      {recarga.estado === "aprobada" ? "Aprobada" : "Rechazada"}
+                    </span>
+                    {recarga.estado === "aprobada" ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                          setCorrigiendo(item);
+                          setMontoCorregido(String(recarga.monto_acreditado));
+                          setMotivoCorreccion("");
+                        }}
+                        className="min-h-8 px-2 py-1 text-xs"
+                      >
+                        Corregir monto
+                      </Button>
+                    ) : null}
+                  </div>
                 </Panel>
-              ))}
+                );
+              })}
             </div>
           </section>
         ) : null}
@@ -307,6 +368,79 @@ function AdminRecargasContent() {
                 type="button"
                 variant="ghost"
                 onClick={() => setConfirmarBorrado(false)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {corrigiendo ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Corregir monto de ${corrigiendo.usuario.nickname}`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCorrigiendo(null);
+          }}
+        >
+          <div className="panel-stone w-full max-w-md rounded-xl p-5">
+            <h2 className="font-fantasy text-lg font-bold text-gold-light">
+              Corregir monto de {corrigiendo.usuario.nickname}
+            </h2>
+            <p className="mt-2 text-sm text-parchment/70">
+              Acreditado actualmente: S/{corrigiendo.recarga.monto_acreditado}.
+              Ajusta el saldo del jugador por la diferencia — si ya no le
+              alcanza el disponible para absorber una baja, se rechaza.
+            </p>
+
+            <label
+              htmlFor="monto-corregido"
+              className="mt-4 mb-1.5 block text-sm text-parchment/80"
+            >
+              Monto correcto
+            </label>
+            <input
+              id="monto-corregido"
+              type="number"
+              min={0.01}
+              step="0.01"
+              inputMode="decimal"
+              value={montoCorregido}
+              onChange={(e) => setMontoCorregido(e.target.value)}
+              className="min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            />
+
+            <label
+              htmlFor="motivo-correccion"
+              className="mt-3 mb-1.5 block text-sm text-parchment/80"
+            >
+              Motivo
+            </label>
+            <input
+              id="motivo-correccion"
+              value={motivoCorreccion}
+              onChange={(e) => setMotivoCorreccion(e.target.value)}
+              placeholder="Ej. Era saldo de prueba, no un depósito real"
+              className="w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-sm text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            />
+
+            <div className="mt-5 flex gap-2">
+              <Button
+                type="button"
+                disabled={enviandoCorreccion}
+                onClick={() => handleCorregirMonto(corrigiendo)}
+                className="flex-1"
+              >
+                {enviandoCorreccion ? "Guardando…" : "Corregir"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setCorrigiendo(null)}
                 className="flex-1"
               >
                 Cancelar
