@@ -104,9 +104,9 @@ export default function ComoJugarPage() {
             Juego responsable
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-parchment/75">
-            LA PANADERÍA DE MASOKU es una demostración: no involucra pagos, depósitos, retiros
-            ni criptomonedas reales. El acceso está restringido a mayores de 18
-            años. Apuesta con moderación.
+            El acceso está restringido a mayores de 18 años. Apuesta con
+            moderación: no arriesgues más saldo del que puedas permitirte
+            perder.
           </p>
         </Panel>
       </main>

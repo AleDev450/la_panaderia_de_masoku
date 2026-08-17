@@ -77,6 +77,30 @@ function AdminHomeContent() {
           </div>
         </section>
 
+        {metricas ? (
+          <section className="mt-6">
+            <Panel className="border-gold-light/50 bg-gold/5 p-5">
+              <p className="text-[11px] uppercase tracking-wide text-parchment/40">
+                Reconciliación de Yape
+              </p>
+              <p className="mt-1 font-fantasy text-2xl font-bold text-gold-light">
+                En Yape deberías tener: S/{metricas.yape_esperado}
+              </p>
+              <p className="mt-2 text-xs text-parchment/60">
+                = Ganancia S/{metricas.ganancia_total} + Depósitos de
+                jugadores sin retirar S/{metricas.saldos_usuarios_total} −
+                Pagos ya realizados S/{metricas.pagos_manuales_total}
+              </p>
+              <Link
+                href="/bakery/pagos"
+                className="mt-3 inline-block text-xs font-semibold text-gold-light underline"
+              >
+                Ver historial de pagos y registrar uno nuevo →
+              </Link>
+            </Panel>
+          </section>
+        ) : null}
+
         <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Tarjeta
             href="/bakery/titulos"
@@ -116,6 +140,13 @@ function AdminHomeContent() {
             descripcion="Aprueba o rechaza solicitudes de cambio de número."
             valor={telefonos}
             unidad="pendientes"
+          />
+          <Tarjeta
+            href="/bakery/pagos"
+            titulo="Pagos manuales"
+            descripcion="Retiros propios o pagos a trabajadores, con historial."
+            valor={metricas ? metricas.pagos_manuales_total : null}
+            unidad="S/ pagados en total"
           />
         </div>
       </main>

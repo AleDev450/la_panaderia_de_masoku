@@ -3,9 +3,10 @@
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { AdminMetricas, Evento, Perfil } from "@/lib/supabase/types";
+import { AdminMetricas, Evento, PagoManual, Perfil } from "@/lib/supabase/types";
 import { ActionResult } from "@/actions/betting";
 import { AdminCambiarPasswordInput, adminCambiarPasswordSchema } from "@/lib/validation/perfil";
+import { RegistrarPagoManualInput, registrarPagoManualSchema } from "@/lib/validation/pagos";
 import { HERRAMIENTAS_PRUEBA } from "@/lib/flags";
 
 async function requireAdminId(): Promise<
@@ -85,7 +86,69 @@ export async function getMetricas(): Promise<ActionResult<AdminMetricas>> {
       usuarios_baneados: num(fila.usuarios_baneados),
       eventos_abiertos: num(fila.eventos_abiertos),
       retiros_pendientes: num(fila.retiros_pendientes),
+      saldos_usuarios_total: num(fila.saldos_usuarios_total),
+      pagos_manuales_total: num(fila.pagos_manuales_total),
+      yape_esperado: num(fila.yape_esperado),
     },
+  };
+}
+
+/**
+ * Retiro propio del admin o pago a un trabajador — dinero que sale del
+ * Yape de la plataforma por fuera del juego. No toca saldo de ningún
+ * usuario: es solo el registro contable que explica por qué el Yape real
+ * tiene menos de lo que `admin_metricas.yape_esperado` calcularía sin él.
+ */
+export async function registrarPagoManual(
+  input: RegistrarPagoManualInput
+): Promise<ActionResult<PagoManual>> {
+  const parsed = registrarPagoManualSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_registrar_pago_manual", {
+    p_admin_id: session.userId,
+    p_concepto: parsed.data.concepto,
+    p_monto: parsed.data.monto,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as PagoManual };
+}
+
+export interface PagoManualConAdmin {
+  pago: PagoManual;
+  adminNickname: string;
+}
+
+/** Historial de pagos manuales, más reciente primero. */
+export async function getPagosManuales(): Promise<ActionResult<PagoManualConAdmin[]>> {
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data: pagos, error } = await admin
+    .from("pagos_manuales")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) return { ok: false, error: error.message };
+  if (!pagos || pagos.length === 0) return { ok: true, data: [] };
+
+  const adminIds = [...new Set(pagos.map((p) => p.admin_id))];
+  const { data: perfiles } = await admin.from("perfiles").select("id, nickname").in("id", adminIds);
+  const nicknamePorId = new Map((perfiles ?? []).map((p) => [p.id, p.nickname]));
+
+  return {
+    ok: true,
+    data: pagos.map((p) => ({
+      pago: p as PagoManual,
+      adminNickname: nicknamePorId.get(p.admin_id) ?? "—",
+    })),
   };
 }
 

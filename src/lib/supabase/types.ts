@@ -133,6 +133,20 @@ export type AdminMetricas = {
   usuarios_baneados: number;
   eventos_abiertos: number;
   retiros_pendientes: number;
+  /** Dinero todavía en saldo de jugadores (disponible + retenido) — no retirado aún. */
+  saldos_usuarios_total: number;
+  /** Retiros propios del admin o pagos a trabajadores (0022_pagos_manuales.sql), histórico. */
+  pagos_manuales_total: number;
+  /** ganancia_total + saldos_usuarios_total − pagos_manuales_total, calculado directo de recargas/retiros. */
+  yape_esperado: number;
+};
+
+export type PagoManual = {
+  id: string;
+  admin_id: string;
+  concepto: string;
+  monto: number;
+  created_at: string;
 };
 
 export type Retiro = {
@@ -218,6 +232,11 @@ export interface Database {
         Row: Retiro;
         Insert: Partial<Retiro>;
         Update: Partial<Retiro>;
+      } & NoRelationships;
+      pagos_manuales: {
+        Row: PagoManual;
+        Insert: Partial<PagoManual>;
+        Update: Partial<PagoManual>;
       } & NoRelationships;
     };
     Views: Record<string, never>;
@@ -334,6 +353,10 @@ export interface Database {
       admin_resetear_plataforma: {
         Args: { p_admin_id: string };
         Returns: string[];
+      };
+      admin_registrar_pago_manual: {
+        Args: { p_admin_id: string; p_concepto: string; p_monto: number };
+        Returns: PagoManual;
       };
     };
   };

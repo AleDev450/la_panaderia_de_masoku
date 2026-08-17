@@ -20,7 +20,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "LA PANADERÍA DE MASOKU — Apuestas 1 contra 1",
   description:
-    "LA PANADERÍA DE MASOKU: apuestas 1 contra 1 entre jugadores. Elige tu lado, encuentra tu rival. Solo demostración, 18+, juego responsable.",
+    "LA PANADERÍA DE MASOKU: apuestas 1 contra 1 entre jugadores. Elige tu lado, encuentra tu rival. 18+, juego responsable.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
