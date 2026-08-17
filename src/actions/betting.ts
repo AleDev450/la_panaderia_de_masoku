@@ -209,13 +209,51 @@ export interface EventoResumen {
 }
 
 /**
- * Listado de "partidas de hoy" para /partidas — a diferencia de
- * getOrderBook (agregados anónimos, a propósito, ver su comentario), acá
- * sí se expone el nickname del primer retador abierto por lado: es un
- * requisito de producto para esta pantalla ("esperando retador" / mostrar
- * quién creó la sala), no para el order book de /exchange.
+ * Listado de salas para /partidas. Expone el nickname y la insignia de
+ * cada apostador por lado — es un requisito de producto de esta pantalla:
+ * el jugador tiene que ver contra quién está jugando.
+ *
+ * Solo devuelve los títulos de hoy. Para revisar días pasados está
+ * `getEventosPorFecha`, que es solo para staff.
  */
 export async function getEventosHoy(): Promise<ActionResult<EventoResumen[]>> {
+  const inicioHoy = new Date();
+  inicioHoy.setHours(0, 0, 0, 0);
+  return listarEventos(inicioHoy.toISOString(), null);
+}
+
+/**
+ * Igual que el anterior pero con rango de fechas libre, para que el staff
+ * revise partidas pasadas. Restringido a admin: un jugador solo necesita
+ * (y solo debe ver) lo de hoy.
+ */
+export async function getEventosPorFecha(
+  desde: string,
+  hasta: string
+): Promise<ActionResult<EventoResumen[]>> {
+  const session = await requireSessionUserId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data: perfil } = await admin
+    .from("perfiles")
+    .select("rol")
+    .eq("id", session.userId)
+    .single();
+  if (perfil?.rol !== "admin") return { ok: false, error: "No autorizado." };
+
+  // `hasta` llega como fecha suelta (YYYY-MM-DD); se corre al final de ese
+  // día para que el rango incluya lo creado durante la última jornada.
+  const finHasta = new Date(`${hasta}T00:00:00`);
+  finHasta.setHours(23, 59, 59, 999);
+
+  return listarEventos(new Date(`${desde}T00:00:00`).toISOString(), finHasta.toISOString());
+}
+
+async function listarEventos(
+  desdeIso: string,
+  hastaIso: string | null
+): Promise<ActionResult<EventoResumen[]>> {
   // Una Server Action es un endpoint POST invocable por cualquiera, no una
   // función privada de la página. Como esta usa el cliente service_role
   // (salta RLS) y devuelve nicknames y montos ajenos, exige sesión.
@@ -224,14 +262,12 @@ export async function getEventosHoy(): Promise<ActionResult<EventoResumen[]>> {
 
   const admin = createSupabaseAdminClient();
 
-  const inicioHoy = new Date();
-  inicioHoy.setHours(0, 0, 0, 0);
+  let query = admin.from("eventos").select("*").gte("created_at", desdeIso);
+  if (hastaIso) query = query.lte("created_at", hastaIso);
 
-  const { data: eventos, error: eventosError } = await admin
-    .from("eventos")
-    .select("*")
-    .gte("created_at", inicioHoy.toISOString())
-    .order("created_at", { ascending: false });
+  const { data: eventos, error: eventosError } = await query.order("created_at", {
+    ascending: false,
+  });
   if (eventosError) return { ok: false, error: eventosError.message };
   if (!eventos || eventos.length === 0) return { ok: true, data: [] };
 

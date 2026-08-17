@@ -8,7 +8,7 @@ import { Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
 import { LevelBadge } from "@/components/LevelBadge";
 import { useToast } from "@/context/ToastContext";
-import { UsuarioAdmin, banearUsuario, getUsuarios } from "@/actions/admin";
+import { UsuarioAdmin, banearUsuario, eliminarUsuario, getUsuarios } from "@/actions/admin";
 
 function AdminUsuariosContent() {
   const { showToast } = useToast();
@@ -17,6 +17,7 @@ function AdminUsuariosContent() {
   const [procesando, setProcesando] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState<UsuarioAdmin | null>(null);
   const [motivo, setMotivo] = useState("");
+  const [eliminando, setEliminando] = useState<UsuarioAdmin | null>(null);
 
   const refresh = useCallback(async () => {
     const result = await getUsuarios();
@@ -58,6 +59,26 @@ function AdminUsuariosContent() {
       });
       setConfirmando(null);
       setMotivo("");
+      await refresh();
+    } finally {
+      setProcesando(null);
+    }
+  }
+
+  async function aplicarEliminar(usuario: UsuarioAdmin) {
+    setProcesando(usuario.id);
+    try {
+      const result = await eliminarUsuario({ usuarioId: usuario.id });
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo eliminar", description: result.error });
+        return;
+      }
+      showToast({
+        variant: "success",
+        title: "Cuenta eliminada",
+        description: `${usuario.nickname} ya no existe.`,
+      });
+      setEliminando(null);
       await refresh();
     } finally {
       setProcesando(null);
@@ -129,7 +150,7 @@ function AdminUsuariosContent() {
                     <Dato label="Puntos" valor={String(u.puntos)} />
                   </div>
 
-                  <div>
+                  <div className="flex flex-wrap gap-2">
                     {u.baneado ? (
                       <Button
                         type="button"
@@ -154,6 +175,15 @@ function AdminUsuariosContent() {
                         Suspender cuenta
                       </Button>
                     )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={procesando === u.id}
+                      onClick={() => setEliminando(u)}
+                      className="min-h-9 border border-lose-glow/40 px-3 py-1 text-xs text-lose-glow"
+                    >
+                      Eliminar cuenta
+                    </Button>
                   </div>
                 </Panel>
               ))}
@@ -208,6 +238,49 @@ function AdminUsuariosContent() {
                 type="button"
                 variant="ghost"
                 onClick={() => setConfirmando(null)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {eliminando ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Eliminar a ${eliminando.nickname}`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEliminando(null);
+          }}
+        >
+          <div className="panel-stone w-full max-w-md rounded-xl p-5">
+            <h2 className="font-fantasy text-lg font-bold text-lose-glow">
+              Eliminar a {eliminando.nickname}
+            </h2>
+            <p className="mt-2 text-sm text-parchment/70">
+              Esto borra la cuenta para siempre — no es como suspender. Solo
+              funciona si el usuario no tiene saldo ni historial de apuestas;
+              si lo tiene, usa &quot;Suspender cuenta&quot; en su lugar.
+            </p>
+
+            <div className="mt-5 flex gap-2">
+              <Button
+                type="button"
+                variant="lose"
+                disabled={procesando === eliminando.id}
+                onClick={() => aplicarEliminar(eliminando)}
+                className="flex-1"
+              >
+                {procesando === eliminando.id ? "Eliminando…" : "Eliminar definitivamente"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setEliminando(null)}
                 className="flex-1"
               >
                 Cancelar

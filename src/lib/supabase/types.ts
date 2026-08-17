@@ -273,6 +273,10 @@ export interface Database {
         Args: { p_admin_id: string };
         Returns: number;
       };
+      admin_eliminar_usuario: {
+        Args: { p_admin_id: string; p_usuario_id: string };
+        Returns: void;
+      };
       admin_resolver_recarga: {
         Args: {
           p_admin_id: string;

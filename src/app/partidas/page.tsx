@@ -60,14 +60,17 @@ function PartidasContent() {
   const salas = visibles.filter(
     (r) => r.ladoA.participantes.length > 0 || r.ladoB.participantes.length > 0
   );
-  const disponibles = (eventos ?? []).filter(
-    (r) =>
-      r.evento.estado === "abierto" &&
-      r.evento.resultado_preliminar === null &&
-      new Date(r.evento.cierra_en).getTime() > ahora &&
-      r.ladoA.participantes.length === 0 &&
-      r.ladoB.participantes.length === 0
-  );
+  const estaDisponible = (r: EventoResumen) =>
+    r.evento.estado === "abierto" &&
+    r.evento.resultado_preliminar === null &&
+    new Date(r.evento.cierra_en).getTime() > ahora &&
+    r.ladoA.participantes.length === 0 &&
+    r.ladoB.participantes.length === 0;
+
+  /** Los que alimentan el modal de "Crear sala": sin filtrar por categoría. */
+  const disponibles = (eventos ?? []).filter(estaDisponible);
+  /** Los que se listan en pantalla: sí respetan el filtro de categoría. */
+  const librosVisibles = visibles.filter(estaDisponible);
 
   async function handleApostar(eventoId: string, lado: "a" | "b", monto: number) {
     if (!user) return;
@@ -153,25 +156,60 @@ function PartidasContent() {
 
         {eventos === null ? (
           <p className="mt-10 text-center text-sm text-parchment/50">Cargando partidas…</p>
-        ) : salas.length === 0 ? (
+        ) : eventos.length === 0 ? (
           <p className="mt-10 text-center text-sm text-parchment/50">
-            {(eventos ?? []).length === 0
-              ? "Todavía no hay títulos publicados hoy — vuelve más tarde."
-              : "Nadie ha abierto sala en esta categoría. Sé el primero."}
+            Todavía no hay títulos publicados hoy — vuelve más tarde.
           </p>
         ) : (
-          // Dos columnas como máximo: con tres, cada sala quedaba tan
-          // angosta que el campo de monto no se leía.
-          <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2">
-            {salas.map((resumen) => (
-              <PartidaCard
-                key={resumen.evento.id}
-                resumen={resumen}
-                miUsuarioId={user?.id}
-                onApostar={handleApostar}
-              />
-            ))}
-          </div>
+          <>
+            <section className="mt-8">
+              <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
+                Salas activas ({salas.length})
+              </h2>
+              {salas.length === 0 ? (
+                <p className="rounded-md border border-dashed border-gold-dark/60 p-6 text-center text-sm text-parchment/50">
+                  Nadie ha abierto sala en esta categoría todavía.
+                </p>
+              ) : (
+                // Dos columnas como máximo: con tres, cada sala quedaba tan
+                // angosta que el campo de monto no se leía.
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  {salas.map((resumen) => (
+                    <PartidaCard
+                      key={resumen.evento.id}
+                      resumen={resumen}
+                      miUsuarioId={user?.id}
+                      onApostar={handleApostar}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* Un título recién publicado no tiene apuestas, así que antes
+                solo se llegaba a él desde el modal. Ahora se lista acá:
+                apostar es lo que lo convierte en sala. */}
+            {librosVisibles.length > 0 ? (
+              <section className="mt-10">
+                <h2 className="mb-1 font-fantasy text-lg font-semibold text-gold-light">
+                  Títulos disponibles ({librosVisibles.length})
+                </h2>
+                <p className="mb-3 text-sm text-parchment/60">
+                  Nadie ha apostado todavía. El primero en hacerlo abre la sala.
+                </p>
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  {librosVisibles.map((resumen) => (
+                    <PartidaCard
+                      key={resumen.evento.id}
+                      resumen={resumen}
+                      miUsuarioId={user?.id}
+                      onApostar={handleApostar}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </>
         )}
 
         <div className="mt-8 text-center text-xs text-parchment/40">18+ · Juego responsable</div>

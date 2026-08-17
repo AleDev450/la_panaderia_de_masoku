@@ -129,6 +129,49 @@ export async function getUsuarios(): Promise<ActionResult<UsuarioAdmin[]>> {
   };
 }
 
+const eliminarUsuarioSchema = z.object({
+  usuarioId: z.string().uuid("Usuario inválido."),
+});
+export type EliminarUsuarioInput = z.infer<typeof eliminarUsuarioSchema>;
+
+/**
+ * Borrado duro: solo para cuentas sin rastro (sin apuestas, sin saldo). Con
+ * historial, `admin_eliminar_usuario` rechaza el borrado y hay que suspender
+ * en su lugar — ver 0015_eliminar_usuario.sql.
+ *
+ * El RPC borra `perfiles`, pero la cuenta de Auth es aparte: si no se borra
+ * acá también, el correo queda "usado" en Supabase Auth y esa persona nunca
+ * más podría registrarse.
+ */
+export async function eliminarUsuario(input: EliminarUsuarioInput): Promise<ActionResult<null>> {
+  const parsed = eliminarUsuarioSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.rpc("admin_eliminar_usuario", {
+    p_admin_id: session.userId,
+    p_usuario_id: parsed.data.usuarioId,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  const { error: authError } = await admin.auth.admin.deleteUser(parsed.data.usuarioId);
+  if (authError) {
+    // El perfil ya se borró; la cuenta de Auth queda huérfana pero
+    // inofensiva (sin perfil no puede iniciar sesión). Se avisa igual.
+    return {
+      ok: false,
+      error: "Se borró el perfil, pero no la cuenta de acceso: " + authError.message,
+    };
+  }
+
+  return { ok: true, data: null };
+}
+
 export async function banearUsuario(
   input: BanearUsuarioInput
 ): Promise<ActionResult<Perfil>> {

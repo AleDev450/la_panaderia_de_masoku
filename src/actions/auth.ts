@@ -16,8 +16,12 @@ export interface RegisterPlayerInput {
  * true` — el registro de jugadores no debe depender de que abran un
  * correo de confirmación ni del toggle "Confirm email" del dashboard de
  * Supabase, tiene que quedar listo para iniciar sesión de inmediato.
- * `handle_new_user` (0004/0005) igual dispara y crea la fila en
- * `perfiles`, sea que el usuario se cree por `signUp` o por esta vía.
+ *
+ * El trigger `handle_new_user` normalmente crea la fila en `perfiles`,
+ * pero acá se verifica y se crea si falta. Sin eso, un trigger ausente
+ * deja una cuenta de Auth sin perfil, y el síntoma es desconcertante: la
+ * app te da por deslogueado (getUserById devuelve null al no encontrar
+ * perfil) y al reintentar login parece que la contraseña está mal.
  */
 export async function registerPlayer(
   input: RegisterPlayerInput
@@ -48,5 +52,47 @@ export async function registerPlayer(
     };
   }
 
-  return { ok: true, data: { userId: data.user.id } };
+  const userId = data.user.id;
+
+  const { data: perfil } = await admin
+    .from("perfiles")
+    .select("id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!perfil) {
+    // El trigger no corrió. Se crea la fila acá para que la cuenta quede
+    // usable igual; si el nickname choca se le añade un sufijo, la misma
+    // regla que aplica `handle_new_user`.
+    const { data: choque } = await admin
+      .from("perfiles")
+      .select("id")
+      .ilike("nickname", input.nickname)
+      .maybeSingle();
+
+    const nickname = choque ? `${input.nickname}_${userId.slice(0, 6)}` : input.nickname;
+
+    const { error: perfilError } = await admin.from("perfiles").insert({
+      id: userId,
+      nickname,
+      rol: "user",
+      full_name: input.fullName,
+      phone: input.phone,
+    });
+
+    if (perfilError) {
+      // Sin perfil la cuenta es inservible: se borra el usuario de Auth
+      // para no dejar una cuenta zombi con la que nadie puede entrar.
+      await admin.auth.admin.deleteUser(userId);
+      return {
+        ok: false,
+        error:
+          perfilError.code === "23505"
+            ? "Ese teléfono o nickname ya está registrado."
+            : "No pudimos crear tu perfil.",
+      };
+    }
+  }
+
+  return { ok: true, data: { userId } };
 }

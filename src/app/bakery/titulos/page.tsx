@@ -1,12 +1,17 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/context/ToastContext";
-import { EventoResumen, crearEvento, getEventosHoy } from "@/actions/betting";
+import {
+  EventoResumen,
+  crearEvento,
+  getEventosHoy,
+  getEventosPorFecha,
+} from "@/actions/betting";
 import {
   cambiarEstadoEvento,
   confirmarPago,
@@ -32,16 +37,25 @@ function AdminTitulosContent() {
   const [error, setError] = useState<string | undefined>();
   const [submitting, setSubmitting] = useState(false);
 
+  // Rango de fechas para revisar partidas pasadas; arranca en hoy.
+  const hoyIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const [desde, setDesde] = useState(hoyIso);
+  const [hasta, setHasta] = useState(hoyIso);
+  const esHoy = desde === hoyIso && hasta === hoyIso;
+
   const refresh = useCallback(async () => {
-    const result = await getEventosHoy();
+    const result = esHoy ? await getEventosHoy() : await getEventosPorFecha(desde, hasta);
     if (result.ok) setEventos(result.data);
-  }, []);
+    else showToast({ variant: "warning", title: "No se pudo cargar", description: result.error });
+  }, [esHoy, desde, hasta, showToast]);
 
   useEffect(() => {
     // Sin pg_cron nadie liquida solo lo que ya cumplió su minuto: se barre
-    // al abrir el panel y luego se refresca la lista.
-    liquidarVencidos().then(() => refresh());
-  }, [refresh]);
+    // al abrir el panel. Solo tiene sentido mirando el día en curso —
+    // navegar fechas pasadas es consulta, no debe disparar pagos.
+    const previo: Promise<unknown> = esHoy ? liquidarVencidos() : Promise.resolve();
+    previo.then(() => refresh());
+  }, [refresh, esHoy]);
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -262,14 +276,87 @@ function AdminTitulosContent() {
         </Panel>
 
         <section className="mt-10">
-          <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
-            Títulos de hoy
-          </h2>
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+            <h2 className="font-fantasy text-lg font-semibold text-gold-light">
+              {esHoy ? "Títulos de hoy" : "Títulos del período"}
+            </h2>
+
+            <div className="flex flex-wrap items-end gap-2">
+              <div>
+                <label htmlFor="desde" className="mb-1 block text-[11px] text-parchment/50">
+                  Desde
+                </label>
+                <input
+                  id="desde"
+                  type="date"
+                  value={desde}
+                  max={hasta}
+                  onChange={(e) => setDesde(e.target.value)}
+                  className="min-h-9 rounded-md border border-gold-dark bg-obsidian/60 px-2 py-1 text-xs text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+                />
+              </div>
+              <div>
+                <label htmlFor="hasta" className="mb-1 block text-[11px] text-parchment/50">
+                  Hasta
+                </label>
+                <input
+                  id="hasta"
+                  type="date"
+                  value={hasta}
+                  min={desde}
+                  max={hoyIso}
+                  onChange={(e) => setHasta(e.target.value)}
+                  className="min-h-9 rounded-md border border-gold-dark bg-obsidian/60 px-2 py-1 text-xs text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setDesde(hoyIso);
+                  setHasta(hoyIso);
+                }}
+                disabled={esHoy}
+                className="min-h-9 px-3 py-1 text-xs"
+              >
+                Hoy
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  const d = new Date();
+                  d.setDate(d.getDate() - 6);
+                  setDesde(d.toISOString().slice(0, 10));
+                  setHasta(hoyIso);
+                }}
+                className="min-h-9 px-3 py-1 text-xs"
+              >
+                7 días
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  const d = new Date();
+                  d.setDate(d.getDate() - 29);
+                  setDesde(d.toISOString().slice(0, 10));
+                  setHasta(hoyIso);
+                }}
+                className="min-h-9 px-3 py-1 text-xs"
+              >
+                30 días
+              </Button>
+            </div>
+          </div>
+
           {eventos === null ? (
             <p className="text-sm text-parchment/50">Cargando…</p>
           ) : eventos.length === 0 ? (
             <Panel className="border-dashed p-6 text-center text-sm text-parchment/50">
-              Todavía no publicaste ningún título hoy.
+              {esHoy
+                ? "Todavía no publicaste ningún título hoy."
+                : "No hay títulos en ese rango de fechas."}
             </Panel>
           ) : (
             <div className="flex flex-col gap-3">
