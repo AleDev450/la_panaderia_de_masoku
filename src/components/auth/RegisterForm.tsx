@@ -39,6 +39,15 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
 
+  // Una vez que un campo ya mostró error, se revalida en cada tecla para
+  // que el mensaje desaparezca (o cambie) apenas la corrección sea
+  // válida, en vez de quedarse pegado con el error viejo hasta el
+  // próximo submit. Campos sin error todavía no se tocan acá — validar
+  // antes de que el usuario termine de escribir sería más molesto que útil.
+  function revalidate<K extends keyof FormErrors>(field: K, message: string | null) {
+    setErrors((prev) => (prev[field] ? { ...prev, [field]: message ?? undefined } : prev));
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -94,7 +103,11 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
               id="fullName"
               label="Nombre completo"
               value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFullName(value);
+                revalidate("fullName", validateFullName(value));
+              }}
               error={errors.fullName}
               autoComplete="name"
             />
@@ -102,7 +115,11 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
               id="phone"
               label="Teléfono (+51)"
               value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, "").slice(0, 9);
+                setPhone(value);
+                revalidate("phone", validatePhone(value));
+              }}
               error={errors.phone}
               inputMode="numeric"
               autoComplete="tel-national"
@@ -112,7 +129,11 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
               id="nickname"
               label="Nickname"
               value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setNickname(value);
+                revalidate("nickname", validateNickname(value));
+              }}
               error={errors.nickname}
               autoComplete="nickname"
             />
@@ -121,9 +142,17 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
               label="Correo"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setEmail(value);
+                revalidate("email", validateEmail(value));
+              }}
               error={errors.email}
-              autoComplete="email"
+              // "off" a propósito, no "email": es un registro, no un
+              // login — el dropdown de cuentas de Chrome que dispara
+              // autoComplete="email" quedaba tan alto que tapaba el botón
+              // "Crear cuenta" de abajo y lo dejaba sin poder clickear.
+              autoComplete="off"
               placeholder="tu@correo.com"
             />
             <PanelField
@@ -131,7 +160,11 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
               label="Contraseña"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setPassword(value);
+                revalidate("password", validatePassword(value));
+              }}
               error={errors.password}
               autoComplete="new-password"
             />
@@ -142,7 +175,11 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
                   id="ageConsent"
                   type="checkbox"
                   checked={ageConsent}
-                  onChange={(e) => setAgeConsent(e.target.checked)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setAgeConsent(checked);
+                    revalidate("ageConsent", validateAgeConsent(checked));
+                  }}
                   aria-invalid={Boolean(errors.ageConsent)}
                   aria-describedby={errors.ageConsent ? "ageConsent-error" : undefined}
                   className="mt-0.5 h-4 w-4 shrink-0 accent-gold"
