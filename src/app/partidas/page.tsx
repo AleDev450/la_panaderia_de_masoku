@@ -73,6 +73,11 @@ function PartidasContent() {
   const disponibles = (eventos ?? []).filter(estaDisponible);
   /** Los que se listan en pantalla: sí respetan el filtro de categoría. */
   const librosVisibles = visibles.filter(estaDisponible);
+  // Todo lo que se puede jugar ahora va junto en un solo listado — un
+  // título recién publicado (sin apuestas todavía) es tan "sala activa"
+  // como una que ya tiene apostadores, apostar es lo que lo convierte en
+  // una con gente adentro.
+  const salasActivas = [...salas, ...librosVisibles];
 
   async function handleApostar(eventoId: string, lado: "a" | "b", monto: number) {
     if (!user) return;
@@ -163,55 +168,29 @@ function PartidasContent() {
             Todavía no hay títulos publicados hoy — vuelve más tarde.
           </p>
         ) : (
-          <>
-            <section className="mt-8">
-              <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
-                Salas activas ({salas.length})
-              </h2>
-              {salas.length === 0 ? (
-                <p className="rounded-md border border-dashed border-gold-dark/60 p-6 text-center text-sm text-parchment/50">
-                  Nadie ha abierto sala en esta categoría todavía.
-                </p>
-              ) : (
-                // Dos columnas como máximo: con tres, cada sala quedaba tan
-                // angosta que el campo de monto no se leía.
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                  {salas.map((resumen) => (
-                    <PartidaCard
-                      key={resumen.evento.id}
-                      resumen={resumen}
-                      miUsuarioId={user?.id}
-                      onApostar={handleApostar}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
-
-            {/* Un título recién publicado no tiene apuestas, así que antes
-                solo se llegaba a él desde el modal. Ahora se lista acá:
-                apostar es lo que lo convierte en sala. */}
-            {librosVisibles.length > 0 ? (
-              <section className="mt-10">
-                <h2 className="mb-1 font-fantasy text-lg font-semibold text-gold-light">
-                  Títulos disponibles ({librosVisibles.length})
-                </h2>
-                <p className="mb-3 text-sm text-parchment/60">
-                  Nadie ha apostado todavía. El primero en hacerlo abre la sala.
-                </p>
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                  {librosVisibles.map((resumen) => (
-                    <PartidaCard
-                      key={resumen.evento.id}
-                      resumen={resumen}
-                      miUsuarioId={user?.id}
-                      onApostar={handleApostar}
-                    />
-                  ))}
-                </div>
-              </section>
-            ) : null}
-          </>
+          <section className="mt-8">
+            <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
+              Salas activas ({salasActivas.length})
+            </h2>
+            {salasActivas.length === 0 ? (
+              <p className="rounded-md border border-dashed border-gold-dark/60 p-6 text-center text-sm text-parchment/50">
+                No hay salas activas en esta categoría todavía.
+              </p>
+            ) : (
+              // Dos columnas como máximo: con tres, cada sala quedaba tan
+              // angosta que el campo de monto no se leía.
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                {salasActivas.map((resumen) => (
+                  <PartidaCard
+                    key={resumen.evento.id}
+                    resumen={resumen}
+                    miUsuarioId={user?.id}
+                    onApostar={handleApostar}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
         )}
 
         <div className="mt-8 text-center text-xs text-parchment/40">18+ · Juego responsable</div>
