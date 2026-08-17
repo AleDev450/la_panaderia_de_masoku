@@ -34,9 +34,11 @@ export type ResolverRecargaInput = z.infer<typeof resolverRecargaSchema>;
 
 export const corregirMontoRecargaSchema = z.object({
   recargaId: z.string().uuid("Recarga inválida."),
+  /** 0 es válido a propósito: la recarga era enteramente falsa, se
+   * rechaza (ver 0026_corregir_monto_recarga_a_cero.sql). */
   montoNuevo: z
     .number()
-    .positive("El monto debe ser mayor a 0.")
+    .nonnegative("El monto no puede ser negativo.")
     .refine((v) => Math.round(v * 100) === v * 100, {
       message: "El monto admite máximo 2 decimales.",
     }),

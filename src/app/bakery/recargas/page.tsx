@@ -105,11 +105,11 @@ function AdminRecargasContent() {
   async function handleCorregirMonto(item: RecargaConUsuario) {
     const { recarga } = item;
     const montoNumber = Number(montoCorregido);
-    if (!Number.isFinite(montoNumber) || montoNumber <= 0 || !motivoCorreccion.trim()) {
+    if (!Number.isFinite(montoNumber) || montoNumber < 0 || !motivoCorreccion.trim()) {
       showToast({
         variant: "warning",
         title: "Datos incompletos",
-        description: "Indica un monto mayor a 0 y el motivo de la corrección.",
+        description: "Indica un monto (puede ser 0) y el motivo de la corrección.",
       });
       return;
     }
@@ -127,8 +127,11 @@ function AdminRecargasContent() {
       }
       showToast({
         variant: "info",
-        title: "Monto corregido",
-        description: `Ahora acredita S/${result.data.monto_acreditado} en vez de S/${recarga.monto_acreditado}.`,
+        title: montoNumber === 0 ? "Recarga rechazada" : "Monto corregido",
+        description:
+          montoNumber === 0
+            ? `Era falsa: se le quitaron los S/${recarga.monto_acreditado} del saldo.`
+            : `Ahora acredita S/${result.data.monto_acreditado} en vez de S/${recarga.monto_acreditado}.`,
       });
       setCorrigiendo(null);
       setMontoCorregido("");
@@ -394,19 +397,21 @@ function AdminRecargasContent() {
             <p className="mt-2 text-sm text-parchment/70">
               Acreditado actualmente: S/{corrigiendo.recarga.monto_acreditado}.
               Ajusta el saldo del jugador por la diferencia — si ya no le
-              alcanza el disponible para absorber una baja, se rechaza.
+              alcanza el disponible para absorber una baja, se rechaza. Usa{" "}
+              <strong className="text-parchment/90">0</strong> si era
+              enteramente falsa: la recarga queda como rechazada.
             </p>
 
             <label
               htmlFor="monto-corregido"
               className="mt-4 mb-1.5 block text-sm text-parchment/80"
             >
-              Monto correcto
+              Monto correcto (0 si era falsa)
             </label>
             <input
               id="monto-corregido"
               type="number"
-              min={0.01}
+              min={0}
               step="0.01"
               inputMode="decimal"
               value={montoCorregido}
