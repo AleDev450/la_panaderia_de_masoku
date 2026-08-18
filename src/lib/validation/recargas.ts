@@ -1,13 +1,16 @@
 import { z } from "zod";
-import { MONTO_MAX, MONTO_MIN, MONTO_PASO } from "@/lib/recargas";
+import { MONTO_MAX, MONTO_MIN } from "@/lib/recargas";
 
 export const crearRecargaSchema = z.object({
+  // Sin paso fijo: el jugador puede yapear cualquier cifra (ej. S/15) y
+  // declararla tal cual. Solo se acota al rango y a 2 decimales; el admin
+  // igual acredita lo que diga el comprobante.
   monto: z
     .number()
     .min(MONTO_MIN, `El monto mínimo de recarga es S/${MONTO_MIN}.`)
     .max(MONTO_MAX, `El monto máximo de recarga es S/${MONTO_MAX}.`)
-    .refine((v) => v % MONTO_PASO === 0, {
-      message: `El monto debe ser múltiplo de S/${MONTO_PASO}.`,
+    .refine((v) => Math.round(v * 100) === v * 100, {
+      message: "El monto admite máximo 2 decimales.",
     }),
   comprobante: z
     .string()

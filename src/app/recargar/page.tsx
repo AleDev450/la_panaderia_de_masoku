@@ -12,6 +12,8 @@ import { compressImageToDataUrl, ImageError } from "@/lib/image";
 import {
   ESTADO_RECARGA_COLOR,
   ESTADO_RECARGA_LABEL,
+  MONTO_MAX,
+  MONTO_MIN,
   MONTOS_RECARGA,
 } from "@/lib/recargas";
 import { RecargaResumen, crearRecarga, getMisRecargas } from "@/actions/recargas";
@@ -20,6 +22,7 @@ function RecargarContent() {
   const { showToast } = useToast();
 
   const [monto, setMonto] = useState<number | null>(null);
+  const [montoCustom, setMontoCustom] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | undefined>();
@@ -49,12 +52,27 @@ function RecargarContent() {
     if (!selected && fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  function seleccionarPreset(opcion: number) {
+    setMonto(opcion);
+    setMontoCustom(""); // el botón queda como la fuente del monto
+  }
+
+  function handleMontoCustom(value: string) {
+    setMontoCustom(value);
+    const n = Number(value);
+    setMonto(value.trim() !== "" && Number.isFinite(n) ? n : null);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(undefined);
 
     if (monto === null) {
-      setError("Elige el monto que depositaste.");
+      setError("Elige o escribe el monto que depositaste.");
+      return;
+    }
+    if (monto < MONTO_MIN || monto > MONTO_MAX) {
+      setError(`El monto debe estar entre S/${MONTO_MIN} y S/${MONTO_MAX}.`);
       return;
     }
     if (!file) {
@@ -76,6 +94,7 @@ function RecargarContent() {
         description: "Tu recarga quedó pendiente de revisión por un admin.",
       });
       setMonto(null);
+      setMontoCustom("");
       handleFile(null);
       await refresh();
     } catch (err) {
@@ -148,11 +167,11 @@ function RecargarContent() {
                   <button
                     key={opcion}
                     type="button"
-                    aria-pressed={monto === opcion}
-                    onClick={() => setMonto(opcion)}
+                    aria-pressed={monto === opcion && montoCustom === ""}
+                    onClick={() => seleccionarPreset(opcion)}
                     className={clsx(
                       "min-h-11 rounded-md border px-2 py-2 text-sm font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-gold-light",
-                      monto === opcion
+                      monto === opcion && montoCustom === ""
                         ? "border-gold bg-gold-dark/40 text-gold-light"
                         : "border-gold-dark bg-obsidian/60 text-parchment/80 hover:border-gold-light"
                     )}
@@ -160,6 +179,29 @@ function RecargarContent() {
                     S/{opcion}
                   </button>
                 ))}
+              </div>
+
+              <div className="mt-3">
+                <label htmlFor="monto-custom" className="mb-1.5 block text-xs text-parchment/50">
+                  ¿Otro monto? Escríbelo acá — entre S/{MONTO_MIN} y S/{MONTO_MAX} (ej. 15)
+                </label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-parchment/50">
+                    S/
+                  </span>
+                  <input
+                    id="monto-custom"
+                    type="number"
+                    inputMode="decimal"
+                    min={MONTO_MIN}
+                    max={MONTO_MAX}
+                    step="0.5"
+                    value={montoCustom}
+                    placeholder="15"
+                    onChange={(e) => handleMontoCustom(e.target.value)}
+                    className="min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 py-2 pl-8 pr-3 text-parchment outline-none [appearance:textfield] focus-visible:ring-2 focus-visible:ring-gold-light [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  />
+                </div>
               </div>
             </fieldset>
 
@@ -169,7 +211,8 @@ function RecargarContent() {
               </label>
               <p className="mb-1.5 text-xs text-parchment/50">
                 Debe verse la hora y el monto — es con eso que el equipo
-                confirma tu depósito.
+                confirma tu depósito. Una captura de pantalla (JPG o PNG)
+                funciona mejor que una foto.
               </p>
               <input
                 id="comprobante"
