@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { useToast } from "@/context/ToastContext";
 import {
   EventoResumen,
+  LadoResumen,
   crearEvento,
   getEventosHoy,
   getEventosPorFecha,
@@ -428,7 +429,7 @@ function AdminTitulosContent() {
             </Panel>
           ) : (
             <div className="flex flex-col gap-3">
-              {eventosOrdenados.map(({ evento }) => (
+              {eventosOrdenados.map(({ evento, ladoA, ladoB }) => (
                 <Panel key={evento.id} className="p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
@@ -442,6 +443,8 @@ function AdminTitulosContent() {
                       <CategoriaBadge categoria={evento.categoria} />
                     </div>
                   </div>
+
+                  <Apostadores ladoA={ladoA} ladoB={ladoB} />
 
                   {evento.estado !== "resuelto" &&
                   evento.estado !== "cancelado" &&
@@ -658,6 +661,56 @@ function AdminTitulosContent() {
         </div>
       ) : null}
     </>
+  );
+}
+
+/** Quiénes apostaron a cada lado, con su nickname y cuánto pusieron — para
+ * que el admin sepa contra quién está jugando cada quien. Los datos ya
+ * vienen en el EventoResumen (ver listarEventos), acá solo se pintan. */
+function Apostadores({ ladoA, ladoB }: { ladoA: LadoResumen; ladoB: LadoResumen }) {
+  return (
+    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <LadoApostadores lado={ladoA} />
+      <LadoApostadores lado={ladoB} />
+    </div>
+  );
+}
+
+function LadoApostadores({ lado }: { lado: LadoResumen }) {
+  return (
+    <div className="rounded-md border border-gold-dark/30 bg-obsidian/30 p-2.5">
+      <div className="mb-1.5 flex items-baseline justify-between gap-2">
+        <span className="truncate text-xs font-semibold tracking-wide text-gold-light">
+          {lado.label}
+        </span>
+        <span className="shrink-0 text-[11px] text-parchment/50">
+          {lado.participantes.length} · S/{lado.totalApostado}
+        </span>
+      </div>
+      {lado.participantes.length === 0 ? (
+        <p className="text-[11px] text-parchment/40">Nadie todavía</p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {lado.participantes.map((p) => {
+            const sinCubrir = Math.round((p.monto - p.montoMatcheado) * 100) / 100;
+            return (
+              <li
+                key={p.usuarioId}
+                className="flex items-baseline justify-between gap-2 text-xs"
+              >
+                <span className="min-w-0 truncate text-parchment/80">{p.nickname}</span>
+                <span className="shrink-0 text-parchment/60">
+                  S/{p.monto}
+                  {sinCubrir > 0 ? (
+                    <span className="text-parchment/40"> · S/{sinCubrir} sin cubrir</span>
+                  ) : null}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 
