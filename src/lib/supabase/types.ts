@@ -5,7 +5,7 @@
  *   npx supabase gen types typescript --project-id <id> > src/lib/supabase/types.ts
  */
 
-export type EstadoEvento = "abierto" | "cerrado" | "resuelto";
+export type EstadoEvento = "abierto" | "cerrado" | "resuelto" | "cancelado";
 export type CategoriaEvento = "dota2" | "csgo" | "lol" | "valorant" | "otros";
 export type LadoApuesta = "a" | "b";
 export type EstadoApuesta = "pendiente" | "parcial" | "completa" | "cancelada";
@@ -62,6 +62,8 @@ export type Evento = {
   declarado_at: string | null;
   /** Solo se admite una corrección del resultado declarado. */
   correcciones: number;
+  /** Por qué se canceló (0029) — null si nunca se canceló. */
+  cancelado_motivo: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -158,6 +160,9 @@ export type PagoManual = {
   admin_id: string;
   concepto: string;
   monto: number;
+  /** Si resta de ganancia_hoy/ganancia_total (0030) — true para pagos
+   * nuevos, false para los que ya existían cuando se agregó la columna. */
+  afecta_ganancia: boolean;
   created_at: string;
 };
 
@@ -382,6 +387,10 @@ export interface Database {
           p_abrir: boolean;
           p_minutos?: number;
         };
+        Returns: Evento;
+      };
+      admin_cancelar_evento: {
+        Args: { p_admin_id: string; p_evento_id: string; p_motivo?: string | null };
         Returns: Evento;
       };
       admin_metricas: {

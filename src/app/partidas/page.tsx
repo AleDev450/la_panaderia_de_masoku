@@ -58,7 +58,9 @@ function PartidasContent() {
   // confirmarse), la partida sale de esta lista: revisar partidas pasadas
   // es cosa del admin en /bakery/titulos, no del listado de salas activas.
   const terminada = (r: EventoResumen) =>
-    r.evento.estado === "resuelto" || r.evento.resultado_preliminar !== null;
+    r.evento.estado === "resuelto" ||
+    r.evento.estado === "cancelado" ||
+    r.evento.resultado_preliminar !== null;
   const salas = visibles.filter(
     (r) => !terminada(r) && (r.ladoA.participantes.length > 0 || r.ladoB.participantes.length > 0)
   );

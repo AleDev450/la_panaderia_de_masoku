@@ -46,7 +46,10 @@ export function PartidaCard({
 }) {
   const { evento, ladoA, ladoB, miLado } = resumen;
   const restanteMs = useCuentaRegresiva(evento.cierra_en);
-  const terminada = evento.estado === "resuelto" || evento.resultado_preliminar !== null;
+  const terminada =
+    evento.estado === "resuelto" ||
+    evento.estado === "cancelado" ||
+    evento.resultado_preliminar !== null;
   const cerrado = terminada || evento.estado !== "abierto" || restanteMs <= 0;
 
   return (
@@ -60,7 +63,11 @@ export function PartidaCard({
               : "rounded-md border border-gold-dark bg-charcoal px-2 py-1 font-fantasy text-xs font-bold text-gold-light"
           }
         >
-          {terminada ? "Partida terminada" : formatoRestante(restanteMs)}
+          {evento.estado === "cancelado"
+            ? "Partida cancelada"
+            : terminada
+              ? "Partida terminada"
+              : formatoRestante(restanteMs)}
         </span>
       </div>
 
@@ -93,7 +100,11 @@ export function PartidaCard({
         />
       </div>
 
-      {evento.estado === "resuelto" && evento.resultado ? (
+      {evento.estado === "cancelado" ? (
+        <p className="mt-4 rounded-md border border-lose/50 bg-lose/5 px-3 py-2.5 text-center text-xs text-parchment/60">
+          Partida cancelada — tu apuesta se devolvió por completo a tu saldo.
+        </p>
+      ) : evento.estado === "resuelto" && evento.resultado ? (
         <p className="mt-4 rounded-md border border-gold-dark/60 bg-obsidian/40 px-3 py-2.5 text-center text-xs text-parchment/60">
           Ganó:{" "}
           <span className="font-fantasy font-bold text-gold-light">

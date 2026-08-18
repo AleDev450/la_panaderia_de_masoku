@@ -15,6 +15,7 @@ function evento(overrides: Partial<Evento> = {}): Evento {
     resultado_preliminar: null,
     declarado_at: null,
     correcciones: 0,
+    cancelado_motivo: null,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     ...overrides,

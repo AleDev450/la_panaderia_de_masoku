@@ -13,6 +13,7 @@ import {
   resolverEventoSchema,
 } from "@/lib/validation/betting";
 import { Apuesta, Evento } from "@/lib/supabase/types";
+import { inicioDeDiaEnPeru, inicioDeHoyEnPeru } from "@/lib/eventos";
 
 export type ActionResult<T> =
   | { ok: true; data: T }
@@ -217,9 +218,7 @@ export interface EventoResumen {
  * `getEventosPorFecha`, que es solo para staff.
  */
 export async function getEventosHoy(): Promise<ActionResult<EventoResumen[]>> {
-  const inicioHoy = new Date();
-  inicioHoy.setHours(0, 0, 0, 0);
-  return listarEventos(inicioHoy.toISOString(), null);
+  return listarEventos(inicioDeHoyEnPeru().toISOString(), null);
 }
 
 /**
@@ -242,12 +241,12 @@ export async function getEventosPorFecha(
     .single();
   if (perfil?.rol !== "admin") return { ok: false, error: "No autorizado." };
 
-  // `hasta` llega como fecha suelta (YYYY-MM-DD); se corre al final de ese
-  // día para que el rango incluya lo creado durante la última jornada.
-  const finHasta = new Date(`${hasta}T00:00:00`);
-  finHasta.setHours(23, 59, 59, 999);
+  // `hasta` llega como fecha suelta (YYYY-MM-DD) en calendario Perú; se
+  // corre hasta 1ms antes de la medianoche Perú del día siguiente para
+  // incluir toda la última jornada.
+  const finHasta = new Date(inicioDeDiaEnPeru(hasta).getTime() + 24 * 60 * 60 * 1000 - 1);
 
-  return listarEventos(new Date(`${desde}T00:00:00`).toISOString(), finHasta.toISOString());
+  return listarEventos(inicioDeDiaEnPeru(desde).toISOString(), finHasta.toISOString());
 }
 
 async function listarEventos(

@@ -15,7 +15,9 @@ import {
   registrarPagoManualSchema,
 } from "@/lib/validation/pagos";
 import {
+  CancelarEventoInput,
   EliminarEventoPruebaInput,
+  cancelarEventoSchema,
   eliminarEventoPruebaSchema,
 } from "@/lib/validation/betting";
 import { HERRAMIENTAS_PRUEBA } from "@/lib/flags";
@@ -557,6 +559,32 @@ export async function cambiarEstadoEvento(
     p_evento_id: parsed.data.eventoId,
     p_abrir: parsed.data.abrir,
     p_minutos: parsed.data.minutos ?? 10,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as Evento };
+}
+
+/**
+ * Cancela un título por completo — para un imprevisto, no para decidir un
+ * ganador. Devuelve a todos su plata (emparejada incluida) sin comisión ni
+ * puntos. Disponible en cualquier momento antes de confirmar el pago,
+ * incluso con un resultado ya declarado — ver 0029_cancelar_evento.sql.
+ */
+export async function cancelarEvento(input: CancelarEventoInput): Promise<ActionResult<Evento>> {
+  const parsed = cancelarEventoSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_cancelar_evento", {
+    p_admin_id: session.userId,
+    p_evento_id: parsed.data.eventoId,
+    p_motivo: parsed.data.motivo ?? null,
   });
 
   if (error) return { ok: false, error: error.message };

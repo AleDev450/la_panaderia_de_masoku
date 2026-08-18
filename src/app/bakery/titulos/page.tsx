@@ -14,6 +14,7 @@ import {
 } from "@/actions/betting";
 import {
   cambiarEstadoEvento,
+  cancelarEvento,
   confirmarPago,
   corregirResultado,
   declararResultado,
@@ -25,6 +26,7 @@ import { CategoriaBadge, CATEGORIA_OPTIONS } from "@/components/partidas/Categor
 import { CategoriaEvento, Evento } from "@/lib/supabase/types";
 import { DURACION_MIN_DEFAULT } from "@/types";
 import { HERRAMIENTAS_PRUEBA } from "@/lib/flags";
+import { hoyIsoEnPeru } from "@/lib/eventos";
 
 function AdminTitulosContent() {
   const { showToast } = useToast();
@@ -34,6 +36,9 @@ function AdminTitulosContent() {
   const [minutosExtra, setMinutosExtra] = useState<Record<string, string>>({});
   const [eliminandoEvento, setEliminandoEvento] = useState<Evento | null>(null);
   const [eliminandoProcesando, setEliminandoProcesando] = useState(false);
+  const [cancelandoEvento, setCancelandoEvento] = useState<Evento | null>(null);
+  const [motivoCancelacion, setMotivoCancelacion] = useState("");
+  const [cancelandoProcesando, setCancelandoProcesando] = useState(false);
 
   const [nombre, setNombre] = useState("");
   const [ladoA, setLadoA] = useState("");
@@ -44,7 +49,7 @@ function AdminTitulosContent() {
   const [submitting, setSubmitting] = useState(false);
 
   // Rango de fechas para revisar partidas pasadas; arranca en hoy.
-  const hoyIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const hoyIso = useMemo(() => hoyIsoEnPeru(), []);
   const [desde, setDesde] = useState(hoyIso);
   const [hasta, setHasta] = useState(hoyIso);
   const esHoy = desde === hoyIso && hasta === hoyIso;
@@ -63,16 +68,18 @@ function AdminTitulosContent() {
     previo.then(() => refresh());
   }, [refresh, esHoy]);
 
-  // Partidas ya pagadas bajan al fondo del panel de hoy: siguen visibles
-  // (no desaparecen) pero no tapan lo que todavía necesita atención. Solo
-  // aplica al día en curso — en un rango de fechas pasado casi todo ya
-  // está resuelto, así que reordenar ahí no ayuda.
+  // Partidas ya pagadas o canceladas bajan al fondo del panel de hoy:
+  // siguen visibles (no desaparecen) pero no tapan lo que todavía
+  // necesita atención. Solo aplica al día en curso — en un rango de
+  // fechas pasado casi todo ya está resuelto, así que reordenar ahí no
+  // ayuda.
   const eventosOrdenados = useMemo(() => {
     if (!eventos || !esHoy) return eventos;
+    const terminado = (estado: string) => estado === "resuelto" || estado === "cancelado";
     return [...eventos].sort((a, b) => {
-      const aResuelto = a.evento.estado === "resuelto" ? 1 : 0;
-      const bResuelto = b.evento.estado === "resuelto" ? 1 : 0;
-      return aResuelto - bResuelto;
+      const aTerminado = terminado(a.evento.estado) ? 1 : 0;
+      const bTerminado = terminado(b.evento.estado) ? 1 : 0;
+      return aTerminado - bTerminado;
     });
   }, [eventos, esHoy]);
 
@@ -221,6 +228,30 @@ function AdminTitulosContent() {
     }
   }
 
+  async function handleCancelar(evento: Evento) {
+    setCancelandoProcesando(true);
+    try {
+      const result = await cancelarEvento({
+        eventoId: evento.id,
+        motivo: motivoCancelacion.trim() || undefined,
+      });
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo cancelar", description: result.error });
+        return;
+      }
+      showToast({
+        variant: "info",
+        title: "Partida cancelada",
+        description: "Se devolvió su plata a todos los que apostaron ahí.",
+      });
+      setCancelandoEvento(null);
+      setMotivoCancelacion("");
+      await refresh();
+    } finally {
+      setCancelandoProcesando(false);
+    }
+  }
+
   return (
     <>
       <Header />
@@ -366,9 +397,7 @@ function AdminTitulosContent() {
                 type="button"
                 variant="ghost"
                 onClick={() => {
-                  const d = new Date();
-                  d.setDate(d.getDate() - 6);
-                  setDesde(d.toISOString().slice(0, 10));
+                  setDesde(hoyIsoEnPeru(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000)));
                   setHasta(hoyIso);
                 }}
                 className="min-h-9 px-3 py-1 text-xs"
@@ -379,9 +408,7 @@ function AdminTitulosContent() {
                 type="button"
                 variant="ghost"
                 onClick={() => {
-                  const d = new Date();
-                  d.setDate(d.getDate() - 29);
-                  setDesde(d.toISOString().slice(0, 10));
+                  setDesde(hoyIsoEnPeru(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000)));
                   setHasta(hoyIso);
                 }}
                 className="min-h-9 px-3 py-1 text-xs"
@@ -416,7 +443,9 @@ function AdminTitulosContent() {
                     </div>
                   </div>
 
-                  {evento.estado !== "resuelto" && evento.resultado_preliminar === null ? (
+                  {evento.estado !== "resuelto" &&
+                  evento.estado !== "cancelado" &&
+                  evento.resultado_preliminar === null ? (
                     // Abrir/cerrar apuestas a mano: por defecto sin límite de
                     // tiempo (el admin cierra cuando quiera); el campo de
                     // minutos es la opción aparte para una ventana puntual.
@@ -469,6 +498,23 @@ function AdminTitulosContent() {
                           Abrir por ese tiempo
                         </Button>
                       </div>
+                    </div>
+                  ) : null}
+
+                  {evento.estado !== "resuelto" && evento.estado !== "cancelado" ? (
+                    <div className="mt-2 text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={procesando === evento.id}
+                        onClick={() => {
+                          setCancelandoEvento(evento);
+                          setMotivoCancelacion("");
+                        }}
+                        className="min-h-8 px-2 py-1 text-xs text-parchment/50"
+                      >
+                        Cancelar partida (imprevisto)
+                      </Button>
                     </div>
                   ) : null}
 
@@ -551,6 +597,66 @@ function AdminTitulosContent() {
           </div>
         </div>
       ) : null}
+
+      {cancelandoEvento ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Cancelar ${cancelandoEvento.nombre}`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCancelandoEvento(null);
+          }}
+        >
+          <div className="panel-stone w-full max-w-md rounded-xl p-5">
+            <h2 className="font-fantasy text-lg font-bold text-lose-glow">
+              Cancelar &quot;{cancelandoEvento.nombre}&quot;
+            </h2>
+            <p className="mt-2 text-sm text-parchment/70">
+              Para cuando algo salió mal y la partida no se puede resolver
+              con un ganador — se le devuelve su plata completa (incluida
+              la que ya estaba emparejada) a todos los que apostaron acá.
+              Nadie gana ni pierde, no se cobra comisión. No se puede
+              deshacer.
+            </p>
+
+            <label
+              htmlFor="motivo-cancelacion"
+              className="mt-4 mb-1.5 block text-sm text-parchment/80"
+            >
+              Motivo (opcional)
+            </label>
+            <textarea
+              id="motivo-cancelacion"
+              value={motivoCancelacion}
+              onChange={(e) => setMotivoCancelacion(e.target.value)}
+              rows={3}
+              placeholder="Ej. Se suspendió la partida real"
+              className="w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-sm text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            />
+
+            <div className="mt-5 flex gap-2">
+              <Button
+                type="button"
+                variant="lose"
+                disabled={cancelandoProcesando}
+                onClick={() => handleCancelar(cancelandoEvento)}
+                className="flex-1"
+              >
+                {cancelandoProcesando ? "Cancelando…" : "Sí, cancelar"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setCancelandoEvento(null)}
+                className="flex-1"
+              >
+                Volver
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -574,7 +680,9 @@ function EstadoBadge({ evento }: { evento: Evento }) {
   }, [evento.cierra_en]);
 
   const { texto, clase } =
-    evento.estado === "resuelto"
+    evento.estado === "cancelado"
+      ? { texto: "Cancelado", clase: "border-lose/60 text-lose-glow" }
+      : evento.estado === "resuelto"
       ? { texto: "Pagado", clase: "border-gold text-gold-light" }
       : evento.estado === "cerrado"
         ? { texto: "Cerrado · sin pagar", clase: "border-lose/60 text-lose-glow" }

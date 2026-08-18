@@ -43,3 +43,9 @@ export const eliminarEventoPruebaSchema = z.object({
   eventoId: z.string().uuid("Evento inválido."),
 });
 export type EliminarEventoPruebaInput = z.infer<typeof eliminarEventoPruebaSchema>;
+
+export const cancelarEventoSchema = z.object({
+  eventoId: z.string().uuid("Evento inválido."),
+  motivo: z.string().trim().max(300, "El motivo es demasiado largo.").optional(),
+});
+export type CancelarEventoInput = z.infer<typeof cancelarEventoSchema>;

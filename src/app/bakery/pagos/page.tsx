@@ -205,6 +205,7 @@ function AdminPagosContent() {
                     <p className="text-parchment/80">{pago.concepto}</p>
                     <p className="text-xs text-parchment/40">
                       {adminNickname} · {new Date(pago.created_at).toLocaleString("es-PE")}
+                      {pago.afecta_ganancia ? " · resta de la ganancia" : ""}
                     </p>
                   </div>
                   <span className="font-fantasy font-bold text-lose-glow">S/{pago.monto}</span>

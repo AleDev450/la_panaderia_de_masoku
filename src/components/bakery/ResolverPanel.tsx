@@ -29,6 +29,15 @@ export function ResolverPanel({
 }) {
   const declarado = evento.resultado_preliminar !== null;
 
+  if (evento.estado === "cancelado") {
+    return (
+      <p className="mt-3 rounded-md border border-lose/50 bg-lose/5 px-3 py-2 text-xs text-parchment/60">
+        Cancelado — se devolvió el dinero a todos los apostadores.
+        {evento.cancelado_motivo ? ` Motivo: ${evento.cancelado_motivo}` : ""}
+      </p>
+    );
+  }
+
   if (evento.estado === "resuelto") {
     return (
       <p className="mt-3 rounded-md border border-gold-dark/60 bg-obsidian/40 px-3 py-2 text-xs text-parchment/60">

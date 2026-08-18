@@ -51,7 +51,9 @@ function MisApuestasContent() {
     }
   }
 
-  const activas = (apuestas ?? []).filter(({ evento }) => evento.estado !== "resuelto");
+  const activas = (apuestas ?? []).filter(
+    ({ evento }) => evento.estado !== "resuelto" && evento.estado !== "cancelado"
+  );
 
   return (
     <>
