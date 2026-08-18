@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
@@ -60,6 +61,14 @@ export async function crearRecarga(input: CrearRecargaInput): Promise<ActionResu
     };
   }
 
+  // IP del cliente para rastrear/bloquear abusos (0033). En Vercel la IP
+  // real llega en x-forwarded-for.
+  const cabeceras = await headers();
+  const ip =
+    cabeceras.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    cabeceras.get("x-real-ip") ||
+    null;
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("recargas")
@@ -72,6 +81,15 @@ export async function crearRecarga(input: CrearRecargaInput): Promise<ActionResu
     .single();
 
   if (error) return { ok: false, error: "No pudimos enviar tu recarga." };
+
+  // La IP se guarda aparte, a mejor esfuerzo: si este código se desplegó
+  // antes de correr la migración 0033, la columna `ip` todavía no existe y
+  // esto falla en silencio, sin romper la recarga. Se usa el cliente admin
+  // porque `recargas` no tiene policy de UPDATE para el jugador.
+  if (ip) {
+    await adminClient.from("recargas").update({ ip }).eq("id", data.id);
+  }
+
   return { ok: true, data: data as Recarga };
 }
 

@@ -228,6 +228,11 @@ function AdminRecargasContent() {
                         <p className="text-xs text-parchment/50">
                           Enviado: {new Date(recarga.created_at).toLocaleString("es-PE")}
                         </p>
+                        {recarga.ip ? (
+                          <p className="mt-0.5 text-xs text-parchment/40">
+                            IP: <span className="font-mono text-parchment/60">{recarga.ip}</span>
+                          </p>
+                        ) : null}
                       </div>
 
                       <div>

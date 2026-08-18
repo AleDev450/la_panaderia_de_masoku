@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { dentroDeLimite } from "@/lib/rateLimit";
+import { registerPlayerSchema } from "@/lib/validation/auth";
 import { ActionResult } from "@/actions/betting";
 
 export interface RegisterPlayerInput {
@@ -34,6 +35,15 @@ export interface RegisterPlayerInput {
 export async function registerPlayer(
   input: RegisterPlayerInput
 ): Promise<ActionResult<{ userId: string }>> {
+  // Validación del servidor: una Server Action se puede invocar directo sin
+  // pasar por el formulario, así que este es el freno real contra datos
+  // basura (ej. un nombre con `<script>`). `datos` ya viene con trim.
+  const parsed = registerPlayerSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+  const datos = parsed.data;
+
   const admin = createSupabaseAdminClient();
 
   // Anti-abuso: tope de registros por IP. El registro solo puede pasar por
@@ -52,8 +62,8 @@ export async function registerPlayer(
   }
 
   const [{ data: nicknameChoque }, { data: phoneChoque }] = await Promise.all([
-    admin.from("perfiles").select("id").ilike("nickname", input.nickname).maybeSingle(),
-    admin.from("perfiles").select("id").eq("phone", input.phone).maybeSingle(),
+    admin.from("perfiles").select("id").ilike("nickname", datos.nickname).maybeSingle(),
+    admin.from("perfiles").select("id").eq("phone", datos.phone).maybeSingle(),
   ]);
   if (nicknameChoque) {
     return { ok: false, error: "Ese nickname ya existe." };
@@ -63,13 +73,13 @@ export async function registerPlayer(
   }
 
   const { data, error } = await admin.auth.admin.createUser({
-    email: input.email,
-    password: input.password,
+    email: datos.email,
+    password: datos.password,
     email_confirm: true,
     user_metadata: {
-      nickname: input.nickname,
-      full_name: input.fullName,
-      phone: input.phone,
+      nickname: datos.nickname,
+      full_name: datos.fullName,
+      phone: datos.phone,
     },
   });
 
@@ -100,10 +110,10 @@ export async function registerPlayer(
     // usable igual — nickname y teléfono ya se confirmaron libres arriba.
     const { error: perfilError } = await admin.from("perfiles").insert({
       id: userId,
-      nickname: input.nickname,
+      nickname: datos.nickname,
       rol: "user",
-      full_name: input.fullName,
-      phone: input.phone,
+      full_name: datos.fullName,
+      phone: datos.phone,
     });
 
     if (perfilError) {
@@ -128,6 +138,12 @@ export async function registerPlayer(
                 : "Ese teléfono o nickname ya existe.",
       };
     }
+  }
+
+  // Guarda la IP de registro para poder rastrear/bloquear cuentas abusivas
+  // (ver 0033). Mejor esfuerzo: si falla, la cuenta ya quedó creada igual.
+  if (ip !== "desconocida") {
+    await admin.from("perfiles").update({ ip_registro: ip }).eq("id", userId);
   }
 
   return { ok: true, data: { userId } };

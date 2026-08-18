@@ -296,6 +296,12 @@ function AdminUsuariosContent() {
                         Tel. {u.phone || "—"} · desde{" "}
                         {new Date(u.createdAt).toLocaleDateString("es-PE")}
                       </p>
+                      {u.ipRegistro ? (
+                        <p className="mt-0.5 text-xs text-parchment/40">
+                          IP de registro:{" "}
+                          <span className="font-mono text-parchment/60">{u.ipRegistro}</span>
+                        </p>
+                      ) : null}
                       {u.baneado && u.baneadoMotivo ? (
                         <p className="mt-1 text-xs text-lose-glow">Motivo: {u.baneadoMotivo}</p>
                       ) : null}

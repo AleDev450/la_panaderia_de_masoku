@@ -1,6 +1,15 @@
 export function validateFullName(value: string): string | null {
-  if (value.trim().length < 3) {
+  const limpio = value.trim();
+  if (limpio.length < 3) {
     return "El nombre debe tener al menos 3 caracteres.";
+  }
+  if (limpio.length > 60) {
+    return "El nombre es demasiado largo.";
+  }
+  // Ningún nombre real lleva < > (ni saltos de línea): son los caracteres de
+  // una inyección. El servidor lo revalida en registerPlayerSchema.
+  if (/[<>\r\n\t]/.test(limpio)) {
+    return "El nombre tiene caracteres no permitidos.";
   }
   return null;
 }

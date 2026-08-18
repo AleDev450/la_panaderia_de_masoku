@@ -295,6 +295,8 @@ export interface UsuarioAdmin {
   baneado: boolean;
   baneadoMotivo: string | null;
   createdAt: string;
+  /** IP desde la que se registró la cuenta (0033) — para bloquear abusos. */
+  ipRegistro: string | null;
   /** Suma de recargas APROBADAS (plata real por Yape) — 0 si nunca depositó. */
   depositadoTotal: number;
 }
@@ -339,6 +341,7 @@ export async function getUsuarios(): Promise<ActionResult<UsuarioAdmin[]>> {
       baneado: p.baneado,
       baneadoMotivo: p.baneado_motivo,
       createdAt: p.created_at,
+      ipRegistro: p.ip_registro,
       depositadoTotal: Math.round((depositadoPorUsuario.get(p.id) ?? 0) * 100) / 100,
     })),
   };

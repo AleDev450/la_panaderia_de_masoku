@@ -42,6 +42,8 @@ export type Perfil = {
   baneado_motivo: string | null;
   baneado_at: string | null;
   baneado_por: string | null;
+  /** IP desde la que se creó la cuenta (0033) — para rastrear/bloquear abusos. */
+  ip_registro: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -119,6 +121,8 @@ export type Recarga = {
   estado: EstadoRecarga;
   revisado_por: string | null;
   revisado_at: string | null;
+  /** IP desde la que se envió la recarga (0033). */
+  ip: string | null;
   created_at: string;
 };
 
