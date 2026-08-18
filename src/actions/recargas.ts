@@ -13,6 +13,7 @@ import {
 import { Recarga } from "@/lib/supabase/types";
 import { ActionResult } from "@/actions/betting";
 import { HERRAMIENTAS_PRUEBA } from "@/lib/flags";
+import { dentroDeLimite } from "@/lib/rateLimit";
 
 async function requireSessionUserId(): Promise<
   { ok: true; userId: string } | { ok: false; error: string }
@@ -35,6 +36,16 @@ export async function crearRecarga(input: CrearRecargaInput): Promise<ActionResu
 
   const session = await requireSessionUserId();
   if (!session.ok) return session;
+
+  // Anti-abuso: tope de recargas por usuario. El tamaño del comprobante y el
+  // rango del monto ya los frena la base (CHECK en 0031) por cualquier
+  // camino; esto además corta el envío repetido desde la Server Action.
+  if (!(await dentroDeLimite(`recarga:${session.userId}`, 15, 3600))) {
+    return {
+      ok: false,
+      error: "Enviaste demasiadas recargas seguidas. Espera un momento e intenta de nuevo.",
+    };
+  }
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase

@@ -397,6 +397,10 @@ export interface Database {
         Args: { p_admin_id: string };
         Returns: AdminMetricas[];
       };
+      rate_limit_check: {
+        Args: { p_clave: string; p_max: number; p_ventana_segundos: number };
+        Returns: boolean;
+      };
       solicitar_retiro: {
         Args: { p_usuario_id: string; p_monto: number };
         Returns: Retiro;

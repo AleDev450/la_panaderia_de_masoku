@@ -1,6 +1,8 @@
 "use server";
 
+import { headers } from "next/headers";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { dentroDeLimite } from "@/lib/rateLimit";
 import { ActionResult } from "@/actions/betting";
 
 export interface RegisterPlayerInput {
@@ -33,6 +35,21 @@ export async function registerPlayer(
   input: RegisterPlayerInput
 ): Promise<ActionResult<{ userId: string }>> {
   const admin = createSupabaseAdminClient();
+
+  // Anti-abuso: tope de registros por IP. El registro solo puede pasar por
+  // acá (crear la cuenta de Auth necesita el service_role), así que este es
+  // el punto donde se frena la creación masiva de cuentas. Ver 0031.
+  const cabeceras = await headers();
+  const ip =
+    cabeceras.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    cabeceras.get("x-real-ip") ||
+    "desconocida";
+  if (!(await dentroDeLimite(`registro:${ip}`, 10, 3600))) {
+    return {
+      ok: false,
+      error: "Demasiados intentos de registro. Espera un momento e intenta de nuevo.",
+    };
+  }
 
   const [{ data: nicknameChoque }, { data: phoneChoque }] = await Promise.all([
     admin.from("perfiles").select("id").ilike("nickname", input.nickname).maybeSingle(),
