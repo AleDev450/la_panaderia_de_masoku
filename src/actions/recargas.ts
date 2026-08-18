@@ -37,6 +37,19 @@ export async function crearRecarga(input: CrearRecargaInput): Promise<ActionResu
   const session = await requireSessionUserId();
   if (!session.ok) return session;
 
+  // Un usuario suspendido no puede seguir mandando recargas. La RLS ya lo
+  // corta a nivel de base (ver 0032), pero se revisa acá también para dar un
+  // mensaje claro y ni siquiera intentar el insert.
+  const adminClient = createSupabaseAdminClient();
+  const { data: perfil } = await adminClient
+    .from("perfiles")
+    .select("baneado")
+    .eq("id", session.userId)
+    .single();
+  if (perfil?.baneado) {
+    return { ok: false, error: "Tu cuenta está suspendida." };
+  }
+
   // Anti-abuso: tope de recargas por usuario. El tamaño del comprobante y el
   // rango del monto ya los frena la base (CHECK en 0031) por cualquier
   // camino; esto además corta el envío repetido desde la Server Action.
