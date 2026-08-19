@@ -214,11 +214,14 @@ export interface EventoResumen {
  * cada apostador por lado — es un requisito de producto de esta pantalla:
  * el jugador tiene que ver contra quién está jugando.
  *
- * Solo devuelve los títulos de hoy. Para revisar días pasados está
- * `getEventosPorFecha`, que es solo para staff.
+ * Devuelve los títulos de hoy MÁS cualquiera que siga vivo (abierto o
+ * cerrado sin resolver) aunque se haya creado antes: así una partida abierta
+ * un jueves a las 11:30pm NO desaparece al cruzar la medianoche — sigue
+ * visible hasta que de verdad termine (se resuelve o se cancela). Para
+ * revisar partidas ya terminadas de días pasados está `getEventosPorFecha`.
  */
 export async function getEventosHoy(): Promise<ActionResult<EventoResumen[]>> {
-  return listarEventos(inicioDeHoyEnPeru().toISOString(), null);
+  return listarEventos(inicioDeHoyEnPeru().toISOString(), null, true);
 }
 
 /**
@@ -251,7 +254,8 @@ export async function getEventosPorFecha(
 
 async function listarEventos(
   desdeIso: string,
-  hastaIso: string | null
+  hastaIso: string | null,
+  incluirVivos = false
 ): Promise<ActionResult<EventoResumen[]>> {
   // Una Server Action es un endpoint POST invocable por cualquiera, no una
   // función privada de la página. Como esta usa el cliente service_role
@@ -261,8 +265,15 @@ async function listarEventos(
 
   const admin = createSupabaseAdminClient();
 
-  let query = admin.from("eventos").select("*").gte("created_at", desdeIso);
-  if (hastaIso) query = query.lte("created_at", hastaIso);
+  let query = admin.from("eventos").select("*");
+  if (incluirVivos) {
+    // Los de hoy O cualquiera todavía vivo (abierto/cerrado sin resolver),
+    // sin importar cuándo se creó — para que no se pierdan al cambiar el día.
+    query = query.or(`created_at.gte.${desdeIso},estado.in.(abierto,cerrado)`);
+  } else {
+    query = query.gte("created_at", desdeIso);
+    if (hastaIso) query = query.lte("created_at", hastaIso);
+  }
 
   const { data: eventos, error: eventosError } = await query.order("created_at", {
     ascending: false,

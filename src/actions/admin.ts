@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { AdminMetricas, AjusteSaldo, AjusteYape, Evento, PagoManual, Perfil } from "@/lib/supabase/types";
+import { AdminMetricas, AjusteSaldo, AjusteYape, Evento, PagoManual, Perfil, ResumenDia } from "@/lib/supabase/types";
 import { ActionResult } from "@/actions/betting";
 import { AdminCambiarPasswordInput, adminCambiarPasswordSchema } from "@/lib/validation/perfil";
 import {
@@ -104,6 +104,40 @@ export async function getMetricas(): Promise<ActionResult<AdminMetricas>> {
       ajustes_yape_total: num(fila.ajustes_yape_total),
       yape_esperado: num(fila.yape_esperado),
     },
+  };
+}
+
+/**
+ * Resumen día a día (calendario de Perú) entre dos fechas — lo que el panel
+ * muestra en un cuadro y exporta a Excel. `desde`/`hasta` son fechas sueltas
+ * YYYY-MM-DD; el RPC agrupa por día de Perú. Ver 0034_resumen_diario.sql.
+ */
+export async function getResumenDiario(
+  desde: string,
+  hasta: string
+): Promise<ActionResult<ResumenDia[]>> {
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_resumen_diario", {
+    p_admin_id: session.userId,
+    p_desde: desde,
+    p_hasta: hasta,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  return {
+    ok: true,
+    data: (data as ResumenDia[] | null ?? []).map((d) => ({
+      fecha: d.fecha,
+      depositado: Number(d.depositado ?? 0),
+      apostado: Number(d.apostado ?? 0),
+      pagado: Number(d.pagado ?? 0),
+      comision: Number(d.comision ?? 0),
+      ganancia_real: Number(d.ganancia_real ?? 0),
+      yape_acumulado: Number(d.yape_acumulado ?? 0),
+    })),
   };
 }
 

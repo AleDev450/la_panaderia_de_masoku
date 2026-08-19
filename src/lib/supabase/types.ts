@@ -159,6 +159,19 @@ export type AdminMetricas = {
   yape_esperado: number;
 };
 
+/** Una fila del resumen día a día (0034/0035). Fecha en calendario de Perú;
+ * montos del día. `ganancia_real` = comisión − pagos a personal que restan;
+ * `yape_acumulado` = cuánto deberías tener en el Yape al cierre de ese día. */
+export type ResumenDia = {
+  fecha: string;
+  depositado: number;
+  apostado: number;
+  pagado: number;
+  comision: number;
+  ganancia_real: number;
+  yape_acumulado: number;
+};
+
 export type PagoManual = {
   id: string;
   admin_id: string;
@@ -400,6 +413,10 @@ export interface Database {
       admin_metricas: {
         Args: { p_admin_id: string };
         Returns: AdminMetricas[];
+      };
+      admin_resumen_diario: {
+        Args: { p_admin_id: string; p_desde: string; p_hasta: string };
+        Returns: ResumenDia[];
       };
       rate_limit_check: {
         Args: { p_clave: string; p_max: number; p_ventana_segundos: number };

@@ -5,15 +5,22 @@ import Link from "next/link";
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
+import { Button } from "@/components/ui/Button";
 import { getSolicitudesTelefono } from "@/actions/perfil";
 import { getRecargas } from "@/actions/recargas";
-import { getMetricas } from "@/actions/admin";
-import { AdminMetricas } from "@/lib/supabase/types";
+import { getMetricas, getResumenDiario } from "@/actions/admin";
+import { AdminMetricas, ResumenDia } from "@/lib/supabase/types";
+import { hoyIsoEnPeru } from "@/lib/eventos";
 
 function AdminHomeContent() {
   const [metricas, setMetricas] = useState<AdminMetricas | null>(null);
   const [telefonos, setTelefonos] = useState<number | null>(null);
   const [pendientes, setPendientes] = useState<number | null>(null);
+  const [resumen, setResumen] = useState<ResumenDia[] | null>(null);
+
+  // Mes en curso, en calendario de Perú: del día 1 a hoy.
+  const hoyIso = hoyIsoEnPeru();
+  const primerDiaMes = `${hoyIso.slice(0, 7)}-01`;
 
   useEffect(() => {
     getMetricas().then((result) => {
@@ -29,7 +36,12 @@ function AdminHomeContent() {
         setPendientes(result.data.filter((r) => r.recarga.estado === "pendiente").length);
       }
     });
-  }, []);
+    getResumenDiario(primerDiaMes, hoyIso).then((result) => {
+      // Si el RPC todavía no existe (migración 0034 sin correr), se muestra
+      // vacío en vez de quedarse en "Cargando…" para siempre.
+      setResumen(result.ok ? result.data : []);
+    });
+  }, [primerDiaMes, hoyIso]);
 
   return (
     <>
@@ -76,6 +88,8 @@ function AdminHomeContent() {
             />
           </div>
         </section>
+
+        <ResumenDiario resumen={resumen} mes={hoyIso.slice(0, 7)} />
 
         {metricas ? (
           <section className="mt-6">
@@ -154,6 +168,173 @@ function AdminHomeContent() {
         </div>
       </main>
     </>
+  );
+}
+
+const fmt = (n: number) => n.toFixed(2);
+
+function fechaCorta(iso: string) {
+  // T12 evita que el huso corra el día al formatear.
+  return new Date(`${iso}T12:00:00`).toLocaleDateString("es-PE", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
+/** Descarga el resumen del mes como CSV (se abre en Excel). BOM al inicio
+ * para que Excel lea bien las tildes; separador coma y decimales con punto,
+ * que es lo que espera el Excel en configuración de Perú. */
+function descargarExcel(filas: ResumenDia[], mes: string) {
+  const encabezado = [
+    "Fecha",
+    "Ingreso (S/)",
+    "Apostaron (S/)",
+    "Se pago (S/)",
+    "Me queda (S/)",
+    "Ganancia real (S/)",
+    "Acumulado en Yape (S/)",
+  ];
+  const cuerpo = filas.map((d) => [
+    d.fecha,
+    fmt(d.depositado),
+    fmt(d.apostado),
+    fmt(d.pagado),
+    fmt(d.depositado - d.pagado),
+    fmt(d.ganancia_real),
+    fmt(d.yape_acumulado),
+  ]);
+  const t = filas.reduce(
+    (acc, d) => ({
+      dep: acc.dep + d.depositado,
+      apo: acc.apo + d.apostado,
+      pag: acc.pag + d.pagado,
+      gan: acc.gan + d.ganancia_real,
+    }),
+    { dep: 0, apo: 0, pag: 0, gan: 0 }
+  );
+  // El "acumulado en Yape" ya es un running total: el total del mes es el del
+  // día más reciente (filas viene ordenado del más nuevo al más viejo).
+  const yapeActual = filas[0]?.yape_acumulado ?? 0;
+  const total = [
+    "TOTAL",
+    fmt(t.dep),
+    fmt(t.apo),
+    fmt(t.pag),
+    fmt(t.dep - t.pag),
+    fmt(t.gan),
+    fmt(yapeActual),
+  ];
+
+  const bom = String.fromCharCode(0xfeff); // Excel lee las tildes solo con BOM.
+  const texto =
+    bom + [encabezado, ...cuerpo, total].map((cols) => cols.join(",")).join("\r\n");
+  const blob = new Blob([texto], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `resumen-${mes}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function ResumenDiario({ resumen, mes }: { resumen: ResumenDia[] | null; mes: string }) {
+  const total = (resumen ?? []).reduce(
+    (acc, d) => ({
+      dep: acc.dep + d.depositado,
+      apo: acc.apo + d.apostado,
+      pag: acc.pag + d.pagado,
+      gan: acc.gan + d.ganancia_real,
+    }),
+    { dep: 0, apo: 0, pag: 0, gan: 0 }
+  );
+  // El acumulado en Yape ya es running total: el "actual" es el del día más
+  // reciente (resumen viene del más nuevo al más viejo).
+  const yapeActual = resumen && resumen.length > 0 ? resumen[0].yape_acumulado : 0;
+
+  return (
+    <section className="mt-8">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-fantasy text-lg font-semibold text-gold-light">Día a día · {mes}</h2>
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={!resumen || resumen.length === 0}
+          onClick={() => resumen && descargarExcel(resumen, mes)}
+          className="min-h-9 px-3 py-1 text-xs"
+        >
+          Descargar Excel del mes
+        </Button>
+      </div>
+
+      {resumen === null ? (
+        <p className="text-sm text-parchment/50">Cargando…</p>
+      ) : resumen.length === 0 ? (
+        <Panel className="border-dashed p-6 text-center text-sm text-parchment/50">
+          Sin movimiento este mes todavía.
+        </Panel>
+      ) : (
+        <Panel className="overflow-x-auto p-0">
+          <table className="w-full min-w-[720px] text-sm">
+            <thead>
+              <tr className="border-b border-gold-dark/40 text-left text-[11px] uppercase tracking-wide text-parchment/40">
+                <th className="px-3 py-2 font-semibold">Fecha</th>
+                <th className="px-3 py-2 text-right font-semibold">Ingreso</th>
+                <th className="px-3 py-2 text-right font-semibold">Apostaron</th>
+                <th className="px-3 py-2 text-right font-semibold">Se pagó</th>
+                <th className="px-3 py-2 text-right font-semibold">Me queda</th>
+                <th className="px-3 py-2 text-right font-semibold">Ganancia real</th>
+                <th className="px-3 py-2 text-right font-semibold">Acum. Yape</th>
+              </tr>
+            </thead>
+            <tbody>
+              {resumen.map((d) => {
+                const queda = d.depositado - d.pagado;
+                return (
+                  <tr key={d.fecha} className="border-b border-gold-dark/20 last:border-0">
+                    <td className="px-3 py-2 capitalize text-parchment/80">{fechaCorta(d.fecha)}</td>
+                    <td className="px-3 py-2 text-right text-parchment/80">S/{fmt(d.depositado)}</td>
+                    <td className="px-3 py-2 text-right text-parchment/70">S/{fmt(d.apostado)}</td>
+                    <td className="px-3 py-2 text-right text-lose-glow">S/{fmt(d.pagado)}</td>
+                    <td
+                      className={`px-3 py-2 text-right ${queda < 0 ? "text-lose-glow" : "text-parchment/80"}`}
+                    >
+                      S/{fmt(queda)}
+                    </td>
+                    <td className="px-3 py-2 text-right font-semibold text-win-glow">
+                      S/{fmt(d.ganancia_real)}
+                    </td>
+                    <td className="px-3 py-2 text-right text-gold-light">S/{fmt(d.yape_acumulado)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-gold-dark/50 font-bold text-parchment">
+                <td className="px-3 py-2">TOTAL</td>
+                <td className="px-3 py-2 text-right">S/{fmt(total.dep)}</td>
+                <td className="px-3 py-2 text-right text-parchment/70">S/{fmt(total.apo)}</td>
+                <td className="px-3 py-2 text-right text-lose-glow">S/{fmt(total.pag)}</td>
+                <td
+                  className={`px-3 py-2 text-right ${total.dep - total.pag < 0 ? "text-lose-glow" : "text-parchment/80"}`}
+                >
+                  S/{fmt(total.dep - total.pag)}
+                </td>
+                <td className="px-3 py-2 text-right text-win-glow">S/{fmt(total.gan)}</td>
+                <td className="px-3 py-2 text-right text-gold-light">S/{fmt(yapeActual)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </Panel>
+      )}
+      <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
+        <strong className="text-parchment/60">Me queda</strong> = Ingreso − Se pagó ·{" "}
+        <strong className="text-parchment/60">Ganancia real</strong> = comisión del día menos
+        pagos a personal ·{" "}
+        <strong className="text-parchment/60">Acum. Yape</strong> = lo que deberías tener en el
+        Yape al cierre de ese día.
+      </p>
+    </section>
   );
 }
 
