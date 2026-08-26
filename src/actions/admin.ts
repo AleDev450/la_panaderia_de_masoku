@@ -8,9 +8,11 @@ import { ActionResult } from "@/actions/betting";
 import { AdminCambiarPasswordInput, adminCambiarPasswordSchema } from "@/lib/validation/perfil";
 import {
   AjustarSaldoInput,
+  DarSaldoFakeInput,
   RegistrarAjusteYapeInput,
   RegistrarPagoManualInput,
   ajustarSaldoSchema,
+  darSaldoFakeSchema,
   registrarAjusteYapeSchema,
   registrarPagoManualSchema,
 } from "@/lib/validation/pagos";
@@ -103,6 +105,8 @@ export async function getMetricas(): Promise<ActionResult<AdminMetricas>> {
       pagos_manuales_total: num(fila.pagos_manuales_total),
       ajustes_yape_total: num(fila.ajustes_yape_total),
       yape_esperado: num(fila.yape_esperado),
+      retiros_pagados_hoy: num(fila.retiros_pagados_hoy),
+      saldo_fake_total: num(fila.saldo_fake_total),
     },
   };
 }
@@ -228,6 +232,38 @@ export async function ajustarSaldo(input: AjustarSaldoInput): Promise<ActionResu
   return { ok: true, data: data as Perfil };
 }
 
+/**
+ * Le da (o le quita, con monto negativo) saldo FAKE a un jugador — plata de
+ * mentira que sirve para que haya con quién emparejar, pero que no cuenta
+ * como depósito, no se puede retirar y no entra en "En Yape deberías
+ * tener". Es lo contrario de `ajustarSaldo`: acá el monto SUMA al saldo
+ * fake en vez de fijar un valor.
+ *
+ * Ojo con lo que sí cuesta plata: si un jugador REAL le gana a una apuesta
+ * pagada con este saldo, el premio de 1.80 sale de la ganancia de la casa
+ * (−0.80 por sol emparejado). Ver la cuenta completa en 0036_saldo_fake.sql.
+ */
+export async function darSaldoFake(input: DarSaldoFakeInput): Promise<ActionResult<Perfil>> {
+  const parsed = darSaldoFakeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_dar_saldo_fake", {
+    p_admin_id: session.userId,
+    p_usuario_id: parsed.data.usuarioId,
+    p_monto: parsed.data.monto,
+    p_motivo: parsed.data.motivo,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as Perfil };
+}
+
 export interface AjusteSaldoConNombres {
   ajuste: AjusteSaldo;
   adminNickname: string;
@@ -326,6 +362,9 @@ export interface UsuarioAdmin {
   puntos: number;
   saldoDisponible: number;
   saldoRetenido: number;
+  /** Plata de mentira (0036) — no se puede retirar y no cuenta como depósito. */
+  saldoFake: number;
+  saldoFakeRetenido: number;
   baneado: boolean;
   baneadoMotivo: string | null;
   createdAt: string;
@@ -372,6 +411,8 @@ export async function getUsuarios(): Promise<ActionResult<UsuarioAdmin[]>> {
       puntos: Number(p.puntos),
       saldoDisponible: Number(p.saldo_disponible),
       saldoRetenido: Number(p.saldo_retenido),
+      saldoFake: Number(p.saldo_fake ?? 0),
+      saldoFakeRetenido: Number(p.saldo_fake_retenido ?? 0),
       baneado: p.baneado,
       baneadoMotivo: p.baneado_motivo,
       createdAt: p.created_at,

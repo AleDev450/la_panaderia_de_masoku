@@ -13,6 +13,7 @@ import {
   ajustarSaldo,
   banearUsuario,
   cambiarPasswordUsuario,
+  darSaldoFake,
   eliminarUsuario,
   getUsuarios,
   resetearPlataforma,
@@ -33,6 +34,9 @@ function AdminUsuariosContent() {
   const [ajustandoSaldo, setAjustandoSaldo] = useState<UsuarioAdmin | null>(null);
   const [nuevoSaldo, setNuevoSaldo] = useState("");
   const [motivoAjusteSaldo, setMotivoAjusteSaldo] = useState("");
+  const [dandoFake, setDandoFake] = useState<UsuarioAdmin | null>(null);
+  const [montoFake, setMontoFake] = useState("");
+  const [motivoFake, setMotivoFake] = useState("");
   const [reiniciando, setReiniciando] = useState(false);
   const [confirmarReinicio, setConfirmarReinicio] = useState(false);
   const [textoConfirmacion, setTextoConfirmacion] = useState("");
@@ -152,6 +156,32 @@ function AdminUsuariosContent() {
       setAjustandoSaldo(null);
       setNuevoSaldo("");
       setMotivoAjusteSaldo("");
+      await refresh();
+    } finally {
+      setProcesando(null);
+    }
+  }
+
+  async function aplicarSaldoFake(usuario: UsuarioAdmin) {
+    setProcesando(usuario.id);
+    try {
+      const result = await darSaldoFake({
+        usuarioId: usuario.id,
+        monto: Number(montoFake),
+        motivo: motivoFake,
+      });
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo dar saldo fake", description: result.error });
+        return;
+      }
+      showToast({
+        variant: "info",
+        title: "Saldo fake actualizado",
+        description: `${usuario.nickname} tiene S/${result.data.saldo_fake} de saldo fake.`,
+      });
+      setDandoFake(null);
+      setMontoFake("");
+      setMotivoFake("");
       await refresh();
     } finally {
       setProcesando(null);
@@ -309,10 +339,14 @@ function AdminUsuariosContent() {
                     <LevelBadge puntos={u.puntos} size="sm" />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                     <Dato label="Disponible" valor={`S/${u.saldoDisponible}`} />
                     <Dato label="En juego" valor={`S/${u.saldoRetenido}`} />
                     <Dato label="Depositado" valor={`S/${u.depositadoTotal}`} />
+                    <Dato
+                      label="Fake"
+                      valor={`S/${u.saldoFake}${u.saldoFakeRetenido > 0 ? ` (+${u.saldoFakeRetenido} en juego)` : ""}`}
+                    />
                     <Dato label="Puntos" valor={String(u.puntos)} />
                   </div>
 
@@ -365,6 +399,19 @@ function AdminUsuariosContent() {
                       className="min-h-9 px-3 py-1 text-xs"
                     >
                       Ajustar saldo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={procesando === u.id}
+                      onClick={() => {
+                        setDandoFake(u);
+                        setMontoFake("");
+                        setMotivoFake("");
+                      }}
+                      className="min-h-9 px-3 py-1 text-xs"
+                    >
+                      Dar saldo fake
                     </Button>
                     <Button
                       type="button"
@@ -603,6 +650,98 @@ function AdminUsuariosContent() {
                 type="button"
                 variant="ghost"
                 onClick={() => setAjustandoSaldo(null)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {dandoFake ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Dar saldo fake a ${dandoFake.nickname}`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDandoFake(null);
+          }}
+        >
+          <div className="panel-stone w-full max-w-md rounded-xl p-5">
+            <h2 className="font-fantasy text-lg font-bold text-gold-light">
+              Dar saldo fake a {dandoFake.nickname}
+            </h2>
+            <p className="mt-2 text-sm text-parchment/70">
+              Plata de mentira: no cuenta como depósito, no se puede retirar y
+              no entra en &quot;En Yape deberías tener&quot;. Tiene ahora S/
+              {dandoFake.saldoFake} disponible
+              {dandoFake.saldoFakeRetenido > 0
+                ? ` y S/${dandoFake.saldoFakeRetenido} en juego`
+                : ""}
+              . El monto se SUMA — pon negativo para quitarle.
+            </p>
+
+            <div className="mt-3 rounded-md border border-lose-glow/40 bg-lose/5 p-3 text-xs leading-relaxed text-parchment/70">
+              <p className="font-semibold text-parchment/90">Lo que te cuesta:</p>
+              <p className="mt-1">
+                Si un jugador con plata REAL le gana a una apuesta pagada con
+                este saldo, el premio sale de tu ganancia:{" "}
+                <strong className="text-lose-glow">−S/0.80</strong> por cada sol
+                emparejado.
+              </p>
+              <p className="mt-1">
+                Si la apuesta fake le gana a una real, el jugador pierde su
+                plata de verdad y tú te quedas con ella:{" "}
+                <strong className="text-win-glow">+S/1.00</strong> por sol.
+              </p>
+            </div>
+
+            <label htmlFor="monto-fake" className="mt-4 mb-1.5 block text-sm text-parchment/80">
+              Cuánto sumarle (S/)
+            </label>
+            <input
+              id="monto-fake"
+              type="number"
+              step="0.01"
+              inputMode="decimal"
+              value={montoFake}
+              onChange={(e) => setMontoFake(e.target.value)}
+              placeholder="Ej. 50"
+              className="min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            />
+
+            <label htmlFor="motivo-fake" className="mt-3 mb-1.5 block text-sm text-parchment/80">
+              Motivo
+            </label>
+            <input
+              id="motivo-fake"
+              value={motivoFake}
+              onChange={(e) => setMotivoFake(e.target.value)}
+              placeholder="Ej. Cuenta de relleno para que haya con quién emparejar"
+              className="w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-sm text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            />
+
+            <div className="mt-5 flex gap-2">
+              <Button
+                type="button"
+                disabled={
+                  procesando === dandoFake.id ||
+                  montoFake === "" ||
+                  Number(montoFake) === 0 ||
+                  Number.isNaN(Number(montoFake)) ||
+                  motivoFake.trim().length < 3
+                }
+                onClick={() => aplicarSaldoFake(dandoFake)}
+                className="flex-1"
+              >
+                {procesando === dandoFake.id ? "Guardando…" : "Dar saldo fake"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setDandoFake(null)}
                 className="flex-1"
               >
                 Cancelar

@@ -16,6 +16,7 @@ const NAV_JUGADOR = [
   { href: "/ranking", label: "Ranking" },
   { href: "/recargar", label: "Recargar" },
   { href: "/retirar", label: "Retirar" },
+  { href: "/sorteos", label: "Sorteos" },
   { href: "/como-jugar", label: "Cómo jugar" },
 ];
 
@@ -28,6 +29,7 @@ const NAV_ADMIN = [
   { href: "/bakery/retiros", label: "Retiros" },
   { href: "/bakery/usuarios", label: "Usuarios" },
   { href: "/bakery/telefonos", label: "Teléfonos" },
+  { href: "/bakery/sorteos", label: "Sorteos" },
 ];
 
 export function Header() {

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { getSolicitudesTelefono } from "@/actions/perfil";
 import { getRecargas } from "@/actions/recargas";
 import { getMetricas, getResumenDiario } from "@/actions/admin";
+import { getSorteos } from "@/actions/sorteos";
 import { AdminMetricas, ResumenDia } from "@/lib/supabase/types";
 import { hoyIsoEnPeru } from "@/lib/eventos";
 
@@ -17,6 +18,7 @@ function AdminHomeContent() {
   const [telefonos, setTelefonos] = useState<number | null>(null);
   const [pendientes, setPendientes] = useState<number | null>(null);
   const [resumen, setResumen] = useState<ResumenDia[] | null>(null);
+  const [sorteosActivos, setSorteosActivos] = useState<number | null>(null);
 
   // Mes en curso, en calendario de Perú: del día 1 a hoy.
   const hoyIso = hoyIsoEnPeru();
@@ -35,6 +37,11 @@ function AdminHomeContent() {
       if (result.ok) {
         setPendientes(result.data.filter((r) => r.recarga.estado === "pendiente").length);
       }
+    });
+    getSorteos().then((result) => {
+      // Igual que el resumen: si 0037 todavía no corrió, 0 en vez de "—"
+      // colgado para siempre.
+      setSorteosActivos(result.ok ? result.data.filter((s) => s.sorteo.activo).length : 0);
     });
     getResumenDiario(primerDiaMes, hoyIso).then((result) => {
       // Si el RPC todavía no existe (migración 0034 sin correr), se muestra
@@ -63,9 +70,15 @@ function AdminHomeContent() {
               detalle="Recargas aprobadas"
             />
             <Metrica
-              label="Retirado"
+              label="Pagué en Yape"
               valor={metricas ? `S/${metricas.retirado_hoy}` : "—"}
-              detalle="Retiros pagados"
+              detalle={
+                metricas
+                  ? metricas.retiros_pagados_hoy === 1
+                    ? "1 retiro yapeado hoy"
+                    : `${metricas.retiros_pagados_hoy} retiros yapeados hoy`
+                  : "Retiros yapeados hoy"
+              }
               tono="lose"
             />
             <Metrica
@@ -74,17 +87,19 @@ function AdminHomeContent() {
               detalle="Premios a ganadores"
               tono="lose"
             />
+            {/* Con apuestas fake de por medio la ganancia puede ser negativa
+                (ver 0036), así que el color sigue al signo y no al rótulo. */}
             <Metrica
               label="Ganancia"
               valor={metricas ? `S/${metricas.ganancia_hoy}` : "—"}
-              detalle="Comisión del día"
-              tono="win"
+              detalle="Resultado del día"
+              tono={metricas && metricas.ganancia_hoy < 0 ? "lose" : "win"}
             />
             <Metrica
               label="Ganancia total"
               valor={metricas ? `S/${metricas.ganancia_total}` : "—"}
               detalle="Histórico acumulado"
-              tono="win"
+              tono={metricas && metricas.ganancia_total < 0 ? "lose" : "win"}
             />
           </div>
         </section>
@@ -108,6 +123,13 @@ function AdminHomeContent() {
                   ? ` ${metricas.ajustes_yape_total > 0 ? "+" : "−"} Ajustes S/${Math.abs(metricas.ajustes_yape_total)}`
                   : ""}
               </p>
+              {metricas.saldo_fake_total > 0 ? (
+                <p className="mt-2 text-xs text-parchment/50">
+                  Aparte hay S/{metricas.saldo_fake_total} de saldo fake dando
+                  vueltas. No entra en este número: no se puede retirar y nunca
+                  entró por Yape.
+                </p>
+              ) : null}
               <Link
                 href="/bakery/pagos"
                 className="mt-3 inline-block text-xs font-semibold text-gold-light underline"
@@ -164,6 +186,13 @@ function AdminHomeContent() {
             descripcion="Retiros propios o pagos a trabajadores, con historial."
             valor={metricas ? metricas.pagos_manuales_total : null}
             unidad="S/ pagados en total"
+          />
+          <Tarjeta
+            href="/bakery/sorteos"
+            titulo="Sorteos"
+            descripcion="Publica un sorteo, revisa inscritos y marca ganadores."
+            valor={sorteosActivos}
+            unidad="abiertos"
           />
         </div>
       </main>

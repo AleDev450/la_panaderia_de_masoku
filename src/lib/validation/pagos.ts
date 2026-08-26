@@ -33,6 +33,23 @@ export const ajustarSaldoSchema = z.object({
 });
 export type AjustarSaldoInput = z.infer<typeof ajustarSaldoSchema>;
 
+/**
+ * Saldo fake (0036). A diferencia de `ajustarSaldoSchema`, que FIJA el
+ * saldo en un valor, este SUMA — por eso el monto puede ser negativo (para
+ * quitarle fake a alguien) pero nunca 0.
+ */
+export const darSaldoFakeSchema = z.object({
+  usuarioId: z.string().uuid("Usuario inválido."),
+  monto: z
+    .number()
+    .refine((v) => v !== 0, "El monto debe ser distinto de 0.")
+    .refine((v) => Math.round(v * 100) === v * 100, {
+      message: "El monto admite máximo 2 decimales.",
+    }),
+  motivo: motivoAjuste,
+});
+export type DarSaldoFakeInput = z.infer<typeof darSaldoFakeSchema>;
+
 export const registrarAjusteYapeSchema = z.object({
   monto: z
     .number()

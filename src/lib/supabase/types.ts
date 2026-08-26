@@ -33,6 +33,10 @@ export type Perfil = {
   rol: "user" | "admin";
   saldo_disponible: number;
   saldo_retenido: number;
+  /** Plata de mentira (0036): no viene de una recarga, no se puede retirar y
+   * no entra en yape_esperado. Va aparte del saldo real a propósito. */
+  saldo_fake: number;
+  saldo_fake_retenido: number;
   /** Solo usados por el demo 1:1 (registro/login de jugadores); el motor /exchange no los toca. */
   full_name: string | null;
   phone: string | null;
@@ -79,6 +83,8 @@ export type Apuesta = {
   monto_matcheado: number;
   monto_pendiente: number;
   estado: EstadoApuesta;
+  /** Se pagó con saldo fake (0036). Una apuesta es 100% fake o 100% real. */
+  es_fake: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -99,12 +105,18 @@ export type MovimientoSaldo = {
   monto: number;
   apuesta_id: string | null;
   evento_id: string | null;
+  /** Movió saldo fake, no real (0036) — se excluye de las métricas de plata. */
+  es_fake: boolean;
   created_at: string;
 };
 
 export type ComisionPlataforma = {
   id: string;
   evento_id: string;
+  /** Resultado REAL del evento para la casa (0036). Sin apuestas fake es la
+   * comisión de siempre (0.20 por sol emparejado); con fake de por medio
+   * puede ser NEGATIVO — un ganador real contra contraparte fake cuesta
+   * 0.80 por sol. */
   monto: number;
   created_at: string;
 };
@@ -157,6 +169,10 @@ export type AdminMetricas = {
   ajustes_yape_total: number;
   /** recargas_aprobadas − retiros_pagados − pagos_manuales + ajustes_yape, calculado directo de esas tablas. */
   yape_esperado: number;
+  /** A cuántas personas les yapeaste hoy — acompaña a `retirado_hoy`, que es el monto (0036). */
+  retiros_pagados_hoy: number;
+  /** Saldo fake dando vueltas (disponible + en juego). No es plata: no entra en yape_esperado (0036). */
+  saldo_fake_total: number;
 };
 
 /** Una fila del resumen día a día (0034/0035). Fecha en calendario de Perú;
@@ -190,6 +206,8 @@ export type AjusteSaldo = {
   saldo_anterior: number;
   saldo_nuevo: number;
   motivo: string;
+  /** El ajuste fue sobre el saldo fake, no el real (0036). */
+  es_fake: boolean;
   created_at: string;
 };
 
@@ -231,6 +249,31 @@ export type SolicitudTelefono = {
   revisado_por: string | null;
   revisado_at: string | null;
   created_at: string;
+};
+
+/** Una convocatoria abierta a sorteo (0037) — ej. los cofres Carmesí. */
+export type Sorteo = {
+  id: string;
+  admin_id: string;
+  nombre: string;
+  premio: string;
+  /** Los pasos de "cómo participar", tal cual se muestran en la página. */
+  instrucciones: string | null;
+  fecha_sorteo: string | null;
+  activo: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type InscripcionSorteo = {
+  id: string;
+  sorteo_id: string;
+  usuario_id: string;
+  discord: string;
+  steam_url: string;
+  ganador: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
 // Shape required by @supabase/postgrest-js's `GenericSchema` — every
@@ -305,6 +348,16 @@ export interface Database {
         Row: AjusteYape;
         Insert: Partial<AjusteYape>;
         Update: Partial<AjusteYape>;
+      } & NoRelationships;
+      sorteos: {
+        Row: Sorteo;
+        Insert: Partial<Sorteo>;
+        Update: Partial<Sorteo>;
+      } & NoRelationships;
+      inscripciones_sorteo: {
+        Row: InscripcionSorteo;
+        Insert: Partial<InscripcionSorteo>;
+        Update: Partial<InscripcionSorteo>;
       } & NoRelationships;
     };
     Views: Record<string, never>;
@@ -467,6 +520,40 @@ export interface Database {
       admin_registrar_ajuste_yape: {
         Args: { p_admin_id: string; p_monto: number; p_motivo: string };
         Returns: AjusteYape;
+      };
+      admin_dar_saldo_fake: {
+        Args: {
+          p_admin_id: string;
+          p_usuario_id: string;
+          p_monto: number;
+          p_motivo: string;
+        };
+        Returns: Perfil;
+      };
+      inscribirse_sorteo: {
+        Args: {
+          p_usuario_id: string;
+          p_sorteo_id: string;
+          p_discord: string;
+          p_steam_url: string;
+        };
+        Returns: InscripcionSorteo;
+      };
+      admin_guardar_sorteo: {
+        Args: {
+          p_admin_id: string;
+          p_sorteo_id: string | null;
+          p_nombre: string;
+          p_premio: string;
+          p_instrucciones: string | null;
+          p_fecha_sorteo: string | null;
+          p_activo: boolean;
+        };
+        Returns: Sorteo;
+      };
+      admin_marcar_ganador: {
+        Args: { p_admin_id: string; p_inscripcion_id: string; p_ganador: boolean };
+        Returns: InscripcionSorteo;
       };
     };
   };

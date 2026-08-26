@@ -33,6 +33,7 @@ function apuesta(overrides: Partial<Apuesta> = {}): Apuesta {
     // resolver_evento deja esto en 0 al liquidar — ver el test de "devuelto".
     monto_pendiente: 0,
     estado: "completa",
+    es_fake: false,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     ...overrides,

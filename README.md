@@ -24,12 +24,38 @@ quien eligió el lado contrario.
    para corregirlo antes de que se mueva un sol. Al confirmar, lo
    emparejado ganador paga **1.80x**; lo que nadie cubrió vuelve entero al
    saldo. La plataforma se queda con 0.20 por unidad emparejada —
-   ganancia fija, sin riesgo de mercado.
+   ganancia fija, sin riesgo de mercado… salvo que haya saldo fake de por
+   medio (ver abajo).
 5. Se reparten puntos: **+5** al que acertó, **+1** al que no (solo si
    llegó a emparejar algo). Los puntos suben el rango del panadero.
 6. Para **retirar**, el jugador solicita un monto de su saldo disponible.
    Ese monto se aparta al instante — no se puede apostar ni pedir dos
    veces — y el staff lo yapea al número registrado y marca como pagado.
+7. Aparte hay **sorteos**: el staff publica uno, el jugador deja su perfil
+   de Steam y su Discord en `/sorteos`, y el staff marca al ganador.
+
+### Saldo fake (0036)
+
+El staff puede darle a una cuenta **saldo fake** — plata de mentira que
+sirve para que haya con quién emparejar. Va en columnas aparte
+(`saldo_fake` / `saldo_fake_retenido`), así que no cuenta como depósito, no
+se puede retirar y no entra en la reconciliación de Yape. Una apuesta es
+100% fake o 100% real: el saldo fake se gasta primero, pero solo si alcanza
+para cubrir la apuesta entera.
+
+Ahí es donde la casa **sí** corre riesgo. Por cada sol emparejado contra
+una apuesta fake:
+
+| Emparejamiento | Resultado para la casa |
+| --- | --- |
+| real vs real | +0.20 (la comisión de siempre) |
+| fake vs fake | 0 (no se movió un sol de verdad) |
+| gana el real | **−0.80** — el premio de 1.80 lo pone la casa |
+| gana el fake | **+1.00** — el perdedor real pierde su plata de verdad |
+
+Por eso `comisiones_plataforma.monto` es el *resultado real* del evento y
+puede ser negativo. La cuenta completa está en
+`supabase/migrations/0036_saldo_fake.sql`.
 
 ## Tecnologías
 
@@ -110,6 +136,7 @@ src/
     ranking/               Ranking de puntos / niveles
     recargar/               Yapear al QR y subir el comprobante
     retirar/                 Solicitar retiro del saldo disponible
+    sorteos/                  Inscribirse a un sorteo con Steam + Discord
     perfil/                   Nickname, correo, solicitud de cambio de teléfono
     como-jugar/               Reglas del motor
   components/            Header, LevelBadge, guards de ruta, partidas/, auth/, ui/
