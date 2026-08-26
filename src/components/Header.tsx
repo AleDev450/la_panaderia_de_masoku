@@ -7,6 +7,7 @@ import clsx from "clsx";
 import { useSession } from "@/context/SessionContext";
 import { LevelBadge } from "@/components/LevelBadge";
 import { getLevelForPoints } from "@/data/levels";
+import { saldoVisible } from "@/lib/saldo";
 import { useState } from "react";
 
 const NAV_JUGADOR = [
@@ -117,7 +118,7 @@ export function Header() {
             <div className="rounded-md border border-gold-dark px-3 py-1.5 text-right">
               <p className="text-xs text-parchment/50">Saldo</p>
               <p className="font-fantasy text-sm font-bold text-gold-light">
-                S/{user.balance}
+                S/{saldoVisible(user)}
               </p>
             </div>
           ) : null}
@@ -171,7 +172,7 @@ export function Header() {
           >
             <span className="text-sm font-semibold text-parchment">{user.nickname}</span>
             <span className="font-fantasy text-sm font-bold text-gold-light">
-              {isAdmin ? "Administrador" : `S/${user.balance}`}
+              {isAdmin ? "Administrador" : `S/${saldoVisible(user)}`}
             </span>
           </Link>
           {!isAdmin ? (

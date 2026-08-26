@@ -94,6 +94,14 @@ function RetirarContent() {
             <p className="font-fantasy text-2xl font-bold text-gold-light">
               S/{user.balance}
             </p>
+            {user.balanceFake > 0 ? (
+              // Sin esto, el header dice S/80 y esta pantalla S/30 sin que
+              // nada explique la diferencia.
+              <p className="mt-1 max-w-xs text-[11px] leading-relaxed text-parchment/40">
+                De tu saldo, S/{user.balanceFake} es saldo de cortesía: se
+                puede apostar pero no retirar.
+              </p>
+            ) : null}
           </div>
           <div className="text-right">
             <p className="text-xs uppercase tracking-wide text-parchment/40">

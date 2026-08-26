@@ -14,6 +14,7 @@ import { useToast } from "@/context/ToastContext";
 import { crearApuesta, getEventosHoy, EventoResumen } from "@/actions/betting";
 import { CategoriaEvento } from "@/lib/supabase/types";
 import { pagoPorMatcheado } from "@/lib/apuestas";
+import { maxPorApuesta, tieneSaldoPartido } from "@/lib/saldo";
 
 function PartidasContent() {
   const router = useRouter();

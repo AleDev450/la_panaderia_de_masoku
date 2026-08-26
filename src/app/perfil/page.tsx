@@ -18,6 +18,7 @@ import {
   solicitarCambioTelefono,
 } from "@/actions/perfil";
 import { SolicitudTelefono } from "@/lib/supabase/types";
+import { saldoVisible } from "@/lib/saldo";
 
 const ESTADO_SOLICITUD_LABEL: Record<SolicitudTelefono["estado"], string> = {
   pendiente: "Pendiente de revisión",
@@ -158,7 +159,7 @@ function PerfilContent() {
               <p className="font-fantasy text-xl font-bold text-gold-light">{user.nickname}</p>
               {/* El admin no juega: sin saldo ni rango que mostrar. */}
               <p className="text-xs text-parchment/50">
-                {isAdmin ? "Cuenta de administrador" : `Saldo disponible S/${user.balance}`}
+                {isAdmin ? "Cuenta de administrador" : `Saldo disponible S/${saldoVisible(user)}`}
               </p>
             </div>
             {!isAdmin ? <LevelBadge puntos={user.puntos} /> : null}
