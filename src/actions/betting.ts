@@ -16,7 +16,7 @@ import {
   resolverEventoSchema,
   unirseBlackjackSchema,
 } from "@/lib/validation/betting";
-import { Apuesta, CategoriaEvento, Evento } from "@/lib/supabase/types";
+import { Apuesta, AsientoBlackjack, CategoriaEvento, Evento } from "@/lib/supabase/types";
 import { inicioDeDiaEnPeru, inicioDeHoyEnPeru } from "@/lib/eventos";
 
 export type ActionResult<T> =
@@ -434,9 +434,12 @@ export async function getUltimosResultados(
 }
 
 /**
- * Sienta al jugador en una mesa de blackjack. No elige sala ni lado: el RPC
- * lo pone donde haya asiento libre y, si no queda ninguno, clona una mesa
- * nueva — que es el "cuando entra un tercero se abre otra sala".
+ * Sienta al jugador en el LADO que pidió. Si ese asiento está tomado en
+ * todas las mesas de la familia, se abre una nueva y queda ahí esperando
+ * retador — que es el caso "A vs B, entra C": C no entra a esa mesa, se le
+ * abre la siguiente con el lado que eligió y su monto (0041).
+ *
+ * Nunca rebota por "asiento ocupado": ocupado significa mesa nueva.
  *
  * El monto NO tiene que coincidir con el del rival: se empareja parcial
  * como en el resto del motor (si tú pones 20 y el otro 10, juegan 10 y tus
@@ -444,7 +447,7 @@ export async function getUltimosResultados(
  */
 export async function unirseBlackjack(
   input: UnirseBlackjackInput
-): Promise<ActionResult<Apuesta>> {
+): Promise<ActionResult<AsientoBlackjack>> {
   const parsed = unirseBlackjackSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
@@ -456,11 +459,25 @@ export async function unirseBlackjack(
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.rpc("unirse_blackjack", {
     p_usuario_id: session.userId,
+    p_lado: parsed.data.lado,
     p_monto: parsed.data.monto,
   });
 
   if (error) return { ok: false, error: error.message };
-  return { ok: true, data: data as Apuesta };
+
+  // `returns table` llega como arreglo aunque siempre traiga una fila.
+  const fila = (data as AsientoBlackjack[] | null)?.[0];
+  if (!fila) return { ok: false, error: "No pudimos sentarte en una mesa." };
+
+  return {
+    ok: true,
+    data: {
+      ...fila,
+      monto_total: Number(fila.monto_total),
+      monto_matcheado: Number(fila.monto_matcheado),
+      monto_pendiente: Number(fila.monto_pendiente),
+    },
+  };
 }
 
 /**

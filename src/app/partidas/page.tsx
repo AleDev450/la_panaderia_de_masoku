@@ -8,7 +8,6 @@ import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/Button";
 import { PartidaCard } from "@/components/partidas/PartidaCard";
 import { CrearSalaModal } from "@/components/partidas/CrearSalaModal";
-import { BlackjackModal } from "@/components/partidas/BlackjackModal";
 import { CATEGORIA_OPTIONS } from "@/components/partidas/CategoriaBadge";
 import { HistorialReciente } from "@/components/partidas/HistorialReciente";
 import { useSession } from "@/context/SessionContext";
@@ -31,7 +30,6 @@ function PartidasContent() {
   const [eventos, setEventos] = useState<EventoResumen[] | null>(null);
   const [categoria, setCategoria] = useState<CategoriaEvento | "todas">("todas");
   const [modalAbierto, setModalAbierto] = useState(false);
-  const [modalBlackjack, setModalBlackjack] = useState(false);
   // Reloj propio: leer Date.now() en el render sería impuro, y hace falta
   // para saber qué títulos ya vencieron su contador.
   const [ahora, setAhora] = useState(() => Date.now());
@@ -82,15 +80,11 @@ function PartidasContent() {
     r.ladoB.participantes.length === 0;
 
   /** Los que alimentan el modal de "Crear sala": sin filtrar por categoría,
-   * pero SIN blackjack — a una mesa de blackjack no se entra eligiendo lado,
-   * se entra por "Jugar Blackjack" y el motor te sienta donde haya sitio. */
+   * pero SIN blackjack — a una mesa de blackjack se entra desde su propia
+   * tarjeta, eligiendo lado, y el motor decide si te sienta ahí o te abre
+   * una mesa nueva (0041). "Crear sala" no aplica: las mesas ya existen. */
   const disponibles = (eventos ?? []).filter(
     (r) => estaDisponible(r) && r.evento.categoria !== "blackjack"
-  );
-  /** ¿El staff tiene una mesa de blackjack publicada y abierta? Sin eso,
-   * `unirse_blackjack` no tiene de dónde clonar y rebota. */
-  const hayBlackjack = (eventos ?? []).some(
-    (r) => r.evento.categoria === "blackjack" && r.evento.estado === "abierto"
   );
   /** Los que se listan en pantalla: sí respetan el filtro de categoría. */
   const librosVisibles = visibles.filter(estaDisponible);
@@ -123,6 +117,34 @@ function PartidasContent() {
       );
     }
 
+    // Blackjack no entra por `crear_apuesta`: si el asiento que elegiste
+    // está tomado, el motor te abre mesa nueva en ESE mismo lado en vez de
+    // rebotarte (ver 0041). Para el resto de categorías nada cambia.
+    const esBlackjack =
+      (eventos ?? []).find((r) => r.evento.id === eventoId)?.evento.categoria === "blackjack";
+
+    if (esBlackjack) {
+      const asiento = await unirseBlackjack({ lado, monto });
+      if (!asiento.ok) throw new Error(asiento.error);
+
+      showToast({
+        variant: "success",
+        title: asiento.data.mesa_nueva
+          ? `Mesa llena — te abrimos la ${asiento.data.mesa_nombre}`
+          : `Te sentaste en ${asiento.data.mesa_nombre}`,
+        description:
+          asiento.data.lado === "a"
+            ? asiento.data.monto_matcheado > 0
+              ? "Juegas la mano y ya tienes rival: tú pides las cartas."
+              : "Juegas la mano. Esperando a quien apueste al host."
+            : asiento.data.monto_matcheado > 0
+              ? "Apostaste al host — su mano la juega quien reparte."
+              : "Apostaste al host. Esperando a quien juegue la mano.",
+      });
+      await Promise.all([refresh(), refreshUser()]);
+      return;
+    }
+
     const result = await crearApuesta({ eventoId, lado, monto });
     if (!result.ok) throw new Error(result.error);
 
@@ -140,23 +162,6 @@ function PartidasContent() {
           : matcheado > 0
             ? `Ya tiene rival: si ganas cobras S/${pagoPorMatcheado(matcheado)}.`
             : "Nadie lo ha cubierto todavía. Si nadie lo hace, se te devuelve al cerrar.",
-    });
-    await Promise.all([refresh(), refreshUser()]);
-  }
-
-  async function handleSentarseBlackjack(monto: number) {
-    const result = await unirseBlackjack({ monto });
-    if (!result.ok) throw new Error(result.error);
-
-    // Qué asiento tocó no es un detalle: define si juegas la mano o si
-    // apostaste al host (ver 0040).
-    const esJugador = result.data.lado === "a";
-    showToast({
-      variant: "success",
-      title: `Te sentaste con S/${result.data.monto_total}`,
-      description: esJugador
-        ? "Juegas la mano: tú pides las cartas."
-        : "Apostaste al host — su mano la juega quien reparte.",
     });
     await Promise.all([refresh(), refreshUser()]);
   }
@@ -208,17 +213,6 @@ function PartidasContent() {
             >
               {disponibles.length === 0 ? "Sin títulos disponibles" : "Crear sala"}
             </Button>
-
-            {hayBlackjack ? (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setModalBlackjack(true)}
-                className="mt-5 sm:ml-2"
-              >
-                Jugar Blackjack
-              </Button>
-            ) : null}
           </div>
 
           <div className="mt-8 flex flex-wrap justify-center gap-2">
@@ -281,13 +275,6 @@ function PartidasContent() {
           </aside>
         </div>
       </main>
-
-      {modalBlackjack ? (
-        <BlackjackModal
-          onSentarse={handleSentarseBlackjack}
-          onClose={() => setModalBlackjack(false)}
-        />
-      ) : null}
 
       {modalAbierto ? (
         <CrearSalaModal

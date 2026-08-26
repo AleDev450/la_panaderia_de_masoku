@@ -32,7 +32,10 @@ quien eligió el lado contrario.
    Ese monto se aparta al instante — no se puede apostar ni pedir dos
    veces — y el staff lo yapea al número registrado y marca como pagado.
 7. **Blackjack** es una categoría aparte (0039). El staff publica una mesa
-   madre; de ahí en adelante las salas se clonan solas. Son de **dos
+   madre; de ahí en adelante las salas se clonan solas. El jugador entra
+   desde la tarjeta de la mesa **eligiendo lado**: si ese asiento está
+   tomado en todas las mesas, se le abre una nueva y queda ahí con su monto
+   esperando retador — nunca se le rebota por "ocupado" (0041). Son de **dos
    personas** (una apuesta por lado) y **sin reloj**: la mano corre hasta
    que el staff declare. Los montos NO tienen que coincidir — se emparejan
    parcial como en todo el motor, y lo que nadie cubrió vuelve al saldo. La

@@ -40,9 +40,11 @@ export const crearEventoSchema = z.object({
 });
 export type CrearEventoInput = z.infer<typeof crearEventoSchema>;
 
-/** Sentarse en una mesa de blackjack. No se elige sala ni lado: el motor
- * sienta donde haya sitio y abre mesa nueva si no queda ninguno (0039). */
+/** Sentarse en una mesa de blackjack. Se elige LADO, no sala: el motor
+ * busca una mesa con ese lado libre y, si están todas tomadas, abre una
+ * nueva y te sienta ahí en el mismo lado (0041). */
 export const unirseBlackjackSchema = z.object({
+  lado: z.enum(["a", "b"]),
   monto: money
     .min(BET_MIN, `La apuesta mínima es S/${BET_MIN}.`)
     .max(BET_MAX, `La apuesta máxima es S/${BET_MAX}.`),

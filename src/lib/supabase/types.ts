@@ -15,6 +15,20 @@ export type CategoriaEvento =
   /** Mesa 1v1 sin reloj (0039). La app no reparte cartas: solo señaliza el turno. */
   | "blackjack";
 
+/** Lo que devuelve `unirse_blackjack` (0041): en qué mesa y lado quedaste,
+ * y si hubo que abrir una mesa nueva porque el lado que pediste estaba
+ * tomado en todas. */
+export type AsientoBlackjack = {
+  apuesta_id: string;
+  evento_id: string;
+  lado: LadoApuesta;
+  monto_total: number;
+  monto_matcheado: number;
+  monto_pendiente: number;
+  mesa_nombre: string;
+  mesa_nueva: boolean;
+};
+
 /** Señal de turno de un lado en una mesa de blackjack (0039). */
 export type EstadoTurno = "esperando" | "pidiendo" | "quedado";
 export type LadoApuesta = "a" | "b";
@@ -579,8 +593,8 @@ export interface Database {
         Returns: InscripcionSorteo;
       };
       unirse_blackjack: {
-        Args: { p_usuario_id: string; p_monto: number };
-        Returns: Apuesta;
+        Args: { p_usuario_id: string; p_lado: LadoApuesta; p_monto: number };
+        Returns: AsientoBlackjack[];
       };
       marcar_turno: {
         Args: { p_usuario_id: string; p_evento_id: string; p_accion: string };
