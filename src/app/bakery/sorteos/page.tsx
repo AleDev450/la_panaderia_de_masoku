@@ -18,6 +18,21 @@ import {
   sortearGanador,
 } from "@/actions/sorteos";
 import { Sorteo } from "@/lib/supabase/types";
+import { COLORES, PasosNumerados, parsearBloques } from "@/lib/markdown";
+
+/** Lo que rellena el botón "Rellenar con un ejemplo" y lo que se muestra de
+ * placeholder: enseña el formato entero (bloques, color y link) de una. */
+const EJEMPLO_INSTRUCCIONES = `Compra mi bundle en Dota
+{azul:Brillante}: 1 ticket | {morado:Holográfico}: 2 tickets | {oro:Dorado}: 3 tickets
+
+Asegúrate de tener tu inventario en público
+Puedes ir a [Ajustes de privacidad de Steam](https://steamcommunity.com/my/edit/settings) y poner Inventario → Público.
+
+Regístrate en el formulario
+Ingresa tu perfil de Steam y tu usuario de Discord (para contactarte si ganas) en el formulario de la derecha.
+
+Participación confirmada
+Ya estarías participando en el sorteo.`;
 
 /** Estado del formulario. `id` en null = se está creando uno nuevo. */
 interface FormSorteo {
@@ -229,26 +244,60 @@ function AdminSorteosContent() {
                 className="min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
               />
 
-              <label
-                htmlFor="instrucciones"
-                className="mt-3 mb-1.5 block text-sm text-parchment/80"
-              >
-                Cómo participar — un paso por línea
-              </label>
+              <div className="mt-3 mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                <label htmlFor="instrucciones" className="block text-sm text-parchment/80">
+                  Cómo participar
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, instrucciones: EJEMPLO_INSTRUCCIONES })}
+                  className="text-[11px] font-semibold text-gold-light underline"
+                >
+                  Rellenar con un ejemplo
+                </button>
+              </div>
               <textarea
                 id="instrucciones"
-                rows={5}
+                rows={10}
                 value={form.instrucciones}
                 onChange={(e) => setForm({ ...form, instrucciones: e.target.value })}
-                placeholder={
-                  "Asegúrate de tener tu inventario de Steam en público.\nPega tu link de Steam y tu Discord acá al costado.\nListo, ya estás participando."
-                }
-                className="w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-sm text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+                placeholder={EJEMPLO_INSTRUCCIONES}
+                className="w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 font-mono text-xs leading-relaxed text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
               />
-              <p className="mt-1 text-[11px] text-parchment/40">
-                Cada línea sale numerada en la página del jugador. Si lo dejas
-                vacío se muestran unos pasos genéricos.
-              </p>
+
+              <div className="mt-2 rounded-md border border-gold-dark/40 bg-obsidian/40 p-3 text-[11px] leading-relaxed text-parchment/50">
+                <p>
+                  <strong className="text-parchment/80">Un paso por bloque</strong>, separados por
+                  una línea en blanco. La primera línea del bloque es el título; lo que sigue, el
+                  detalle en letra chica.
+                </p>
+                <p className="mt-1.5">
+                  <code className="text-parchment/80">**negrita**</code> ·{" "}
+                  <code className="text-parchment/80">[texto](https://link)</code> ·{" "}
+                  <code className="text-parchment/80">{"{color:texto}"}</code>
+                </p>
+                <p className="mt-1.5">
+                  Colores:{" "}
+                  {Object.entries(COLORES).map(([nombre, clase], i) => (
+                    <span key={nombre}>
+                      {i > 0 ? " · " : ""}
+                      <code className={clase}>{nombre}</code>
+                    </span>
+                  ))}
+                </p>
+                <p className="mt-1.5">Si lo dejas vacío se muestran unos pasos genéricos.</p>
+              </div>
+
+              {form.instrucciones.trim() ? (
+                <div className="mt-3">
+                  <p className="mb-2 text-[11px] uppercase tracking-wide text-parchment/40">
+                    Vista previa — así lo ve el jugador
+                  </p>
+                  <div className="rounded-md border border-gold-dark/40 bg-obsidian/60 p-4">
+                    <PasosNumerados bloques={parsearBloques(form.instrucciones)} />
+                  </div>
+                </div>
+              ) : null}
 
               <div className="mt-3 flex flex-wrap items-end gap-4">
                 <div>

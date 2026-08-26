@@ -20,6 +20,9 @@ function toUser(perfil: Perfil, email = ""): User {
     nickname: perfil.nickname,
     email,
     balance: perfil.saldo_disponible,
+    // `?? 0` por si la base todavía no corrió 0036: sin esto el saldo
+    // saldría NaN en toda la app en vez de simplemente 0.
+    balanceFake: Number(perfil.saldo_fake ?? 0),
     puntos: perfil.puntos,
     rol: perfil.rol,
     createdAt: perfil.created_at,

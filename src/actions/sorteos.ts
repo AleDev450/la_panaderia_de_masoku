@@ -65,7 +65,9 @@ const guardarSorteoSchema = z.object({
   sorteoId: z.string().uuid().nullable().optional(),
   nombre: z.string().trim().min(3, "Ponle un nombre al sorteo.").max(120, "Máximo 120 caracteres."),
   premio: z.string().trim().min(2, "Indica qué se sortea.").max(120, "Máximo 120 caracteres."),
-  instrucciones: z.string().trim().max(2000, "Máximo 2000 caracteres.").optional(),
+  // 4000 y no 2000: el formato con colores y links se come caracteres
+  // rápido, y la columna en Postgres es `text` sin límite igual.
+  instrucciones: z.string().trim().max(4000, "Máximo 4000 caracteres.").optional(),
   /** ISO `YYYY-MM-DD`, o vacío si todavía no hay fecha. */
   fechaSorteo: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida.").optional().or(z.literal("")),
   activo: z.boolean(),

@@ -147,6 +147,7 @@ src/
   data/                  Niveles del panadero
   lib/
     apuestas.ts           Cuota, pago redondeado y liquidación (solo UI)
+    markdown.tsx           Mini-markdown de los sorteos (negrita, links, color)
     recargas.ts            Montos de recarga y etiquetas de estado
     image.ts                Compresión de comprobantes en el cliente
     supabase/                Clientes: navegador, sesión (RLS) y service_role

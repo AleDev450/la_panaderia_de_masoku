@@ -83,7 +83,11 @@ function PartidasContent() {
 
   async function handleApostar(eventoId: string, lado: "a" | "b", monto: number) {
     if (!user) return;
-    if (user.balance <= 0) {
+    // Contra `maxPorApuesta` y no contra `balance`: el saldo fake también
+    // se puede apostar, y una apuesta sale de una sola bolsa (ver
+    // src/lib/saldo.ts).
+    const tope = maxPorApuesta(user);
+    if (tope <= 0) {
       showToast({
         variant: "warning",
         title: "No tienes saldo",
@@ -92,8 +96,12 @@ function PartidasContent() {
       router.push("/recargar");
       return;
     }
-    if (monto > user.balance) {
-      throw new Error(`Tu saldo disponible es S/${user.balance}.`);
+    if (monto > tope) {
+      throw new Error(
+        tieneSaldoPartido(user)
+          ? `Lo máximo que entra en una apuesta es S/${tope} — tu saldo está partido en dos y una apuesta sale de una sola parte.`
+          : `Tu saldo disponible es S/${tope}.`
+      );
     }
 
     const result = await crearApuesta({ eventoId, lado, monto });

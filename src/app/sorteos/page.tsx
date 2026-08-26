@@ -8,13 +8,18 @@ import { Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/context/ToastContext";
 import { SorteoConInscripcion, getSorteos, inscribirseSorteo } from "@/actions/sorteos";
+import { PasosNumerados, parsearBloques } from "@/lib/markdown";
 
-/** Los pasos que se muestran si el sorteo no trae instrucciones propias. */
-const PASOS_POR_DEFECTO = [
-  "Asegúrate de tener tu inventario de Steam en público.",
-  "Pega tu link de Steam y tu usuario de Discord en el formulario.",
-  "Listo: ya estás participando por el premio.",
-];
+/** Lo que se muestra si el sorteo no trae instrucciones propias. Va en el
+ * mismo formato que escribe el admin (ver src/lib/markdown.tsx). */
+const PASOS_POR_DEFECTO = `Asegúrate de tener tu inventario en público
+Puedes ir a [Ajustes de privacidad de Steam](https://steamcommunity.com/my/edit/settings) y poner Inventario → Público.
+
+Regístrate en el formulario
+Ingresa tu perfil de Steam y tu usuario de Discord (para contactarte si ganas).
+
+Participación confirmada
+Ya estarías participando en el sorteo.`;
 
 function fechaLarga(iso: string) {
   // T12 evita que el huso corra el día al formatear.
@@ -114,12 +119,7 @@ function TarjetaSorteo({
   const [error, setError] = useState<string | undefined>();
   const [enviando, setEnviando] = useState(false);
 
-  const pasos = sorteo.instrucciones
-    ? sorteo.instrucciones
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean)
-    : PASOS_POR_DEFECTO;
+  const bloques = parsearBloques(sorteo.instrucciones || PASOS_POR_DEFECTO);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -162,16 +162,9 @@ function TarjetaSorteo({
               </p>
             ) : null}
 
-            <ol className="mt-6 space-y-4">
-              {pasos.map((paso, i) => (
-                <li key={i} className="flex gap-3">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-crimson-dark text-[11px] font-bold text-gold-light">
-                    {i + 1}
-                  </span>
-                  <span className="text-sm leading-relaxed text-parchment/80">{paso}</span>
-                </li>
-              ))}
-            </ol>
+            <div className="mt-6">
+              <PasosNumerados bloques={bloques} />
+            </div>
 
             <p className="mt-6 text-xs text-parchment/40">
               {inscritos === 1 ? "1 persona inscrita" : `${inscritos} personas inscritas`}

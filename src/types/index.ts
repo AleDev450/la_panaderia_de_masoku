@@ -7,7 +7,12 @@ export interface User {
   nickname: string;
   /** Vive en Supabase Auth, no en `perfiles` — lo inyecta SessionContext desde la sesión. */
   email: string;
+  /** Saldo REAL (`perfiles.saldo_disponible`): lo único que se puede retirar. */
   balance: number;
+  /** Saldo fake (`perfiles.saldo_fake`, 0036). Se puede apostar pero no
+   * retirar. Va aparte de `balance` para que /retirar no ofrezca plata que
+   * el motor va a rechazar — ver src/lib/saldo.ts. */
+  balanceFake: number;
   puntos: number;
   rol: Rol;
   createdAt: string;
