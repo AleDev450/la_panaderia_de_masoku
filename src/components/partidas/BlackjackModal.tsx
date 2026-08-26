@@ -63,7 +63,12 @@ export function BlackjackModal({
         <p className="mt-2 text-sm text-parchment/70">
           Te sentamos en una mesa con sitio libre; si están todas llenas se
           abre una nueva. Son de dos personas y no tienen reloj: la mano
-          empieza cuando llega tu rival.
+          empieza cuando llega el otro.
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-parchment/50">
+          El asiento decide qué te toca: si la mesa está vacía juegas la mano
+          y pides tus cartas; si ya hay alguien sentado, apuestas al host —
+          su mano la juega quien reparte y tú solo esperas el resultado.
         </p>
 
         <label htmlFor="monto-blackjack" className="mt-4 mb-1.5 block text-sm text-parchment/80">

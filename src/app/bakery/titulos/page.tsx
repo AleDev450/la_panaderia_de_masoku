@@ -342,7 +342,10 @@ function AdminTitulosContent() {
             </div>
             <div>
               <label htmlFor="ladoA" className="mb-1.5 block text-sm text-parchment/80">
-                Lado A
+                {/* En blackjack el asiento decide quién juega la mano: el
+                    lado A es el jugador y el B el host (0040). Se rotula acá
+                    para que no se publique al revés. */}
+                {categoria === "blackjack" ? "Lado A — el jugador (pide cartas)" : "Lado A"}
               </label>
               <input
                 id="ladoA"
@@ -354,7 +357,7 @@ function AdminTitulosContent() {
             </div>
             <div>
               <label htmlFor="ladoB" className="mb-1.5 block text-sm text-parchment/80">
-                Lado B
+                {categoria === "blackjack" ? "Lado B — el host (no pide cartas)" : "Lado B"}
               </label>
               <input
                 id="ladoB"
@@ -820,10 +823,6 @@ function MesaDealer({
   procesando: boolean;
   onReiniciar: () => void;
 }) {
-  const lados = [
-    { lado: "a" as const, nombre: evento.lado_a, turno: evento.turno_a, cartas: evento.cartas_a },
-    { lado: "b" as const, nombre: evento.lado_b, turno: evento.turno_b, cartas: evento.cartas_b },
-  ];
 
   return (
     <div className="mt-3 rounded-md border border-gold-dark/50 bg-obsidian/40 p-3">
@@ -843,36 +842,46 @@ function MesaDealer({
       </div>
 
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
-        {lados.map(({ lado, nombre, turno, cartas }) => (
-          <div
-            key={lado}
+        {/* Lado A: el jugador, el único que pide cartas. */}
+        <div
+          className={clsx(
+            "rounded-md border px-3 py-2",
+            evento.turno_a === "pidiendo"
+              ? "border-gold-light bg-gold/10"
+              : evento.turno_a === "quedado"
+                ? "border-win-glow/50 bg-win/5"
+                : "border-gold-dark/40"
+          )}
+        >
+          <p className="truncate text-xs text-parchment/60">{evento.lado_a}</p>
+          <p
             className={clsx(
-              "rounded-md border px-3 py-2",
-              turno === "pidiendo"
-                ? "border-gold-light bg-gold/10"
-                : turno === "quedado"
-                  ? "border-win-glow/50 bg-win/5"
-                  : "border-gold-dark/40"
+              "mt-0.5 text-sm font-bold",
+              evento.turno_a === "pidiendo"
+                ? "text-gold-light"
+                : evento.turno_a === "quedado"
+                  ? "text-win-glow"
+                  : "text-parchment/50"
             )}
           >
-            <p className="truncate text-xs text-parchment/60">{nombre}</p>
-            <p
-              className={clsx(
-                "mt-0.5 text-sm font-bold",
-                turno === "pidiendo"
-                  ? "text-gold-light"
-                  : turno === "quedado"
-                    ? "text-win-glow"
-                    : "text-parchment/50"
-              )}
-            >
-              {TURNO_DEALER_LABEL[turno]}
-            </p>
-            <p className="mt-0.5 text-[11px] text-parchment/40">
-              {cartas === 0 ? "Sin cartas pedidas" : cartas === 1 ? "1 carta pedida" : `${cartas} cartas pedidas`}
-            </p>
-          </div>
-        ))}
+            {TURNO_DEALER_LABEL[evento.turno_a]}
+          </p>
+          <p className="mt-0.5 text-[11px] text-parchment/40">
+            {evento.cartas_a === 0
+              ? "Sin cartas pedidas"
+              : evento.cartas_a === 1
+                ? "1 carta pedida"
+                : `${evento.cartas_a} cartas pedidas`}
+          </p>
+        </div>
+
+        {/* Lado B: quien apostó al host. Su mano la juegas tú con la regla
+            de la casa, así que no tiene turno ni pide nada (0040). */}
+        <div className="rounded-md border border-gold-dark/40 px-3 py-2">
+          <p className="truncate text-xs text-parchment/60">{evento.lado_b}</p>
+          <p className="mt-0.5 text-sm font-bold text-parchment/50">Host</p>
+          <p className="mt-0.5 text-[11px] text-parchment/40">No pide cartas</p>
+        </div>
       </div>
     </div>
   );

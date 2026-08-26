@@ -148,13 +148,15 @@ function PartidasContent() {
     const result = await unirseBlackjack({ monto });
     if (!result.ok) throw new Error(result.error);
 
+    // Qué asiento tocó no es un detalle: define si juegas la mano o si
+    // apostaste al host (ver 0040).
+    const esJugador = result.data.lado === "a";
     showToast({
       variant: "success",
       title: `Te sentaste con S/${result.data.monto_total}`,
-      description:
-        Number(result.data.monto_matcheado) > 0
-          ? "Ya tienes rival en la mesa. Suerte."
-          : "Esperando a que alguien se siente enfrente.",
+      description: esJugador
+        ? "Juegas la mano: tú pides las cartas."
+        : "Apostaste al host — su mano la juega quien reparte.",
     });
     await Promise.all([refresh(), refreshUser()]);
   }

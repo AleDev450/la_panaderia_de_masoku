@@ -36,8 +36,12 @@ quien eligió el lado contrario.
    personas** (una apuesta por lado) y **sin reloj**: la mano corre hasta
    que el staff declare. Los montos NO tienen que coincidir — se emparejan
    parcial como en todo el motor, y lo que nadie cubrió vuelve al saldo. La
-   app **no reparte cartas ni cuenta puntos**: los jugadores marcan "pedir"
-   o "quedarse" y el staff lo ve en vivo en /bakery/titulos.
+   app **no reparte cartas ni cuenta puntos**: el jugador marca "pedir" o
+   "quedarse" y el staff lo ve en vivo en /bakery/titulos, que refresca solo.
+   **Lado A = el jugador** (pide cartas); **lado B = el host** — quien apostó
+   ahí no decide nada, porque la mano del host la juega el que reparte
+   siguiendo la regla de la casa (0040). El staff no confirma cada carta:
+   solo mira el contador.
 8. Aparte hay **sorteos**: el staff publica uno, el jugador deja su perfil
    de Steam y su Discord en `/sorteos`, el staff le escribe a mano cuántos
    **tickets** le tocan (según el tier que compró) y sortea con un botón —
