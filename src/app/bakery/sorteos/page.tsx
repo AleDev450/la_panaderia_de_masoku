@@ -10,10 +10,12 @@ import { useToast } from "@/context/ToastContext";
 import {
   InscripcionConUsuario,
   SorteoConInscripcion,
+  asignarTickets,
   getInscripciones,
   getSorteos,
   guardarSorteo,
   marcarGanador,
+  sortearGanador,
 } from "@/actions/sorteos";
 import { Sorteo } from "@/lib/supabase/types";
 
@@ -57,6 +59,10 @@ function AdminSorteosContent() {
   const [abierto, setAbierto] = useState<string | null>(null);
   const [inscritos, setInscritos] = useState<InscripcionConUsuario[] | null>(null);
   const [procesando, setProcesando] = useState<string | null>(null);
+  // Los tickets se escriben en un input por fila; esto guarda lo tipeado
+  // antes de mandarlo, por inscripción.
+  const [ticketsEditados, setTicketsEditados] = useState<Record<string, string>>({});
+  const [sorteando, setSorteando] = useState(false);
 
   const refresh = useCallback(async () => {
     const result = await getSorteos();
@@ -71,7 +77,11 @@ function AdminSorteosContent() {
   const cargarInscritos = useCallback(async (sorteoId: string) => {
     setInscritos(null);
     const result = await getInscripciones(sorteoId);
-    setInscritos(result.ok ? result.data : []);
+    const filas = result.ok ? result.data : [];
+    setInscritos(filas);
+    setTicketsEditados(
+      Object.fromEntries(filas.map((f) => [f.inscripcion.id, String(f.inscripcion.tickets)]))
+    );
   }, []);
 
   async function handleGuardar(event: FormEvent<HTMLFormElement>) {
@@ -123,6 +133,51 @@ function AdminSorteosContent() {
       if (abierto) await cargarInscritos(abierto);
     } finally {
       setProcesando(null);
+    }
+  }
+
+  async function guardarTickets(fila: InscripcionConUsuario) {
+    setProcesando(fila.inscripcion.id);
+    try {
+      const result = await asignarTickets({
+        inscripcionId: fila.inscripcion.id,
+        tickets: Number(ticketsEditados[fila.inscripcion.id] ?? 0),
+      });
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo guardar", description: result.error });
+        return;
+      }
+      showToast({
+        variant: "success",
+        title: "Tickets guardados",
+        description: `${fila.usuario.nickname}: ${result.data.tickets} ticket(s).`,
+      });
+      if (abierto) await cargarInscritos(abierto);
+    } finally {
+      setProcesando(null);
+    }
+  }
+
+  async function handleSortear(sorteoId: string) {
+    setSorteando(true);
+    try {
+      const result = await sortearGanador(sorteoId);
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo sortear", description: result.error });
+        return;
+      }
+      const nombre =
+        (inscritos ?? []).find((f) => f.inscripcion.id === result.data.id)?.usuario.nickname ??
+        "Alguien";
+      showToast({
+        variant: "success",
+        title: "¡Tenemos ganador!",
+        description: `${nombre} — salió con ${result.data.tickets} ticket(s).`,
+      });
+      await cargarInscritos(sorteoId);
+      await refresh();
+    } finally {
+      setSorteando(false);
     }
   }
 
@@ -306,53 +361,115 @@ function AdminSorteosContent() {
                           Nadie se ha inscrito todavía.
                         </p>
                       ) : (
-                        <ul className="space-y-2">
-                          {inscritos.map((fila) => (
-                            <li
-                              key={fila.inscripcion.id}
-                              className={clsx(
-                                "flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2",
-                                fila.inscripcion.ganador
-                                  ? "border-win-glow/50 bg-win/5"
-                                  : "border-gold-dark/30"
-                              )}
+                        <>
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                            <p className="text-xs text-parchment/50">
+                              {inscritos.reduce((n, f) => n + f.inscripcion.tickets, 0)} tickets
+                              en total · el sorteo es al azar ponderado, con 6 tickets tienes seis
+                              veces la chance de alguien con 1.
+                            </p>
+                            <Button
+                              type="button"
+                              variant="win"
+                              disabled={
+                                sorteando ||
+                                inscritos.every((f) => f.inscripcion.ganador || f.inscripcion.tickets === 0)
+                              }
+                              onClick={() => handleSortear(sorteo.id)}
+                              className="min-h-9 px-3 py-1 text-xs"
                             >
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold text-parchment">
-                                  {fila.usuario.nickname}
-                                  {fila.inscripcion.ganador ? (
-                                    <span className="ml-2 text-xs font-bold text-win-glow">
-                                      GANADOR
-                                    </span>
-                                  ) : null}
-                                </p>
-                                <p className="text-xs text-parchment/50">
-                                  Discord:{" "}
-                                  <span className="font-mono text-parchment/70">
-                                    {fila.inscripcion.discord}
-                                  </span>
-                                </p>
-                                <a
-                                  href={fila.inscripcion.steam_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="block truncate text-xs text-gold-light underline"
+                              {sorteando ? "Sorteando…" : "Sortear ganador"}
+                            </Button>
+                          </div>
+
+                          <ul className="space-y-2">
+                            {inscritos.map((fila) => {
+                              const editado = ticketsEditados[fila.inscripcion.id] ?? "";
+                              const cambiado = editado !== String(fila.inscripcion.tickets);
+                              return (
+                                <li
+                                  key={fila.inscripcion.id}
+                                  className={clsx(
+                                    "flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2",
+                                    fila.inscripcion.ganador
+                                      ? "border-win-glow/50 bg-win/5"
+                                      : "border-gold-dark/30"
+                                  )}
                                 >
-                                  {fila.inscripcion.steam_url}
-                                </a>
-                              </div>
-                              <Button
-                                type="button"
-                                variant={fila.inscripcion.ganador ? "ghost" : "win"}
-                                disabled={procesando === fila.inscripcion.id}
-                                onClick={() => alternarGanador(fila)}
-                                className="min-h-9 px-3 py-1 text-xs"
-                              >
-                                {fila.inscripcion.ganador ? "Quitar" : "Marcar ganador"}
-                              </Button>
-                            </li>
-                          ))}
-                        </ul>
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-parchment">
+                                      {fila.usuario.nickname}
+                                      {fila.inscripcion.ganador ? (
+                                        <span className="ml-2 text-xs font-bold text-win-glow">
+                                          GANADOR
+                                        </span>
+                                      ) : null}
+                                    </p>
+                                    <p className="text-xs text-parchment/50">
+                                      Discord:{" "}
+                                      <span className="font-mono text-parchment/70">
+                                        {fila.inscripcion.discord}
+                                      </span>
+                                    </p>
+                                    <a
+                                      href={fila.inscripcion.steam_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="block truncate text-xs text-gold-light underline"
+                                    >
+                                      {fila.inscripcion.steam_url}
+                                    </a>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <label
+                                      htmlFor={`tickets-${fila.inscripcion.id}`}
+                                      className="text-[11px] uppercase tracking-wide text-parchment/40"
+                                    >
+                                      Tickets
+                                    </label>
+                                    <input
+                                      id={`tickets-${fila.inscripcion.id}`}
+                                      type="number"
+                                      min={0}
+                                      max={1000}
+                                      step={1}
+                                      inputMode="numeric"
+                                      value={editado}
+                                      onChange={(e) =>
+                                        setTicketsEditados((prev) => ({
+                                          ...prev,
+                                          [fila.inscripcion.id]: e.target.value,
+                                        }))
+                                      }
+                                      className="min-h-9 w-20 rounded-md border border-gold-dark bg-obsidian/60 px-2 py-1 text-sm text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      disabled={
+                                        procesando === fila.inscripcion.id || !cambiado || editado === ""
+                                      }
+                                      onClick={() => guardarTickets(fila)}
+                                      className="min-h-9 px-3 py-1 text-xs"
+                                    >
+                                      Guardar
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant={fila.inscripcion.ganador ? "ghost" : "win"}
+                                      disabled={procesando === fila.inscripcion.id}
+                                      onClick={() => alternarGanador(fila)}
+                                      className="min-h-9 px-3 py-1 text-xs"
+                                    >
+                                      {fila.inscripcion.ganador ? "Quitar" : "Marcar ganador"}
+                                    </Button>
+                                  </div>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </>
                       )}
                     </div>
                   ) : null}

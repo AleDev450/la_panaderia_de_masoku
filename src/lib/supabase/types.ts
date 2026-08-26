@@ -183,6 +183,8 @@ export type ResumenDia = {
   depositado: number;
   apostado: number;
   pagado: number;
+  /** Retiros yapeados ese día (0038) — la plata que de verdad salió del Yape. */
+  retirado: number;
   comision: number;
   ganancia_real: number;
   yape_acumulado: number;
@@ -271,6 +273,8 @@ export type InscripcionSorteo = {
   usuario_id: string;
   discord: string;
   steam_url: string;
+  /** Chances en el sorteo (0038). Lo escribe el admin según el tier que compró. */
+  tickets: number;
   ganador: boolean;
   created_at: string;
   updated_at: string;
@@ -553,6 +557,14 @@ export interface Database {
       };
       admin_marcar_ganador: {
         Args: { p_admin_id: string; p_inscripcion_id: string; p_ganador: boolean };
+        Returns: InscripcionSorteo;
+      };
+      admin_asignar_tickets: {
+        Args: { p_admin_id: string; p_inscripcion_id: string; p_tickets: number };
+        Returns: InscripcionSorteo;
+      };
+      admin_sortear_ganador: {
+        Args: { p_admin_id: string; p_sorteo_id: string };
         Returns: InscripcionSorteo;
       };
     };

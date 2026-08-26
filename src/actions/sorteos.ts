@@ -78,6 +78,16 @@ const marcarGanadorSchema = z.object({
 });
 export type MarcarGanadorInput = z.infer<typeof marcarGanadorSchema>;
 
+const asignarTicketsSchema = z.object({
+  inscripcionId: z.string().uuid("Inscripción inválida."),
+  tickets: z
+    .number()
+    .int("Los tickets son un número entero.")
+    .min(0, "Los tickets no pueden ser negativos.")
+    .max(1000, "Máximo 1000 tickets por persona."),
+});
+export type AsignarTicketsInput = z.infer<typeof asignarTicketsSchema>;
+
 export interface SorteoConInscripcion {
   sorteo: Sorteo;
   /** La inscripción de quien pide, si ya se anotó. */
@@ -244,6 +254,61 @@ export async function marcarGanador(
     p_admin_id: session.userId,
     p_inscripcion_id: parsed.data.inscripcionId,
     p_ganador: parsed.data.ganador,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as InscripcionSorteo };
+}
+
+/**
+ * Admin-only: cuántas chances tiene esa persona en el sorteo. El tier del
+ * bundle (brillante / holográfico / dorado) se verifica por fuera, así que
+ * acá solo se guarda el número que el admin escribe.
+ */
+export async function asignarTickets(
+  input: AsignarTicketsInput
+): Promise<ActionResult<InscripcionSorteo>> {
+  const parsed = asignarTicketsSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_asignar_tickets", {
+    p_admin_id: session.userId,
+    p_inscripcion_id: parsed.data.inscripcionId,
+    p_tickets: parsed.data.tickets,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as InscripcionSorteo };
+}
+
+/**
+ * Admin-only: saca un ganador al azar ponderado por tickets — con 6 tickets
+ * tienes seis veces la chance de alguien con 1. El sorteo ocurre en
+ * Postgres, no acá: desde el cliente cualquiera podría volver a tirar hasta
+ * que salga quien quiere (ver 0038).
+ *
+ * Solo entran los que todavía no ganaron, así que volver a apretarlo saca
+ * un segundo ganador — útil cuando hay varios cofres.
+ */
+export async function sortearGanador(sorteoId: string): Promise<ActionResult<InscripcionSorteo>> {
+  const parsed = z.string().uuid("Sorteo inválido.").safeParse(sorteoId);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_sortear_ganador", {
+    p_admin_id: session.userId,
+    p_sorteo_id: parsed.data,
   });
 
   if (error) return { ok: false, error: error.message };

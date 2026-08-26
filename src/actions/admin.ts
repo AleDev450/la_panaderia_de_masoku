@@ -138,6 +138,7 @@ export async function getResumenDiario(
       depositado: Number(d.depositado ?? 0),
       apostado: Number(d.apostado ?? 0),
       pagado: Number(d.pagado ?? 0),
+      retirado: Number(d.retirado ?? 0),
       comision: Number(d.comision ?? 0),
       ganancia_real: Number(d.ganancia_real ?? 0),
       yape_acumulado: Number(d.yape_acumulado ?? 0),

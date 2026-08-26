@@ -32,7 +32,10 @@ quien eligió el lado contrario.
    Ese monto se aparta al instante — no se puede apostar ni pedir dos
    veces — y el staff lo yapea al número registrado y marca como pagado.
 7. Aparte hay **sorteos**: el staff publica uno, el jugador deja su perfil
-   de Steam y su Discord en `/sorteos`, y el staff marca al ganador.
+   de Steam y su Discord en `/sorteos`, el staff le escribe a mano cuántos
+   **tickets** le tocan (según el tier que compró) y sortea con un botón —
+   al azar ponderado por tickets, resuelto en Postgres para que no se pueda
+   volver a tirar hasta que salga quien uno quiere.
 
 ### Saldo fake (0036)
 

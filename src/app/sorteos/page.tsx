@@ -183,6 +183,17 @@ function TarjetaSorteo({
             <p className="text-center text-xs font-semibold uppercase tracking-[0.25em] text-gold-light">
               {miInscripcion ? "Ya estás dentro" : "Registro"}
             </p>
+            {miInscripcion ? (
+              <p className="mt-2 text-center text-sm text-parchment/70">
+                Tienes{" "}
+                <strong className="text-gold-light">
+                  {miInscripcion.tickets} {miInscripcion.tickets === 1 ? "ticket" : "tickets"}
+                </strong>
+                {miInscripcion.tickets === 0
+                  ? " — todavía no te asignaron ninguno."
+                  : " en este sorteo."}
+              </p>
+            ) : null}
 
             <form onSubmit={handleSubmit} className="mt-6">
               <label htmlFor={`discord-${sorteo.id}`} className="mb-1.5 block text-sm text-parchment/80">

@@ -220,6 +220,7 @@ function descargarExcel(filas: ResumenDia[], mes: string) {
     "Ingreso (S/)",
     "Apostaron (S/)",
     "Se pago (S/)",
+    "Yapeado en retiros (S/)",
     "Me queda (S/)",
     "Ganancia real (S/)",
     "Acumulado en Yape (S/)",
@@ -229,7 +230,8 @@ function descargarExcel(filas: ResumenDia[], mes: string) {
     fmt(d.depositado),
     fmt(d.apostado),
     fmt(d.pagado),
-    fmt(d.depositado - d.pagado),
+    fmt(d.retirado),
+    fmt(d.depositado - d.pagado - d.retirado),
     fmt(d.ganancia_real),
     fmt(d.yape_acumulado),
   ]);
@@ -238,9 +240,10 @@ function descargarExcel(filas: ResumenDia[], mes: string) {
       dep: acc.dep + d.depositado,
       apo: acc.apo + d.apostado,
       pag: acc.pag + d.pagado,
+      ret: acc.ret + d.retirado,
       gan: acc.gan + d.ganancia_real,
     }),
-    { dep: 0, apo: 0, pag: 0, gan: 0 }
+    { dep: 0, apo: 0, pag: 0, ret: 0, gan: 0 }
   );
   // El "acumulado en Yape" ya es un running total: el total del mes es el del
   // día más reciente (filas viene ordenado del más nuevo al más viejo).
@@ -250,7 +253,8 @@ function descargarExcel(filas: ResumenDia[], mes: string) {
     fmt(t.dep),
     fmt(t.apo),
     fmt(t.pag),
-    fmt(t.dep - t.pag),
+    fmt(t.ret),
+    fmt(t.dep - t.pag - t.ret),
     fmt(t.gan),
     fmt(yapeActual),
   ];
@@ -273,9 +277,10 @@ function ResumenDiario({ resumen, mes }: { resumen: ResumenDia[] | null; mes: st
       dep: acc.dep + d.depositado,
       apo: acc.apo + d.apostado,
       pag: acc.pag + d.pagado,
+      ret: acc.ret + d.retirado,
       gan: acc.gan + d.ganancia_real,
     }),
-    { dep: 0, apo: 0, pag: 0, gan: 0 }
+    { dep: 0, apo: 0, pag: 0, ret: 0, gan: 0 }
   );
   // El acumulado en Yape ya es running total: el "actual" es el del día más
   // reciente (resumen viene del más nuevo al más viejo).
@@ -304,13 +309,14 @@ function ResumenDiario({ resumen, mes }: { resumen: ResumenDia[] | null; mes: st
         </Panel>
       ) : (
         <Panel className="overflow-x-auto p-0">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[820px] text-sm">
             <thead>
               <tr className="border-b border-gold-dark/40 text-left text-[11px] uppercase tracking-wide text-parchment/40">
                 <th className="px-3 py-2 font-semibold">Fecha</th>
                 <th className="px-3 py-2 text-right font-semibold">Ingreso</th>
                 <th className="px-3 py-2 text-right font-semibold">Apostaron</th>
                 <th className="px-3 py-2 text-right font-semibold">Se pagó</th>
+                <th className="px-3 py-2 text-right font-semibold">Yapeé (retiros)</th>
                 <th className="px-3 py-2 text-right font-semibold">Me queda</th>
                 <th className="px-3 py-2 text-right font-semibold">Ganancia real</th>
                 <th className="px-3 py-2 text-right font-semibold">Acum. Yape</th>
@@ -318,13 +324,14 @@ function ResumenDiario({ resumen, mes }: { resumen: ResumenDia[] | null; mes: st
             </thead>
             <tbody>
               {resumen.map((d) => {
-                const queda = d.depositado - d.pagado;
+                const queda = d.depositado - d.pagado - d.retirado;
                 return (
                   <tr key={d.fecha} className="border-b border-gold-dark/20 last:border-0">
                     <td className="px-3 py-2 capitalize text-parchment/80">{fechaCorta(d.fecha)}</td>
                     <td className="px-3 py-2 text-right text-parchment/80">S/{fmt(d.depositado)}</td>
                     <td className="px-3 py-2 text-right text-parchment/70">S/{fmt(d.apostado)}</td>
                     <td className="px-3 py-2 text-right text-lose-glow">S/{fmt(d.pagado)}</td>
+                    <td className="px-3 py-2 text-right text-lose-glow">S/{fmt(d.retirado)}</td>
                     <td
                       className={`px-3 py-2 text-right ${queda < 0 ? "text-lose-glow" : "text-parchment/80"}`}
                     >
@@ -344,10 +351,11 @@ function ResumenDiario({ resumen, mes }: { resumen: ResumenDia[] | null; mes: st
                 <td className="px-3 py-2 text-right">S/{fmt(total.dep)}</td>
                 <td className="px-3 py-2 text-right text-parchment/70">S/{fmt(total.apo)}</td>
                 <td className="px-3 py-2 text-right text-lose-glow">S/{fmt(total.pag)}</td>
+                <td className="px-3 py-2 text-right text-lose-glow">S/{fmt(total.ret)}</td>
                 <td
-                  className={`px-3 py-2 text-right ${total.dep - total.pag < 0 ? "text-lose-glow" : "text-parchment/80"}`}
+                  className={`px-3 py-2 text-right ${total.dep - total.pag - total.ret < 0 ? "text-lose-glow" : "text-parchment/80"}`}
                 >
-                  S/{fmt(total.dep - total.pag)}
+                  S/{fmt(total.dep - total.pag - total.ret)}
                 </td>
                 <td className="px-3 py-2 text-right text-win-glow">S/{fmt(total.gan)}</td>
                 <td className="px-3 py-2 text-right text-gold-light">S/{fmt(yapeActual)}</td>
@@ -357,11 +365,21 @@ function ResumenDiario({ resumen, mes }: { resumen: ResumenDia[] | null; mes: st
         </Panel>
       )}
       <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
-        <strong className="text-parchment/60">Me queda</strong> = Ingreso − Se pagó ·{" "}
+        <strong className="text-parchment/60">Yapeé (retiros)</strong> = retiros que pagaste ese
+        día ·{" "}
+        <strong className="text-parchment/60">Me queda</strong> = Ingreso − Se pagó − Yapeé ·{" "}
         <strong className="text-parchment/60">Ganancia real</strong> = comisión del día menos
         pagos a personal ·{" "}
         <strong className="text-parchment/60">Acum. Yape</strong> = lo que deberías tener en el
         Yape al cierre de ese día.
+      </p>
+      <p className="mt-1 text-[11px] leading-relaxed text-parchment/40">
+        Si un día baja el Acum. Yape y &quot;Yapeé&quot; está en cero, la diferencia es un pago
+        manual o un ajuste — está en{" "}
+        <Link href="/bakery/pagos" className="text-gold-light underline">
+          Pagos y ajustes
+        </Link>
+        .
       </p>
     </section>
   );
