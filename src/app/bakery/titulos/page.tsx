@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import clsx from "clsx";
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
@@ -21,10 +22,12 @@ import {
   declararResultado,
   eliminarEventoPrueba,
   liquidarVencidos,
+  reiniciarTurnos,
+  servirCarta,
 } from "@/actions/admin";
 import { ResolverPanel } from "@/components/bakery/ResolverPanel";
 import { CategoriaBadge, CATEGORIA_OPTIONS } from "@/components/partidas/CategoriaBadge";
-import { CategoriaEvento, Evento } from "@/lib/supabase/types";
+import { CategoriaEvento, EstadoTurno, Evento } from "@/lib/supabase/types";
 import { DURACION_MIN_DEFAULT } from "@/types";
 import { HERRAMIENTAS_PRUEBA } from "@/lib/flags";
 import { hoyIsoEnPeru } from "@/lib/eventos";
@@ -202,6 +205,40 @@ function AdminTitulosContent() {
             ? `Los jugadores pueden apostar por ${minutos} minutos más.`
             : "Los jugadores pueden apostar sin límite de tiempo, hasta que lo cierres."
           : "Ya no entran apuestas nuevas; el resultado sigue sin declararse.",
+      });
+      await refresh();
+    } finally {
+      setProcesando(null);
+    }
+  }
+
+  /** Blackjack: confirmar que ya se repartió la carta que pidió ese lado. */
+  async function handleServirCarta(eventoId: string, lado: "a" | "b") {
+    setProcesando(eventoId);
+    try {
+      const result = await servirCarta({ eventoId, lado });
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo marcar", description: result.error });
+        return;
+      }
+      await refresh();
+    } finally {
+      setProcesando(null);
+    }
+  }
+
+  async function handleReiniciarTurnos(eventoId: string) {
+    setProcesando(eventoId);
+    try {
+      const result = await reiniciarTurnos(eventoId);
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo reiniciar", description: result.error });
+        return;
+      }
+      showToast({
+        variant: "info",
+        title: "Turnos reiniciados",
+        description: "La mesa queda como recién sentados. Las apuestas no se tocaron.",
       });
       await refresh();
     } finally {
@@ -445,6 +482,17 @@ function AdminTitulosContent() {
                   </div>
 
                   <Apostadores ladoA={ladoA} ladoB={ladoB} />
+
+                  {evento.categoria === "blackjack" &&
+                  evento.estado !== "resuelto" &&
+                  evento.estado !== "cancelado" ? (
+                    <MesaDealer
+                      evento={evento}
+                      procesando={procesando === evento.id}
+                      onServir={(lado) => handleServirCarta(evento.id, lado)}
+                      onReiniciar={() => handleReiniciarTurnos(evento.id)}
+                    />
+                  ) : null}
 
                   {evento.estado !== "resuelto" &&
                   evento.estado !== "cancelado" &&
@@ -757,5 +805,93 @@ export default function AdminTitulosPage() {
     <RequireAdmin>
       <AdminTitulosContent />
     </RequireAdmin>
+  );
+}
+
+const TURNO_DEALER_LABEL: Record<EstadoTurno, string> = {
+  esperando: "En su turno",
+  pidiendo: "PIDE CARTA",
+  quedado: "Se quedó",
+};
+
+/**
+ * Lo que ve el que reparte en una mesa de blackjack. La app no reparte
+ * cartas: esto solo muestra la señal que mandan los jugadores y deja
+ * confirmar que ya se entregó la carta (ver 0039_blackjack.sql).
+ */
+function MesaDealer({
+  evento,
+  procesando,
+  onServir,
+  onReiniciar,
+}: {
+  evento: Evento;
+  procesando: boolean;
+  onServir: (lado: "a" | "b") => void;
+  onReiniciar: () => void;
+}) {
+  const lados = [
+    { lado: "a" as const, nombre: evento.lado_a, turno: evento.turno_a, cartas: evento.cartas_a },
+    { lado: "b" as const, nombre: evento.lado_b, turno: evento.turno_b, cartas: evento.cartas_b },
+  ];
+
+  return (
+    <div className="mt-3 rounded-md border border-gold-dark/50 bg-obsidian/40 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] uppercase tracking-wide text-parchment/40">Mesa de blackjack</p>
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={procesando}
+          onClick={onReiniciar}
+          className="min-h-8 px-2 py-0.5 text-[11px]"
+        >
+          Reiniciar turnos
+        </Button>
+      </div>
+
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        {lados.map(({ lado, nombre, turno, cartas }) => (
+          <div
+            key={lado}
+            className={clsx(
+              "rounded-md border px-3 py-2",
+              turno === "pidiendo"
+                ? "border-gold-light bg-gold/10"
+                : turno === "quedado"
+                  ? "border-win-glow/50 bg-win/5"
+                  : "border-gold-dark/40"
+            )}
+          >
+            <p className="truncate text-xs text-parchment/60">{nombre}</p>
+            <p
+              className={clsx(
+                "mt-0.5 text-sm font-bold",
+                turno === "pidiendo"
+                  ? "text-gold-light"
+                  : turno === "quedado"
+                    ? "text-win-glow"
+                    : "text-parchment/50"
+              )}
+            >
+              {TURNO_DEALER_LABEL[turno]}
+            </p>
+            <p className="mt-0.5 text-[11px] text-parchment/40">
+              {cartas === 0 ? "Sin cartas pedidas" : cartas === 1 ? "1 carta pedida" : `${cartas} cartas pedidas`}
+            </p>
+            {turno === "pidiendo" ? (
+              <Button
+                type="button"
+                disabled={procesando}
+                onClick={() => onServir(lado)}
+                className="mt-2 min-h-8 w-full px-2 py-0.5 text-[11px]"
+              >
+                Ya le di la carta
+              </Button>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

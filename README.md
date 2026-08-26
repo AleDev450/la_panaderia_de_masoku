@@ -31,7 +31,14 @@ quien eligió el lado contrario.
 6. Para **retirar**, el jugador solicita un monto de su saldo disponible.
    Ese monto se aparta al instante — no se puede apostar ni pedir dos
    veces — y el staff lo yapea al número registrado y marca como pagado.
-7. Aparte hay **sorteos**: el staff publica uno, el jugador deja su perfil
+7. **Blackjack** es una categoría aparte (0039). El staff publica una mesa
+   madre; de ahí en adelante las salas se clonan solas. Son de **dos
+   personas** (una apuesta por lado) y **sin reloj**: la mano corre hasta
+   que el staff declare. Los montos NO tienen que coincidir — se emparejan
+   parcial como en todo el motor, y lo que nadie cubrió vuelve al saldo. La
+   app **no reparte cartas ni cuenta puntos**: los jugadores marcan "pedir"
+   o "quedarse" y el staff lo ve en vivo en /bakery/titulos.
+8. Aparte hay **sorteos**: el staff publica uno, el jugador deja su perfil
    de Steam y su Discord en `/sorteos`, el staff le escribe a mano cuántos
    **tickets** le tocan (según el tier que compró) y sortea con un botón —
    al azar ponderado por tickets, resuelto en Postgres para que no se pueda

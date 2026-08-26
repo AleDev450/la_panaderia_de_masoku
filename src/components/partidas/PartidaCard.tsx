@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Panel } from "@/components/ui/Panel";
 import { CategoriaBadge } from "@/components/partidas/CategoriaBadge";
 import { LadoPanel } from "@/components/partidas/LadoPanel";
+import { MesaBlackjack } from "@/components/partidas/MesaBlackjack";
 import { EventoResumen } from "@/actions/betting";
 
 function useCuentaRegresiva(cierraEn: string) {
@@ -39,10 +40,13 @@ export function PartidaCard({
   resumen,
   miUsuarioId,
   onApostar,
+  onMarcarTurno,
 }: {
   resumen: EventoResumen;
   miUsuarioId?: string;
   onApostar: (eventoId: string, lado: "a" | "b", monto: number) => Promise<void>;
+  /** Solo lo usan las mesas de blackjack (0039). */
+  onMarcarTurno?: (eventoId: string, accion: "pedir" | "quedarse") => Promise<void>;
 }) {
   const { evento, ladoA, ladoB, miLado } = resumen;
   const restanteMs = useCuentaRegresiva(evento.cierra_en);
@@ -99,6 +103,10 @@ export function PartidaCard({
           onApostar={(lado, monto) => onApostar(evento.id, lado, monto)}
         />
       </div>
+
+      {evento.categoria === "blackjack" && !terminada && onMarcarTurno ? (
+        <MesaBlackjack evento={evento} miLado={miLado} onMarcarTurno={onMarcarTurno} />
+      ) : null}
 
       {evento.estado === "cancelado" ? (
         <p className="mt-4 rounded-md border border-lose/50 bg-lose/5 px-3 py-2.5 text-center text-xs text-parchment/60">

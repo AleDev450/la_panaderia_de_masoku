@@ -5,6 +5,7 @@ const CATEGORIA_LABEL: Record<CategoriaEvento, string> = {
   csgo: "Counter-Strike",
   lol: "League of Legends",
   valorant: "Valorant",
+  blackjack: "Blackjack",
   otros: "Otros",
 };
 

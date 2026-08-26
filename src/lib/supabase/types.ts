@@ -6,7 +6,17 @@
  */
 
 export type EstadoEvento = "abierto" | "cerrado" | "resuelto" | "cancelado";
-export type CategoriaEvento = "dota2" | "csgo" | "lol" | "valorant" | "otros";
+export type CategoriaEvento =
+  | "dota2"
+  | "csgo"
+  | "lol"
+  | "valorant"
+  | "otros"
+  /** Mesa 1v1 sin reloj (0039). La app no reparte cartas: solo señaliza el turno. */
+  | "blackjack";
+
+/** Señal de turno de un lado en una mesa de blackjack (0039). */
+export type EstadoTurno = "esperando" | "pidiendo" | "quedado";
 export type LadoApuesta = "a" | "b";
 export type EstadoApuesta = "pendiente" | "parcial" | "completa" | "cancelada";
 export type TipoMovimientoSaldo =
@@ -70,6 +80,15 @@ export type Evento = {
   correcciones: number;
   /** Por qué se canceló (0029) — null si nunca se canceló. */
   cancelado_motivo: string | null;
+  /** Blackjack (0039): mesa madre de la que salió esta sala. Null en la
+   * mesa que publicó el staff, que además es la sala número 1. */
+  mesa_origen_id: string | null;
+  turno_a: EstadoTurno;
+  turno_b: EstadoTurno;
+  /** Cuántas cartas pidió cada lado en esta mano — la cuenta la lleva el
+   * que reparte, la app solo suma los clics. */
+  cartas_a: number;
+  cartas_b: number;
   created_at: string;
   updated_at: string;
 };
@@ -558,6 +577,22 @@ export interface Database {
       admin_marcar_ganador: {
         Args: { p_admin_id: string; p_inscripcion_id: string; p_ganador: boolean };
         Returns: InscripcionSorteo;
+      };
+      unirse_blackjack: {
+        Args: { p_usuario_id: string; p_monto: number };
+        Returns: Apuesta;
+      };
+      marcar_turno: {
+        Args: { p_usuario_id: string; p_evento_id: string; p_accion: string };
+        Returns: Evento;
+      };
+      admin_servir_carta: {
+        Args: { p_admin_id: string; p_evento_id: string; p_lado: LadoApuesta };
+        Returns: Evento;
+      };
+      admin_reiniciar_turnos: {
+        Args: { p_admin_id: string; p_evento_id: string };
+        Returns: Evento;
       };
       admin_asignar_tickets: {
         Args: { p_admin_id: string; p_inscripcion_id: string; p_tickets: number };

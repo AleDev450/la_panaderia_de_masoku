@@ -6,13 +6,17 @@ import {
   CancelarApuestaInput,
   CrearApuestaInput,
   CrearEventoInput,
+  MarcarTurnoInput,
   ResolverEventoInput,
+  UnirseBlackjackInput,
   cancelarApuestaSchema,
   crearApuestaSchema,
   crearEventoSchema,
+  marcarTurnoSchema,
   resolverEventoSchema,
+  unirseBlackjackSchema,
 } from "@/lib/validation/betting";
-import { Apuesta, Evento } from "@/lib/supabase/types";
+import { Apuesta, CategoriaEvento, Evento } from "@/lib/supabase/types";
 import { inicioDeDiaEnPeru, inicioDeHoyEnPeru } from "@/lib/eventos";
 
 export type ActionResult<T> =
@@ -164,7 +168,14 @@ export async function crearEvento(input: CrearEventoInput): Promise<ActionResult
   }
 
   const supabase = await createSupabaseServerClient();
-  const cierraEn = new Date(Date.now() + parsed.data.duracionMin * 60_000).toISOString();
+  // Blackjack no lleva reloj: la mesa vive hasta que se junten los dos y el
+  // staff declare. Se representa igual que "abrir sin límite" en 0023 —
+  // `cierra_en` 100 años al futuro — para no volver la columna nullable ni
+  // tocar cada comparación con now().
+  const cierraEn =
+    parsed.data.categoria === "blackjack"
+      ? new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString()
+      : new Date(Date.now() + parsed.data.duracionMin * 60_000).toISOString();
   const { data, error } = await supabase
     .from("eventos")
     .insert({
@@ -367,4 +378,112 @@ async function listarEventos(
   }));
 
   return { ok: true, data: resumenes };
+}
+
+/** Una partida ya terminada, para el panel de últimos resultados. */
+export interface ResultadoReciente {
+  id: string;
+  nombre: string;
+  categoria: CategoriaEvento;
+  ladoA: string;
+  ladoB: string;
+  /** Qué lado ganó. */
+  resultado: "a" | "b";
+  /** Cuándo se liquidó — `updated_at` del evento, que en un evento resuelto
+   * es justo la escritura que lo marcó como tal (ver `liquidar_evento`). */
+  resueltoEn: string;
+}
+
+/**
+ * Las últimas partidas resueltas, para que el jugador vea qué viene
+ * saliendo antes de entrar a una sala.
+ *
+ * A propósito NO devuelve montos, ni volumen, ni cuánta gente había de cada
+ * lado: eso es información de mercado que empujaría a copiar al lado que va
+ * ganando en vez de decidir por la partida. Solo el resultado.
+ */
+export async function getUltimosResultados(
+  limite = 5
+): Promise<ActionResult<ResultadoReciente[]>> {
+  const session = await requireSessionUserId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("eventos")
+    .select("id, nombre, categoria, lado_a, lado_b, resultado, updated_at")
+    .eq("estado", "resuelto")
+    .not("resultado", "is", null)
+    .order("updated_at", { ascending: false })
+    .limit(Math.min(Math.max(limite, 1), 20));
+
+  if (error) return { ok: false, error: error.message };
+
+  return {
+    ok: true,
+    data: (data ?? []).map((e) => ({
+      id: e.id,
+      nombre: e.nombre,
+      categoria: e.categoria,
+      ladoA: e.lado_a,
+      ladoB: e.lado_b,
+      resultado: e.resultado as "a" | "b",
+      resueltoEn: e.updated_at,
+    })),
+  };
+}
+
+/**
+ * Sienta al jugador en una mesa de blackjack. No elige sala ni lado: el RPC
+ * lo pone donde haya asiento libre y, si no queda ninguno, clona una mesa
+ * nueva — que es el "cuando entra un tercero se abre otra sala".
+ *
+ * El monto NO tiene que coincidir con el del rival: se empareja parcial
+ * como en el resto del motor (si tú pones 20 y el otro 10, juegan 10 y tus
+ * otros 10 vuelven a tu saldo al liquidar).
+ */
+export async function unirseBlackjack(
+  input: UnirseBlackjackInput
+): Promise<ActionResult<Apuesta>> {
+  const parsed = unirseBlackjackSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireSessionUserId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("unirse_blackjack", {
+    p_usuario_id: session.userId,
+    p_monto: parsed.data.monto,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as Apuesta };
+}
+
+/**
+ * Avisa que pides carta o que te plantas. El lado sale de tu apuesta en esa
+ * mesa, no de un parámetro: si viniera del cliente, cualquiera podría
+ * plantar al rival.
+ */
+export async function marcarTurno(input: MarcarTurnoInput): Promise<ActionResult<Evento>> {
+  const parsed = marcarTurnoSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireSessionUserId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("marcar_turno", {
+    p_usuario_id: session.userId,
+    p_evento_id: parsed.data.eventoId,
+    p_accion: parsed.data.accion,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as Evento };
 }

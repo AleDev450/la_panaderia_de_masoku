@@ -19,8 +19,10 @@ import {
 import {
   CancelarEventoInput,
   EliminarEventoPruebaInput,
+  ServirCartaInput,
   cancelarEventoSchema,
   eliminarEventoPruebaSchema,
+  servirCartaSchema,
 } from "@/lib/validation/betting";
 import { HERRAMIENTAS_PRUEBA } from "@/lib/flags";
 
@@ -699,4 +701,51 @@ export async function eliminarEventoPrueba(
 
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: null };
+}
+
+/**
+ * Blackjack: el que reparte confirma que ya entregó la carta, y el lado
+ * vuelve a "esperando". Sin esto, quien pidió queda marcado como
+ * "pidiendo" para siempre y no se distingue "ya le di la carta" de
+ * "quiere otra" (ver 0039_blackjack.sql).
+ */
+export async function servirCarta(input: ServirCartaInput): Promise<ActionResult<Evento>> {
+  const parsed = servirCartaSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_servir_carta", {
+    p_admin_id: session.userId,
+    p_evento_id: parsed.data.eventoId,
+    p_lado: parsed.data.lado,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as Evento };
+}
+
+/** Blackjack: deja la mesa como recién sentados — para repetir la mano o
+ * deshacer un "me planto" marcado por error. No toca apuestas ni saldo. */
+export async function reiniciarTurnos(eventoId: string): Promise<ActionResult<Evento>> {
+  const parsed = z.string().uuid("Mesa inválida.").safeParse(eventoId);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_reiniciar_turnos", {
+    p_admin_id: session.userId,
+    p_evento_id: parsed.data,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as Evento };
 }

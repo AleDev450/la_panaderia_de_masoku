@@ -34,10 +34,32 @@ export const crearEventoSchema = z.object({
   nombre: z.string().trim().min(5, "El título debe tener al menos 5 caracteres."),
   ladoA: z.string().trim().min(1, "Indica el lado A (p.ej. GANA)."),
   ladoB: z.string().trim().min(1, "Indica el lado B (p.ej. PIERDE)."),
-  categoria: z.enum(["dota2", "csgo", "lol", "valorant", "otros"]),
+  categoria: z.enum(["dota2", "csgo", "lol", "valorant", "otros", "blackjack"]),
+  /** Se ignora en blackjack: esas mesas se abren sin reloj (ver 0039). */
   duracionMin: z.number().int().min(1, "La duración debe ser de al menos 1 minuto."),
 });
 export type CrearEventoInput = z.infer<typeof crearEventoSchema>;
+
+/** Sentarse en una mesa de blackjack. No se elige sala ni lado: el motor
+ * sienta donde haya sitio y abre mesa nueva si no queda ninguno (0039). */
+export const unirseBlackjackSchema = z.object({
+  monto: money
+    .min(BET_MIN, `La apuesta mínima es S/${BET_MIN}.`)
+    .max(BET_MAX, `La apuesta máxima es S/${BET_MAX}.`),
+});
+export type UnirseBlackjackInput = z.infer<typeof unirseBlackjackSchema>;
+
+export const marcarTurnoSchema = z.object({
+  eventoId: z.string().uuid("Mesa inválida."),
+  accion: z.enum(["pedir", "quedarse"]),
+});
+export type MarcarTurnoInput = z.infer<typeof marcarTurnoSchema>;
+
+export const servirCartaSchema = z.object({
+  eventoId: z.string().uuid("Mesa inválida."),
+  lado: z.enum(["a", "b"]),
+});
+export type ServirCartaInput = z.infer<typeof servirCartaSchema>;
 
 export const eliminarEventoPruebaSchema = z.object({
   eventoId: z.string().uuid("Evento inválido."),
