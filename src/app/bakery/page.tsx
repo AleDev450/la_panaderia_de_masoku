@@ -8,10 +8,11 @@ import { Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
 import { getSolicitudesTelefono } from "@/actions/perfil";
 import { getRecargas } from "@/actions/recargas";
-import { getMetricas, getResumenDiario } from "@/actions/admin";
+import { getMetricas, getResumenDiario, getUsuarios } from "@/actions/admin";
 import { getSorteos } from "@/actions/sorteos";
 import { AdminMetricas, ResumenDia } from "@/lib/supabase/types";
 import { hoyIsoEnPeru } from "@/lib/eventos";
+import { HojaExcel, descargarXlsx } from "@/lib/xlsx";
 
 function AdminHomeContent() {
   const [metricas, setMetricas] = useState<AdminMetricas | null>(null);
@@ -104,7 +105,7 @@ function AdminHomeContent() {
           </div>
         </section>
 
-        <ResumenDiario resumen={resumen} mes={hoyIso.slice(0, 7)} />
+        <ResumenDiario resumen={resumen} mes={hoyIso.slice(0, 7)} metricas={metricas} />
 
         {metricas ? (
           <section className="mt-6">
@@ -201,6 +202,9 @@ function AdminHomeContent() {
 }
 
 const fmt = (n: number) => n.toFixed(2);
+/** Las celdas van como número (sumables en Excel), pero sin arrastrar la
+ * basura de coma flotante de sumar decimales. */
+const redondear = (n: number) => Math.round(n * 100) / 100;
 
 function fechaCorta(iso: string) {
   // T12 evita que el huso corra el día al formatear.
@@ -211,30 +215,18 @@ function fechaCorta(iso: string) {
   });
 }
 
-/** Descarga el resumen del mes como CSV (se abre en Excel). BOM al inicio
- * para que Excel lea bien las tildes; separador coma y decimales con punto,
- * que es lo que espera el Excel en configuración de Perú. */
-function descargarExcel(filas: ResumenDia[], mes: string) {
-  const encabezado = [
-    "Fecha",
-    "Ingreso (S/)",
-    "Apostaron (S/)",
-    "Se pago (S/)",
-    "Yapeado en retiros (S/)",
-    "Me queda (S/)",
-    "Ganancia real (S/)",
-    "Acumulado en Yape (S/)",
-  ];
-  const cuerpo = filas.map((d) => [
-    d.fecha,
-    fmt(d.depositado),
-    fmt(d.apostado),
-    fmt(d.pagado),
-    fmt(d.retirado),
-    fmt(d.depositado - d.pagado - d.retirado),
-    fmt(d.ganancia_real),
-    fmt(d.yape_acumulado),
-  ]);
+/**
+ * Descarga el libro de Excel del día: el mes día a día, quiénes tienen
+ * saldo ahora mismo, y el desglose de qué parte del Yape es tuya.
+ *
+ * La hoja de saldos se pide recién al hacer clic y no al cargar el panel:
+ * es la lista completa de usuarios y solo hace falta cuando se descarga.
+ */
+async function descargarLibro(
+  filas: ResumenDia[],
+  mes: string,
+  metricas: AdminMetricas | null
+): Promise<string | null> {
   const t = filas.reduce(
     (acc, d) => ({
       dep: acc.dep + d.depositado,
@@ -248,30 +240,149 @@ function descargarExcel(filas: ResumenDia[], mes: string) {
   // El "acumulado en Yape" ya es un running total: el total del mes es el del
   // día más reciente (filas viene ordenado del más nuevo al más viejo).
   const yapeActual = filas[0]?.yape_acumulado ?? 0;
-  const total = [
-    "TOTAL",
-    fmt(t.dep),
-    fmt(t.apo),
-    fmt(t.pag),
-    fmt(t.ret),
-    fmt(t.dep - t.pag - t.ret),
-    fmt(t.gan),
-    fmt(yapeActual),
-  ];
 
-  const bom = String.fromCharCode(0xfeff); // Excel lee las tildes solo con BOM.
-  const texto =
-    bom + [encabezado, ...cuerpo, total].map((cols) => cols.join(",")).join("\r\n");
-  const blob = new Blob([texto], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `resumen-${mes}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const hojaMes: HojaExcel = {
+    nombre: `Dia a dia ${mes}`,
+    encabezados: [
+      "Fecha",
+      "Ingreso (S/)",
+      "Apostaron (S/)",
+      "Se pago (S/)",
+      "Yapee en retiros (S/)",
+      "Me queda (S/)",
+      "Ganancia real (S/)",
+      "Acumulado en Yape (S/)",
+    ],
+    filas: [
+      ...filas.map((d) => [
+        d.fecha,
+        d.depositado,
+        d.apostado,
+        d.pagado,
+        d.retirado,
+        redondear(d.depositado - d.pagado - d.retirado),
+        d.ganancia_real,
+        d.yape_acumulado,
+      ]),
+      [
+        "TOTAL",
+        redondear(t.dep),
+        redondear(t.apo),
+        redondear(t.pag),
+        redondear(t.ret),
+        redondear(t.dep - t.pag - t.ret),
+        redondear(t.gan),
+        yapeActual,
+      ],
+    ],
+  };
+
+  const usuarios = await getUsuarios();
+  if (!usuarios.ok) return usuarios.error;
+
+  // Solo los que tienen algo: la lista sirve para saber a quién le debes
+  // cuánto, y una fila en cero no dice nada. El saldo fake va en su propia
+  // columna y NO suma al total — no es plata que debas.
+  const conSaldo = usuarios.data
+    .filter((u) => u.saldoDisponible + u.saldoRetenido > 0)
+    .sort((a, b) => b.saldoDisponible + b.saldoRetenido - (a.saldoDisponible + a.saldoRetenido));
+
+  const totalReal = conSaldo.reduce((n, u) => n + u.saldoDisponible + u.saldoRetenido, 0);
+  const totalFake = conSaldo.reduce((n, u) => n + u.saldoFake + u.saldoFakeRetenido, 0);
+
+  const hojaSaldos: HojaExcel = {
+    nombre: "Saldos de jugadores",
+    encabezados: [
+      "Jugador",
+      "Nombre",
+      "Telefono",
+      "Disponible (S/)",
+      "En juego (S/)",
+      "Le debes (S/)",
+      "Saldo fake (S/)",
+      "Deposito historico (S/)",
+    ],
+    filas: [
+      ...conSaldo.map((u) => [
+        u.nickname,
+        u.fullName ?? "",
+        u.phone ?? "",
+        u.saldoDisponible,
+        u.saldoRetenido,
+        redondear(u.saldoDisponible + u.saldoRetenido),
+        redondear(u.saldoFake + u.saldoFakeRetenido),
+        u.depositadoTotal,
+      ]),
+      ["TOTAL", "", "", "", "", redondear(totalReal), redondear(totalFake), ""],
+    ],
+  };
+
+  const hojaMiDinero: HojaExcel = {
+    nombre: "Mi dinero (Yape)",
+    encabezados: ["Concepto", "Monto (S/)", "Que es"],
+    filas: metricas
+      ? [
+          [
+            "En el Yape deberias tener",
+            metricas.yape_esperado,
+            "Todo lo que deberia haber en el telefono ahora",
+          ],
+          [
+            "  De eso, TUYO",
+            metricas.ganancia_total,
+            "Tu ganancia acumulada: la comision menos los pagos a personal",
+          ],
+          [
+            "  De eso, de los jugadores",
+            metricas.saldos_usuarios_total,
+            "Se lo debes: es su saldo, disponible y en juego",
+          ],
+          [
+            "Pagos ya realizados",
+            -metricas.pagos_manuales_total,
+            "Retiros tuyos y pagos a trabajadores que ya salieron del Yape",
+          ],
+          [
+            "Ajustes manuales",
+            metricas.ajustes_yape_total,
+            "Correcciones para cuadrar el numero con el telefono",
+          ],
+          [
+            "Saldo fake en circulacion",
+            metricas.saldo_fake_total,
+            "NO es plata: no entra en el Yape y no se lo debes a nadie",
+          ],
+        ]
+      : [["Sin datos", 0, "No se pudieron cargar las metricas"]],
+  };
+
+  descargarXlsx(`panca-${hoyIsoEnPeru()}.xlsx`, [hojaMes, hojaSaldos, hojaMiDinero]);
+  return null;
 }
 
-function ResumenDiario({ resumen, mes }: { resumen: ResumenDia[] | null; mes: string }) {
+function ResumenDiario({
+  resumen,
+  mes,
+  metricas,
+}: {
+  resumen: ResumenDia[] | null;
+  mes: string;
+  metricas: AdminMetricas | null;
+}) {
+  const [descargando, setDescargando] = useState(false);
+  const [errorDescarga, setErrorDescarga] = useState<string | null>(null);
+
+  async function handleDescargar() {
+    if (!resumen) return;
+    setDescargando(true);
+    setErrorDescarga(null);
+    try {
+      setErrorDescarga(await descargarLibro(resumen, mes, metricas));
+    } finally {
+      setDescargando(false);
+    }
+  }
+
   const total = (resumen ?? []).reduce(
     (acc, d) => ({
       dep: acc.dep + d.depositado,
@@ -293,13 +404,19 @@ function ResumenDiario({ resumen, mes }: { resumen: ResumenDia[] | null; mes: st
         <Button
           type="button"
           variant="ghost"
-          disabled={!resumen || resumen.length === 0}
-          onClick={() => resumen && descargarExcel(resumen, mes)}
+          disabled={!resumen || resumen.length === 0 || descargando}
+          onClick={handleDescargar}
           className="min-h-9 px-3 py-1 text-xs"
         >
-          Descargar Excel del mes
+          {descargando ? "Armando el Excel…" : "Descargar Excel"}
         </Button>
       </div>
+
+      {errorDescarga ? (
+        <p className="mb-3 text-xs text-lose-glow">
+          No se pudo armar la hoja de saldos: {errorDescarga}
+        </p>
+      ) : null}
 
       {resumen === null ? (
         <p className="text-sm text-parchment/50">Cargando…</p>
