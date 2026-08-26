@@ -23,7 +23,6 @@ import {
   eliminarEventoPrueba,
   liquidarVencidos,
   reiniciarTurnos,
-  servirCarta,
 } from "@/actions/admin";
 import { ResolverPanel } from "@/components/bakery/ResolverPanel";
 import { CategoriaBadge, CATEGORIA_OPTIONS } from "@/components/partidas/CategoriaBadge";
@@ -70,6 +69,14 @@ function AdminTitulosContent() {
     // navegar fechas pasadas es consulta, no debe disparar pagos.
     const previo: Promise<unknown> = esHoy ? liquidarVencidos() : Promise.resolve();
     previo.then(() => refresh());
+
+    // Blackjack: el jugador pide carta y nadie te avisa. Sin este refresco
+    // habría que recargar a mano para enterarse, que es justo lo que no
+    // sirve mientras estás repartiendo. Solo en el día en curso: mirar
+    // fechas pasadas es consulta y no cambia sola.
+    if (!esHoy) return;
+    const id = setInterval(refresh, 5_000);
+    return () => clearInterval(id);
   }, [refresh, esHoy]);
 
   // Partidas ya pagadas o canceladas bajan al fondo del panel de hoy:
@@ -206,21 +213,6 @@ function AdminTitulosContent() {
             : "Los jugadores pueden apostar sin límite de tiempo, hasta que lo cierres."
           : "Ya no entran apuestas nuevas; el resultado sigue sin declararse.",
       });
-      await refresh();
-    } finally {
-      setProcesando(null);
-    }
-  }
-
-  /** Blackjack: confirmar que ya se repartió la carta que pidió ese lado. */
-  async function handleServirCarta(eventoId: string, lado: "a" | "b") {
-    setProcesando(eventoId);
-    try {
-      const result = await servirCarta({ eventoId, lado });
-      if (!result.ok) {
-        showToast({ variant: "warning", title: "No se pudo marcar", description: result.error });
-        return;
-      }
       await refresh();
     } finally {
       setProcesando(null);
@@ -489,7 +481,6 @@ function AdminTitulosContent() {
                     <MesaDealer
                       evento={evento}
                       procesando={procesando === evento.id}
-                      onServir={(lado) => handleServirCarta(evento.id, lado)}
                       onReiniciar={() => handleReiniciarTurnos(evento.id)}
                     />
                   ) : null}
@@ -815,19 +806,18 @@ const TURNO_DEALER_LABEL: Record<EstadoTurno, string> = {
 };
 
 /**
- * Lo que ve el que reparte en una mesa de blackjack. La app no reparte
- * cartas: esto solo muestra la señal que mandan los jugadores y deja
- * confirmar que ya se entregó la carta (ver 0039_blackjack.sql).
+ * Lo que ve el que reparte en una mesa de blackjack: SOLO mira. Pedir carta
+ * es del jugador y de nadie más, así que acá no hay ningún botón de
+ * confirmar — la cuenta de cartas pedidas es la señal (ver 0039). Lo único
+ * que se puede tocar es reiniciar los turnos entre manos.
  */
 function MesaDealer({
   evento,
   procesando,
-  onServir,
   onReiniciar,
 }: {
   evento: Evento;
   procesando: boolean;
-  onServir: (lado: "a" | "b") => void;
   onReiniciar: () => void;
 }) {
   const lados = [
@@ -838,7 +828,9 @@ function MesaDealer({
   return (
     <div className="mt-3 rounded-md border border-gold-dark/50 bg-obsidian/40 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[11px] uppercase tracking-wide text-parchment/40">Mesa de blackjack</p>
+        <p className="text-[11px] uppercase tracking-wide text-parchment/40">
+          Mesa de blackjack · se actualiza sola
+        </p>
         <Button
           type="button"
           variant="ghost"
@@ -879,16 +871,6 @@ function MesaDealer({
             <p className="mt-0.5 text-[11px] text-parchment/40">
               {cartas === 0 ? "Sin cartas pedidas" : cartas === 1 ? "1 carta pedida" : `${cartas} cartas pedidas`}
             </p>
-            {turno === "pidiendo" ? (
-              <Button
-                type="button"
-                disabled={procesando}
-                onClick={() => onServir(lado)}
-                className="mt-2 min-h-8 w-full px-2 py-0.5 text-[11px]"
-              >
-                Ya le di la carta
-              </Button>
-            ) : null}
           </div>
         ))}
       </div>

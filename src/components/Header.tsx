@@ -7,7 +7,7 @@ import clsx from "clsx";
 import { useSession } from "@/context/SessionContext";
 import { LevelBadge } from "@/components/LevelBadge";
 import { getLevelForPoints } from "@/data/levels";
-import { saldoVisible } from "@/lib/saldo";
+import { saldoEnJuego, saldoVisible } from "@/lib/saldo";
 import { useState } from "react";
 
 const NAV_JUGADOR = [
@@ -120,6 +120,13 @@ export function Header() {
               <p className="font-fantasy text-sm font-bold text-gold-light">
                 S/{saldoVisible(user)}
               </p>
+              {/* Sin esto el saldo parece evaporarse al apostar: pones 20 de
+                  116 y la pantalla dice 96, sin decir dónde están los otros. */}
+              {saldoEnJuego(user) > 0 ? (
+                <p className="text-[10px] text-parchment/50">
+                  +S/{saldoEnJuego(user)} en juego
+                </p>
+              ) : null}
             </div>
           ) : null}
           <button
@@ -172,7 +179,11 @@ export function Header() {
           >
             <span className="text-sm font-semibold text-parchment">{user.nickname}</span>
             <span className="font-fantasy text-sm font-bold text-gold-light">
-              {isAdmin ? "Administrador" : `S/${saldoVisible(user)}`}
+              {isAdmin
+                ? "Administrador"
+                : saldoEnJuego(user) > 0
+                  ? `S/${saldoVisible(user)} · +S/${saldoEnJuego(user)} en juego`
+                  : `S/${saldoVisible(user)}`}
             </span>
           </Link>
           {!isAdmin ? (

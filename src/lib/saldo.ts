@@ -29,6 +29,20 @@ export function maxPorApuesta(user: Pick<User, "balance" | "balanceFake">): numb
 }
 
 /**
+ * Lo apartado en apuestas vivas, real + fake. NO se perdió: vuelve al
+ * disponible lo que nadie cubrió, y lo emparejado paga 1.80 si gana.
+ *
+ * Existe porque sin mostrarlo el saldo parece evaporarse al apostar: pones
+ * S/20 de tus S/116 y la pantalla dice S/96, sin nada que explique dónde
+ * están los otros 20.
+ */
+export function saldoEnJuego(
+  user: Pick<User, "balanceRetenido" | "balanceFakeRetenido">
+): number {
+  return Math.round((user.balanceRetenido + user.balanceFakeRetenido) * 100) / 100;
+}
+
+/**
  * Cierto cuando la suma promete más de lo que entra en una sola apuesta —
  * el único caso en que `saldoVisible` y `maxPorApuesta` no coinciden. Sirve
  * para explicarlo en el error en vez de dejar al jugador adivinando por qué

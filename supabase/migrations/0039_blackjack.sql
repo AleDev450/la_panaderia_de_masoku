@@ -32,6 +32,11 @@
 -- sentencia sola y después el resto.
 -- =============================================================================
 
+-- El staff NO confirma cada carta: solo mira. Una versión anterior de esta
+-- migración traía `admin_servir_carta` para eso; el drop la saca si llegaste
+-- a correrla, y no hace nada si no.
+drop function if exists admin_servir_carta(uuid, uuid, lado_apuesta);
+
 alter type categoria_evento add value if not exists 'blackjack';
 
 do $$
@@ -393,48 +398,6 @@ $$;
 
 revoke all on function marcar_turno(uuid, uuid, text) from public;
 grant execute on function marcar_turno(uuid, uuid, text) to service_role;
-
--- ---------------------------------------------------------------------------
--- admin_servir_carta: el que reparte confirma que ya dio la carta.
---
--- Devuelve el lado a 'esperando'. Sin esto, quien pidió se queda marcado
--- como "pidiendo" para siempre y no hay forma de distinguir "ya le di la
--- carta" de "quiere otra".
--- ---------------------------------------------------------------------------
-
-create or replace function admin_servir_carta(
-  p_admin_id uuid,
-  p_evento_id uuid,
-  p_lado lado_apuesta
-)
-returns eventos
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_evento eventos%rowtype;
-begin
-  if not es_admin(p_admin_id) then
-    raise exception 'Solo un administrador puede repartir' using errcode = 'P0270';
-  end if;
-
-  update eventos
-    set turno_a = case when p_lado = 'a' and turno_a = 'pidiendo' then 'esperando' else turno_a end,
-        turno_b = case when p_lado = 'b' and turno_b = 'pidiendo' then 'esperando' else turno_b end
-    where id = p_evento_id and categoria = 'blackjack'
-    returning * into v_evento;
-
-  if not found then
-    raise exception 'Mesa de blackjack no encontrada' using errcode = 'P0271';
-  end if;
-
-  return v_evento;
-end;
-$$;
-
-revoke all on function admin_servir_carta(uuid, uuid, lado_apuesta) from public;
-grant execute on function admin_servir_carta(uuid, uuid, lado_apuesta) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- admin_reiniciar_turnos: deja la mesa como recién sentados.

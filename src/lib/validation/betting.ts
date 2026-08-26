@@ -55,11 +55,7 @@ export const marcarTurnoSchema = z.object({
 });
 export type MarcarTurnoInput = z.infer<typeof marcarTurnoSchema>;
 
-export const servirCartaSchema = z.object({
-  eventoId: z.string().uuid("Mesa inválida."),
-  lado: z.enum(["a", "b"]),
-});
-export type ServirCartaInput = z.infer<typeof servirCartaSchema>;
+
 
 export const eliminarEventoPruebaSchema = z.object({
   eventoId: z.string().uuid("Evento inválido."),
