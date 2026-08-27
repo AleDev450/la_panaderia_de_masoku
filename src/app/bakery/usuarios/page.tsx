@@ -595,15 +595,19 @@ function AdminUsuariosContent() {
               Ajustar saldo de {ajustandoSaldo.nickname}
             </h2>
             <p className="mt-2 text-sm text-parchment/70">
-              Saldo disponible actual: S/{ajustandoSaldo.saldoDisponible}. Esto
-              no toca el saldo en juego (S/{ajustandoSaldo.saldoRetenido}) ni
-              corrige por sí solo la reconciliación de Yape — si este saldo
-              no corresponde a una recarga real, corrige eso aparte en{" "}
-              <span className="font-semibold text-parchment/90">
-                Pagos y ajustes de Yape
-              </span>
-              .
+              Saldo disponible actual: S/{ajustandoSaldo.saldoDisponible}. No
+              toca el saldo en juego (S/{ajustandoSaldo.saldoRetenido}).
             </p>
+            <div className="mt-3 rounded-md border border-gold-light/40 bg-gold/5 p-3 text-xs leading-relaxed text-parchment/70">
+              La diferencia <strong className="text-parchment/90">cuenta como
+              un depósito</strong>: entra en &quot;Depositado hoy&quot;, en el
+              Ingreso del día y en &quot;En Yape deberías tener&quot;, igual
+              que una recarga aprobada. Si bajas el saldo, resta.
+              <br />
+              ¿Quieres darle saldo que <strong className="text-parchment/90">no
+              sea plata</strong>? Usa &quot;Dar saldo fake&quot;: eso no entra
+              en ninguna de esas cuentas.
+            </div>
 
             <label htmlFor="nuevo-saldo" className="mt-4 mb-1.5 block text-sm text-parchment/80">
               Saldo disponible nuevo

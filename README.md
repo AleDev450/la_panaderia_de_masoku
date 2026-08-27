@@ -51,6 +51,17 @@ quien eligió el lado contrario.
    al azar ponderado por tickets, resuelto en Postgres para que no se pueda
    volver a tirar hasta que salga quien uno quiere.
 
+### Ajustar saldo vs. dar saldo fake
+
+En /bakery/usuarios hay dos formas de darle saldo a alguien, y no son lo
+mismo:
+
+- **Ajustar saldo** (0024, semántica de 0042): es plata. La diferencia
+  cuenta **como una recarga** — entra en "Depositado hoy", en el Ingreso del
+  día y en "En Yape deberías tener". Un ajuste negativo resta igual.
+- **Dar saldo fake** (0036): NO es plata. No cuenta en ninguna de esas
+  cuentas y no se puede retirar.
+
 ### Saldo fake (0036)
 
 El staff puede darle a una cuenta **saldo fake** — plata de mentira que

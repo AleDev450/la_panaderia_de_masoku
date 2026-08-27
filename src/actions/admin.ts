@@ -107,6 +107,7 @@ export async function getMetricas(): Promise<ActionResult<AdminMetricas>> {
       yape_esperado: num(fila.yape_esperado),
       retiros_pagados_hoy: num(fila.retiros_pagados_hoy),
       saldo_fake_total: num(fila.saldo_fake_total),
+      ajustes_saldo_total: num(fila.ajustes_saldo_total),
     },
   };
 }
@@ -206,11 +207,16 @@ export async function getPagosManuales(): Promise<ActionResult<PagoManualConAdmi
 }
 
 /**
- * Corrige el saldo_disponible de un jugador a mano — ej. deshacer saldo de
- * prueba que se le dio para testear. No toca saldo_retenido (apuestas en
- * curso) ni el número de "En Yape deberías tener": ese se calcula de
- * recargas/retiros/pagos_manuales/ajustes_yape, no de saldos — ver
- * 0024_ajustes_saldo_y_yape.sql.
+ * Fija el saldo_disponible de un jugador a mano. Desde 0042 la diferencia
+ * CUENTA COMO DEPÓSITO: entra en "Depositado hoy", en el Ingreso del día y
+ * en "En Yape deberías tener", igual que una recarga aprobada — porque es
+ * plata que entró (o salió) del sistema por fuera del flujo de recargas.
+ * Un ajuste negativo resta con el mismo criterio.
+ *
+ * Si lo que quieres es dar saldo que NO sea plata, usa `darSaldoFake`.
+ *
+ * No toca `saldo_retenido`: lo que está en una apuesta viva no se mueve
+ * desde acá.
  */
 export async function ajustarSaldo(input: AjustarSaldoInput): Promise<ActionResult<Perfil>> {
   const parsed = ajustarSaldoSchema.safeParse(input);
@@ -389,9 +395,7 @@ export async function getUsuarios(): Promise<ActionResult<UsuarioAdmin[]>> {
 
   // Aparte y no con un join: `recargas` puede tener varias filas aprobadas
   // por usuario, así que se suma acá en vez de traer la tabla completa a
-  // la UI. Sirve para distinguir quién tiene saldo respaldado por un
-  // depósito real de quién tiene saldo de prueba (ajustado a mano, ver
-  // 0024_ajustes_saldo_y_yape.sql) sin ningún depósito detrás.
+  // la UI. Sirve para ver de dónde salió el saldo de cada uno.
   const { data: recargas } = await admin
     .from("recargas")
     .select("usuario_id, monto_acreditado")
@@ -400,6 +404,19 @@ export async function getUsuarios(): Promise<ActionResult<UsuarioAdmin[]>> {
   for (const r of recargas ?? []) {
     const previo = depositadoPorUsuario.get(r.usuario_id) ?? 0;
     depositadoPorUsuario.set(r.usuario_id, previo + Number(r.monto_acreditado ?? 0));
+  }
+
+  // Un ajuste de saldo REAL es plata que entró por fuera del flujo de
+  // recargas, así que cuenta como depósito igual que una (0042). Los de
+  // saldo fake (`es_fake`) quedan fuera: no son plata.
+  const { data: ajustes } = await admin
+    .from("ajustes_saldo")
+    .select("usuario_id, saldo_anterior, saldo_nuevo, es_fake")
+    .eq("es_fake", false);
+  for (const a of ajustes ?? []) {
+    const delta = Number(a.saldo_nuevo ?? 0) - Number(a.saldo_anterior ?? 0);
+    const previo = depositadoPorUsuario.get(a.usuario_id) ?? 0;
+    depositadoPorUsuario.set(a.usuario_id, previo + delta);
   }
 
   return {

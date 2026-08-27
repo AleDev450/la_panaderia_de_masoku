@@ -200,12 +200,17 @@ export type AdminMetricas = {
   pagos_manuales_total: number;
   /** Correcciones manuales +/- a yape_esperado (0024_ajustes_saldo_y_yape.sql), histórico. */
   ajustes_yape_total: number;
-  /** recargas_aprobadas − retiros_pagados − pagos_manuales + ajustes_yape, calculado directo de esas tablas. */
+  /** recargas_aprobadas + ajustes_saldo_reales − retiros_pagados − pagos_manuales
+   * + ajustes_yape, calculado directo de esas tablas (0042). */
   yape_esperado: number;
   /** A cuántas personas les yapeaste hoy — acompaña a `retirado_hoy`, que es el monto (0036). */
   retiros_pagados_hoy: number;
   /** Saldo fake dando vueltas (disponible + en juego). No es plata: no entra en yape_esperado (0036). */
   saldo_fake_total: number;
+  /** Neto de los ajustes de saldo REALES (0042) — cuentan como depósito, así
+   * que ya están dentro de `depositado_hoy` y de `yape_esperado`. Se expone
+   * aparte solo para poder explicar de dónde sale el número. */
+  ajustes_saldo_total: number;
 };
 
 /** Una fila del resumen día a día (0034/0035). Fecha en calendario de Perú;

@@ -68,7 +68,7 @@ function AdminHomeContent() {
             <Metrica
               label="Depositado"
               valor={metricas ? `S/${metricas.depositado_hoy}` : "—"}
-              detalle="Recargas aprobadas"
+              detalle="Recargas + saldo cargado a mano"
             />
             <Metrica
               label="Pagué en Yape"
@@ -124,6 +124,13 @@ function AdminHomeContent() {
                   ? ` ${metricas.ajustes_yape_total > 0 ? "+" : "−"} Ajustes S/${Math.abs(metricas.ajustes_yape_total)}`
                   : ""}
               </p>
+              {metricas.ajustes_saldo_total !== 0 ? (
+                <p className="mt-2 text-xs text-parchment/50">
+                  Incluye S/{metricas.ajustes_saldo_total} de saldo que
+                  cargaste a mano con &quot;Ajustar saldo&quot;: cuenta como
+                  depósito, igual que una recarga.
+                </p>
+              ) : null}
               {metricas.saldo_fake_total > 0 ? (
                 <p className="mt-2 text-xs text-parchment/50">
                   Aparte hay S/{metricas.saldo_fake_total} de saldo fake dando
@@ -346,6 +353,11 @@ async function descargarLibro(
             "Ajustes manuales",
             metricas.ajustes_yape_total,
             "Correcciones para cuadrar el numero con el telefono",
+          ],
+          [
+            "  De eso, cargado a mano",
+            metricas.ajustes_saldo_total,
+            "Saldo que diste con 'Ajustar saldo' — cuenta como deposito",
           ],
           [
             "Saldo fake en circulacion",
