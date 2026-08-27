@@ -3,17 +3,28 @@
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { AdminMetricas, AjusteSaldo, AjusteYape, Evento, PagoManual, Perfil, ResumenDia } from "@/lib/supabase/types";
+import {
+  AdminMetricas,
+  AjusteSaldo,
+  AjusteYape,
+  Evento,
+  IngresoManual,
+  PagoManual,
+  Perfil,
+  ResumenDia,
+} from "@/lib/supabase/types";
 import { ActionResult } from "@/actions/betting";
 import { AdminCambiarPasswordInput, adminCambiarPasswordSchema } from "@/lib/validation/perfil";
 import {
   AjustarSaldoInput,
   DarSaldoFakeInput,
   RegistrarAjusteYapeInput,
+  RegistrarIngresoInput,
   RegistrarPagoManualInput,
   ajustarSaldoSchema,
   darSaldoFakeSchema,
   registrarAjusteYapeSchema,
+  registrarIngresoSchema,
   registrarPagoManualSchema,
 } from "@/lib/validation/pagos";
 import {
@@ -108,6 +119,9 @@ export async function getMetricas(): Promise<ActionResult<AdminMetricas>> {
       retiros_pagados_hoy: num(fila.retiros_pagados_hoy),
       saldo_fake_total: num(fila.saldo_fake_total),
       ajustes_saldo_total: num(fila.ajustes_saldo_total),
+      recargas_total: num(fila.recargas_total),
+      retiros_total: num(fila.retiros_total),
+      ingresos_manuales_total: num(fila.ingresos_manuales_total),
     },
   };
 }
@@ -175,6 +189,75 @@ export async function registrarPagoManual(
   return { ok: true, data: data as PagoManual };
 }
 
+/**
+ * Registra plata que entró sin pasar por el flujo de recargas — efectivo,
+ * transferencia, lo que sea. Cuenta como ingreso del día y sube el total
+ * que deberías tener, igual que una recarga aprobada.
+ *
+ * Si viene con `usuarioId`, le acredita el saldo en la MISMA transacción.
+ * No hay que hacer además un "Ajustar saldo": eso contaría el dinero dos
+ * veces (ver 0044).
+ */
+export async function registrarIngreso(
+  input: RegistrarIngresoInput
+): Promise<ActionResult<IngresoManual>> {
+  const parsed = registrarIngresoSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_registrar_ingreso", {
+    p_admin_id: session.userId,
+    p_concepto: parsed.data.concepto,
+    p_monto: parsed.data.monto,
+    p_usuario_id: parsed.data.usuarioId ? parsed.data.usuarioId : null,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as IngresoManual };
+}
+
+export interface IngresoConNombres {
+  ingreso: IngresoManual;
+  adminNickname: string;
+  usuarioNickname: string | null;
+}
+
+/** Historial de ingresos manuales, más reciente primero. */
+export async function getIngresosManuales(): Promise<ActionResult<IngresoConNombres[]>> {
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data: ingresos, error } = await admin
+    .from("ingresos_manuales")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) return { ok: false, error: error.message };
+  if (!ingresos || ingresos.length === 0) return { ok: true, data: [] };
+
+  const ids = [
+    ...new Set(
+      ingresos.flatMap((i) => [i.admin_id, i.usuario_id].filter((v): v is string => !!v))
+    ),
+  ];
+  const { data: perfiles } = await admin.from("perfiles").select("id, nickname").in("id", ids);
+  const nicknamePorId = new Map((perfiles ?? []).map((p) => [p.id, p.nickname]));
+
+  return {
+    ok: true,
+    data: ingresos.map((i) => ({
+      ingreso: i as IngresoManual,
+      adminNickname: nicknamePorId.get(i.admin_id) ?? "—",
+      usuarioNickname: i.usuario_id ? (nicknamePorId.get(i.usuario_id) ?? "—") : null,
+    })),
+  };
+}
+
 export interface PagoManualConAdmin {
   pago: PagoManual;
   adminNickname: string;
@@ -207,13 +290,18 @@ export async function getPagosManuales(): Promise<ActionResult<PagoManualConAdmi
 }
 
 /**
- * Fija el saldo_disponible de un jugador a mano. Desde 0042 la diferencia
- * CUENTA COMO DEPÓSITO: entra en "Depositado hoy", en el Ingreso del día y
- * en "En Yape deberías tener", igual que una recarga aprobada — porque es
- * plata que entró (o salió) del sistema por fuera del flujo de recargas.
- * Un ajuste negativo resta con el mismo criterio.
+ * Fija el saldo_disponible de un jugador a mano. Es una CORRECCIÓN, no un
+ * ingreso: no cuenta como depósito ni sube el total esperado. 0044 revierte
+ * la regla de 0042 — con `registrarIngreso` existiendo, que ambos contaran
+ * lleva a registrar el mismo dinero dos veces.
  *
- * Si lo que quieres es dar saldo que NO sea plata, usa `darSaldoFake`.
+ * Consecuencia: subirle el saldo a alguien sin que haya entrado plata sale
+ * de tu lado, y así se ve en el panel, porque "lo tuyo" se calcula como
+ * total esperado − saldos de jugadores.
+ *
+ *   - ¿Recibiste plata y le das saldo?  -> `registrarIngreso`
+ *   - ¿Saldo que NO es plata?           -> `darSaldoFake`
+ *   - ¿Corregir un número mal puesto?   -> esta
  *
  * No toca `saldo_retenido`: lo que está en una apuesta viva no se mueve
  * desde acá.
@@ -406,17 +494,17 @@ export async function getUsuarios(): Promise<ActionResult<UsuarioAdmin[]>> {
     depositadoPorUsuario.set(r.usuario_id, previo + Number(r.monto_acreditado ?? 0));
   }
 
-  // Un ajuste de saldo REAL es plata que entró por fuera del flujo de
-  // recargas, así que cuenta como depósito igual que una (0042). Los de
-  // saldo fake (`es_fake`) quedan fuera: no son plata.
-  const { data: ajustes } = await admin
-    .from("ajustes_saldo")
-    .select("usuario_id, saldo_anterior, saldo_nuevo, es_fake")
-    .eq("es_fake", false);
-  for (const a of ajustes ?? []) {
-    const delta = Number(a.saldo_nuevo ?? 0) - Number(a.saldo_anterior ?? 0);
-    const previo = depositadoPorUsuario.get(a.usuario_id) ?? 0;
-    depositadoPorUsuario.set(a.usuario_id, previo + delta);
+  // La plata que entró por fuera del flujo de recargas también es depósito
+  // de esa persona (0044). Los ajustes de saldo NO: son correcciones, no
+  // plata que entró.
+  const { data: ingresos } = await admin
+    .from("ingresos_manuales")
+    .select("usuario_id, monto")
+    .not("usuario_id", "is", null);
+  for (const i of ingresos ?? []) {
+    if (!i.usuario_id) continue;
+    const previo = depositadoPorUsuario.get(i.usuario_id) ?? 0;
+    depositadoPorUsuario.set(i.usuario_id, previo + Number(i.monto ?? 0));
   }
 
   return {

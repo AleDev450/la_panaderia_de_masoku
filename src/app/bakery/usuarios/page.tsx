@@ -599,14 +599,20 @@ function AdminUsuariosContent() {
               toca el saldo en juego (S/{ajustandoSaldo.saldoRetenido}).
             </p>
             <div className="mt-3 rounded-md border border-gold-light/40 bg-gold/5 p-3 text-xs leading-relaxed text-parchment/70">
-              La diferencia <strong className="text-parchment/90">cuenta como
-              un depósito</strong>: entra en &quot;Depositado hoy&quot;, en el
-              Ingreso del día y en &quot;En Yape deberías tener&quot;, igual
-              que una recarga aprobada. Si bajas el saldo, resta.
-              <br />
-              ¿Quieres darle saldo que <strong className="text-parchment/90">no
-              sea plata</strong>? Usa &quot;Dar saldo fake&quot;: eso no entra
-              en ninguna de esas cuentas.
+              Esto es una <strong className="text-parchment/90">corrección</strong>:
+              NO cuenta como ingreso del día. Si le subes el saldo sin que haya
+              entrado plata, sale de lo tuyo.
+              <ul className="mt-2 list-disc space-y-0.5 pl-4">
+                <li>
+                  ¿Recibiste plata (efectivo, Yape) y le das saldo? → usa{" "}
+                  <strong className="text-parchment/90">Registrar ingreso del día</strong>{" "}
+                  en Pagos y ajustes.
+                </li>
+                <li>
+                  ¿Saldo que no es plata, para dar liquidez? → usa{" "}
+                  <strong className="text-parchment/90">Dar saldo fake</strong>.
+                </li>
+              </ul>
             </div>
 
             <label htmlFor="nuevo-saldo" className="mt-4 mb-1.5 block text-sm text-parchment/80">

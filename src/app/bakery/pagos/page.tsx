@@ -9,11 +9,16 @@ import { Button } from "@/components/ui/Button";
 import { useToast } from "@/context/ToastContext";
 import {
   AjusteYapeConAdmin,
+  IngresoConNombres,
   PagoManualConAdmin,
+  UsuarioAdmin,
   getAjustesYape,
+  getIngresosManuales,
   getMetricas,
   getPagosManuales,
+  getUsuarios,
   registrarAjusteYape,
+  registrarIngreso,
   registrarPagoManual,
 } from "@/actions/admin";
 import { AdminMetricas } from "@/lib/supabase/types";
@@ -23,6 +28,13 @@ function AdminPagosContent() {
   const [pagos, setPagos] = useState<PagoManualConAdmin[] | null>(null);
   const [ajustes, setAjustes] = useState<AjusteYapeConAdmin[] | null>(null);
   const [metricas, setMetricas] = useState<AdminMetricas | null>(null);
+  const [ingresos, setIngresos] = useState<IngresoConNombres[] | null>(null);
+  const [usuarios, setUsuarios] = useState<UsuarioAdmin[]>([]);
+
+  const [conceptoIngreso, setConceptoIngreso] = useState("");
+  const [montoIngreso, setMontoIngreso] = useState("");
+  const [usuarioIngreso, setUsuarioIngreso] = useState("");
+  const [enviandoIngreso, setEnviandoIngreso] = useState(false);
 
   const [concepto, setConcepto] = useState("");
   const [monto, setMonto] = useState("");
@@ -33,20 +45,66 @@ function AdminPagosContent() {
   const [enviandoAjuste, setEnviandoAjuste] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [pagosResult, ajustesResult, metricasResult] = await Promise.all([
-      getPagosManuales(),
-      getAjustesYape(),
-      getMetricas(),
-    ]);
+    const [pagosResult, ajustesResult, metricasResult, ingresosResult, usuariosResult] =
+      await Promise.all([
+        getPagosManuales(),
+        getAjustesYape(),
+        getMetricas(),
+        getIngresosManuales(),
+        getUsuarios(),
+      ]);
     if (pagosResult.ok) setPagos(pagosResult.data);
     if (ajustesResult.ok) setAjustes(ajustesResult.data);
     if (metricasResult.ok) setMetricas(metricasResult.data);
+    // Si 0044 todavía no corrió, lista vacía en vez de "Cargando…" eterno.
+    setIngresos(ingresosResult.ok ? ingresosResult.data : []);
+    if (usuariosResult.ok) setUsuarios(usuariosResult.data);
   }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time bootstrap on mount
     refresh();
   }, [refresh]);
+
+  async function handleIngreso(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const montoNumber = Number(montoIngreso);
+    if (!conceptoIngreso.trim() || !Number.isFinite(montoNumber) || montoNumber <= 0) {
+      showToast({
+        variant: "warning",
+        title: "Datos incompletos",
+        description: "Indica de dónde vino la plata y un monto mayor a 0.",
+      });
+      return;
+    }
+
+    setEnviandoIngreso(true);
+    try {
+      const result = await registrarIngreso({
+        concepto: conceptoIngreso.trim(),
+        monto: montoNumber,
+        usuarioId: usuarioIngreso,
+      });
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo registrar", description: result.error });
+        return;
+      }
+      const nick = usuarios.find((u) => u.id === usuarioIngreso)?.nickname;
+      showToast({
+        variant: "success",
+        title: `Ingreso de S/${result.data.monto} registrado`,
+        description: nick
+          ? `Se le acreditaron S/${result.data.monto} a ${nick}.`
+          : "No se le acreditó saldo a nadie: queda como plata tuya.",
+      });
+      setConceptoIngreso("");
+      setMontoIngreso("");
+      setUsuarioIngreso("");
+      await refresh();
+    } finally {
+      setEnviandoIngreso(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -145,6 +203,107 @@ function AdminPagosContent() {
             </p>
           </Panel>
         ) : null}
+
+        <Panel className="mt-6 border-win-glow/40 bg-win/5 p-5">
+          <h2 className="mb-1 font-fantasy text-lg font-semibold text-win-glow">
+            Registrar ingreso del día
+          </h2>
+          <p className="mb-3 text-xs leading-relaxed text-parchment/60">
+            Plata que entró SIN pasar por el flujo de recargas: efectivo,
+            transferencia, lo que sea. Cuenta como ingreso del día y sube lo
+            que deberías tener, igual que una recarga aprobada. Si eliges un
+            jugador, se le acredita el saldo acá mismo — no hagas además un
+            &quot;Ajustar saldo&quot;, contarías la plata dos veces.
+          </p>
+          <form onSubmit={handleIngreso} className="flex flex-col gap-3">
+            <div>
+              <label htmlFor="concepto-ingreso" className="mb-1.5 block text-sm text-parchment/80">
+                De dónde vino
+              </label>
+              <input
+                id="concepto-ingreso"
+                value={conceptoIngreso}
+                onChange={(e) => setConceptoIngreso(e.target.value)}
+                placeholder="Ej. Efectivo de Juan, 2 recargas de 10"
+                className="min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+              />
+            </div>
+            <div>
+              <label htmlFor="monto-ingreso" className="mb-1.5 block text-sm text-parchment/80">
+                Monto
+              </label>
+              <input
+                id="monto-ingreso"
+                type="number"
+                min={0.01}
+                step="0.01"
+                inputMode="decimal"
+                value={montoIngreso}
+                onChange={(e) => setMontoIngreso(e.target.value)}
+                className="min-h-12 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-lg font-semibold text-parchment outline-none [appearance:textfield] focus-visible:ring-2 focus-visible:ring-gold-light [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              />
+            </div>
+            <div>
+              <label htmlFor="usuario-ingreso" className="mb-1.5 block text-sm text-parchment/80">
+                Acreditarle el saldo a (opcional)
+              </label>
+              <select
+                id="usuario-ingreso"
+                value={usuarioIngreso}
+                onChange={(e) => setUsuarioIngreso(e.target.value)}
+                className="min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+              >
+                <option value="">Nadie — la plata es tuya</option>
+                {usuarios.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.nickname}
+                    {u.fullName ? ` · ${u.fullName}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button type="submit" variant="win" disabled={enviandoIngreso}>
+              {enviandoIngreso ? "Registrando…" : "Registrar ingreso"}
+            </Button>
+          </form>
+        </Panel>
+
+        <section className="mt-8">
+          <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
+            Historial de ingresos
+          </h2>
+          {ingresos === null ? (
+            <p className="text-sm text-parchment/50">Cargando…</p>
+          ) : ingresos.length === 0 ? (
+            <Panel className="border-dashed p-6 text-center text-sm text-parchment/50">
+              Todavía no registraste ningún ingreso por fuera de las recargas.
+            </Panel>
+          ) : (
+            <div className="space-y-2">
+              {ingresos.map(({ ingreso, adminNickname, usuarioNickname }) => (
+                <Panel key={ingreso.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-parchment">{ingreso.concepto}</p>
+                    <p className="text-xs text-parchment/50">
+                      {new Date(ingreso.created_at).toLocaleString("es-PE", {
+                        timeZone: "America/Lima",
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}{" "}
+                      · registró {adminNickname}
+                      {usuarioNickname ? ` · saldo a ${usuarioNickname}` : " · sin acreditar a nadie"}
+                    </p>
+                  </div>
+                  <p className="font-fantasy text-lg font-bold text-win-glow">
+                    +S/{ingreso.monto}
+                  </p>
+                </Panel>
+              ))}
+            </div>
+          )}
+        </section>
 
         <Panel className="mt-6 p-5">
           <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">

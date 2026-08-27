@@ -50,6 +50,29 @@ export const darSaldoFakeSchema = z.object({
 });
 export type DarSaldoFakeInput = z.infer<typeof darSaldoFakeSchema>;
 
+/**
+ * Plata que entró sin pasar por el flujo de recargas (0044): efectivo,
+ * transferencia, lo que sea. Si viene con `usuarioId`, se le acredita el
+ * saldo en la misma operación — registrar y acreditar por separado es lo
+ * que lleva a contar el mismo dinero dos veces.
+ */
+export const registrarIngresoSchema = z.object({
+  concepto: z
+    .string()
+    .trim()
+    .min(3, "Indica de dónde vino la plata.")
+    .max(200, "Máximo 200 caracteres."),
+  monto: z
+    .number()
+    .positive("El monto debe ser mayor a 0.")
+    .refine((v) => Math.round(v * 100) === v * 100, {
+      message: "El monto admite máximo 2 decimales.",
+    }),
+  /** A quién acreditarle el saldo. Vacío = la plata no le dio saldo a nadie. */
+  usuarioId: z.string().uuid("Usuario inválido.").optional().or(z.literal("")),
+});
+export type RegistrarIngresoInput = z.infer<typeof registrarIngresoSchema>;
+
 export const registrarAjusteYapeSchema = z.object({
   monto: z
     .number()

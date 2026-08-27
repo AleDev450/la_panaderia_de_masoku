@@ -51,16 +51,18 @@ quien eligió el lado contrario.
    al azar ponderado por tickets, resuelto en Postgres para que no se pueda
    volver a tirar hasta que salga quien uno quiere.
 
-### Ajustar saldo vs. dar saldo fake
+### Las tres formas de darle saldo a alguien
 
-En /bakery/usuarios hay dos formas de darle saldo a alguien, y no son lo
-mismo:
+No son intercambiables. Elegir mal descuadra la caja:
 
-- **Ajustar saldo** (0024, semántica de 0042): es plata. La diferencia
-  cuenta **como una recarga** — entra en "Depositado hoy", en el Ingreso del
-  día y en "En Yape deberías tener". Un ajuste negativo resta igual.
-- **Dar saldo fake** (0036): NO es plata. No cuenta en ninguna de esas
-  cuentas y no se puede retirar.
+| Herramienta | ¿Es plata que entró? | ¿Cuenta como ingreso? |
+| --- | --- | --- |
+| **Registrar ingreso del día** (0044, en /bakery/pagos) | Sí — efectivo, transferencia | Sí, y sube el total esperado. Acredita el saldo en la misma operación |
+| **Ajustar saldo** (0024, en /bakery/usuarios) | No, es una corrección | No. Regalar saldo así sale de lo tuyo |
+| **Dar saldo fake** (0036) | No, no es plata | No, ni siquiera se puede retirar |
+
+`yape_esperado` es el total entre **Yape y efectivo**, no solo el teléfono
+(el nombre de la columna quedó de cuando solo se modelaba el Yape).
 
 ### Saldo fake (0036)
 

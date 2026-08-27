@@ -68,7 +68,7 @@ function AdminHomeContent() {
             <Metrica
               label="Depositado"
               valor={metricas ? `S/${metricas.depositado_hoy}` : "—"}
-              detalle="Recargas + saldo cargado a mano"
+              detalle="Recargas + ingresos registrados"
             />
             <Metrica
               label="Pagué en Yape"
@@ -111,33 +111,75 @@ function AdminHomeContent() {
           <section className="mt-6">
             <Panel className="border-gold-light/50 bg-gold/5 p-5">
               <p className="text-[11px] uppercase tracking-wide text-parchment/40">
-                Reconciliación de Yape
+                Reconciliación de caja
               </p>
+              {/* Yape y efectivo van juntos en un solo número, a pedido: el
+                  efectivo nunca entra al teléfono, así que "en Yape" sería
+                  mentira (0044). */}
               <p className="mt-1 font-fantasy text-2xl font-bold text-gold-light">
-                En Yape deberías tener: S/{metricas.yape_esperado}
+                Deberías tener: S/{metricas.yape_esperado}
               </p>
+              <p className="text-[11px] text-parchment/40">
+                Entre el Yape y el efectivo que tengas en mano
+              </p>
+              {/* Se muestran los INSUMOS y no una derivación: la línea
+                  anterior armaba "Ganancia + Saldos − Pagos + Ajustes", y esa
+                  identidad es falsa cuando hay pagos manuales que restan de
+                  la ganancia — el pago quedaba restado dos veces (0043). */}
               <p className="mt-2 text-xs text-parchment/60">
-                = Ganancia S/{metricas.ganancia_total} + Depósitos de
-                jugadores sin retirar S/{metricas.saldos_usuarios_total} −
-                Pagos ya realizados S/{metricas.pagos_manuales_total}
+                = Recargas S/{metricas.recargas_total} + Ingresos registrados
+                S/{metricas.ingresos_manuales_total} − Retiros pagados
+                S/{metricas.retiros_total} − Pagos manuales
+                S/{metricas.pagos_manuales_total}
                 {metricas.ajustes_yape_total !== 0
                   ? ` ${metricas.ajustes_yape_total > 0 ? "+" : "−"} Ajustes S/${Math.abs(metricas.ajustes_yape_total)}`
                   : ""}
               </p>
-              {metricas.ajustes_saldo_total !== 0 ? (
-                <p className="mt-2 text-xs text-parchment/50">
-                  Incluye S/{metricas.ajustes_saldo_total} de saldo que
-                  cargaste a mano con &quot;Ajustar saldo&quot;: cuenta como
-                  depósito, igual que una recarga.
-                </p>
-              ) : null}
-              {metricas.saldo_fake_total > 0 ? (
-                <p className="mt-2 text-xs text-parchment/50">
-                  Aparte hay S/{metricas.saldo_fake_total} de saldo fake dando
-                  vueltas. No entra en este número: no se puede retirar y nunca
-                  entró por Yape.
-                </p>
-              ) : null}
+
+              <div className="mt-3 grid grid-cols-2 gap-3 border-t border-gold-dark/40 pt-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-parchment/40">
+                    De los jugadores
+                  </p>
+                  <p className="font-fantasy text-lg font-bold text-parchment">
+                    S/{metricas.saldos_usuarios_total}
+                  </p>
+                  <p className="text-[11px] text-parchment/40">Se lo debes</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-parchment/40">
+                    Tuyo
+                  </p>
+                  {/* Lo que queda si le pagas a todos. Siempre cuadra, sin
+                      derivar nada — y NO es lo mismo que la ganancia. */}
+                  <p
+                    className={`font-fantasy text-lg font-bold ${
+                      metricas.yape_esperado - metricas.saldos_usuarios_total < 0
+                        ? "text-lose-glow"
+                        : "text-win-glow"
+                    }`}
+                  >
+                    S/
+                    {Math.round(
+                      (metricas.yape_esperado - metricas.saldos_usuarios_total) * 100
+                    ) / 100}
+                  </p>
+                  <p className="text-[11px] text-parchment/40">
+                    Lo que queda si les pagas a todos
+                  </p>
+                </div>
+              </div>
+
+              <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
+                Tu <strong className="text-parchment/60">ganancia</strong> del
+                negocio es S/{metricas.ganancia_total} — comisión menos pagos a
+                personal. Es otro número: no todo lo que te queda en caja es
+                ganancia, ni al revés.
+                {metricas.ajustes_saldo_total !== 0
+                  ? ` Además diste S/${metricas.ajustes_saldo_total} de saldo con "Ajustar saldo", que no fue plata que entró: sale de lo tuyo.`
+                  : ""}
+              </p>
+
               <Link
                 href="/bakery/pagos"
                 className="mt-3 inline-block text-xs font-semibold text-gold-light underline"
@@ -335,14 +377,19 @@ async function descargarLibro(
             "Todo lo que deberia haber en el telefono ahora",
           ],
           [
-            "  De eso, TUYO",
-            metricas.ganancia_total,
-            "Tu ganancia acumulada: la comision menos los pagos a personal",
-          ],
-          [
             "  De eso, de los jugadores",
             metricas.saldos_usuarios_total,
             "Se lo debes: es su saldo, disponible y en juego",
+          ],
+          [
+            "  De eso, TUYO",
+            redondear(metricas.yape_esperado - metricas.saldos_usuarios_total),
+            "Lo que queda en el telefono si les pagas a todos",
+          ],
+          [
+            "Tu ganancia del negocio",
+            metricas.ganancia_total,
+            "Comision menos pagos a personal. OTRO numero: no es lo que queda en el Yape",
           ],
           [
             "Pagos ya realizados",
@@ -355,9 +402,9 @@ async function descargarLibro(
             "Correcciones para cuadrar el numero con el telefono",
           ],
           [
-            "  De eso, cargado a mano",
-            metricas.ajustes_saldo_total,
-            "Saldo que diste con 'Ajustar saldo' — cuenta como deposito",
+            "Ingresos registrados a mano",
+            metricas.ingresos_manuales_total,
+            "Efectivo y demas plata que entro sin pasar por una recarga",
           ],
           [
             "Saldo fake en circulacion",

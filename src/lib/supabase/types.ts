@@ -200,17 +200,26 @@ export type AdminMetricas = {
   pagos_manuales_total: number;
   /** Correcciones manuales +/- a yape_esperado (0024_ajustes_saldo_y_yape.sql), histórico. */
   ajustes_yape_total: number;
-  /** recargas_aprobadas + ajustes_saldo_reales − retiros_pagados − pagos_manuales
-   * + ajustes_yape, calculado directo de esas tablas (0042). */
+  /** recargas + ingresos_manuales − retiros_pagados − pagos_manuales +
+   * ajustes_yape (0044). Es el total entre Yape y efectivo, no solo el
+   * teléfono — el nombre quedó de cuando solo se modelaba el Yape. */
   yape_esperado: number;
   /** A cuántas personas les yapeaste hoy — acompaña a `retirado_hoy`, que es el monto (0036). */
   retiros_pagados_hoy: number;
   /** Saldo fake dando vueltas (disponible + en juego). No es plata: no entra en yape_esperado (0036). */
   saldo_fake_total: number;
-  /** Neto de los ajustes de saldo REALES (0042) — cuentan como depósito, así
-   * que ya están dentro de `depositado_hoy` y de `yape_esperado`. Se expone
-   * aparte solo para poder explicar de dónde sale el número. */
+  /** Neto de los ajustes de saldo REALES. INFORMATIVO: desde 0044 ya NO
+   * cuenta como ingreso ni sube el total esperado — un ajuste que le sube el
+   * saldo a alguien sale de tu lado, no es plata que entró. Para plata que
+   * entró está `ingresos_manuales_total`. */
   ajustes_saldo_total: number;
+  /** Insumos crudos de `yape_esperado` (0043), para poder auditarlo sin
+   * derivar nada: recargas aprobadas y retiros ya pagados, histórico. */
+  recargas_total: number;
+  retiros_total: number;
+  /** Plata que entró sin pasar por una recarga (0044) — efectivo y demás.
+   * Cuenta como ingreso y sube el total esperado, igual que una recarga. */
+  ingresos_manuales_total: number;
 };
 
 /** Una fila del resumen día a día (0034/0035). Fecha en calendario de Perú;
@@ -248,6 +257,17 @@ export type AjusteSaldo = {
   motivo: string;
   /** El ajuste fue sobre el saldo fake, no el real (0036). */
   es_fake: boolean;
+  created_at: string;
+};
+
+/** Plata que entró sin pasar por el flujo de recargas (0044). */
+export type IngresoManual = {
+  id: string;
+  admin_id: string;
+  concepto: string;
+  monto: number;
+  /** A quién se le acreditó el saldo; null si no le dio saldo a nadie. */
+  usuario_id: string | null;
   created_at: string;
 };
 
@@ -390,6 +410,11 @@ export interface Database {
         Row: AjusteYape;
         Insert: Partial<AjusteYape>;
         Update: Partial<AjusteYape>;
+      } & NoRelationships;
+      ingresos_manuales: {
+        Row: IngresoManual;
+        Insert: Partial<IngresoManual>;
+        Update: Partial<IngresoManual>;
       } & NoRelationships;
       sorteos: {
         Row: Sorteo;
@@ -558,6 +583,15 @@ export interface Database {
           p_motivo: string;
         };
         Returns: Perfil;
+      };
+      admin_registrar_ingreso: {
+        Args: {
+          p_admin_id: string;
+          p_concepto: string;
+          p_monto: number;
+          p_usuario_id?: string | null;
+        };
+        Returns: IngresoManual;
       };
       admin_registrar_ajuste_yape: {
         Args: { p_admin_id: string; p_monto: number; p_motivo: string };
