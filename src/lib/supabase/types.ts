@@ -271,6 +271,21 @@ export type IngresoManual = {
   created_at: string;
 };
 
+/** Corrección de una partida YA PAGADA (0046). */
+export type CorreccionResultado = {
+  id: string;
+  admin_id: string;
+  evento_id: string;
+  resultado_anterior: LadoApuesta;
+  resultado_nuevo: LadoApuesta;
+  /** Cuánto se movió en total entre jugadores. */
+  monto_movido: number;
+  /** Lo que no se pudo recuperar de quien ya se gastó el premio. */
+  faltante: number;
+  motivo: string;
+  created_at: string;
+};
+
 export type AjusteYape = {
   id: string;
   admin_id: string;
@@ -410,6 +425,11 @@ export interface Database {
         Row: AjusteYape;
         Insert: Partial<AjusteYape>;
         Update: Partial<AjusteYape>;
+      } & NoRelationships;
+      correcciones_resultado: {
+        Row: CorreccionResultado;
+        Insert: Partial<CorreccionResultado>;
+        Update: Partial<CorreccionResultado>;
       } & NoRelationships;
       ingresos_manuales: {
         Row: IngresoManual;
@@ -583,6 +603,16 @@ export interface Database {
           p_motivo: string;
         };
         Returns: Perfil;
+      };
+      admin_corregir_resultado_pagado: {
+        Args: {
+          p_admin_id: string;
+          p_evento_id: string;
+          p_resultado: LadoApuesta;
+          p_motivo: string;
+          p_forzar?: boolean;
+        };
+        Returns: Evento;
       };
       admin_registrar_ingreso: {
         Args: {

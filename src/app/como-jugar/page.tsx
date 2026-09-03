@@ -1,7 +1,7 @@
 import { RequireAuth } from "@/components/RequireAuth";
 import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
-import { BET_MAX, BET_MIN, BET_MIN_BLACKJACK, PUNTOS_POR_GANAR, PUNTOS_POR_PERDER } from "@/types";
+import { BET_MAX, BET_MIN, PUNTOS_POR_GANAR, PUNTOS_POR_PERDER } from "@/types";
 import { CUOTA, pagoPorMatcheado } from "@/lib/apuestas";
 import { MONTO_MAX, MONTO_MIN, MONTO_PASO } from "@/lib/recargas";
 
@@ -16,7 +16,7 @@ const STEPS = [
   },
   {
     title: "3. Apuesta el monto que quieras",
-    body: `Eliges un lado y un monto entre S/${BET_MIN} y S/${BET_MAX} (en blackjack, desde S/${BET_MIN_BLACKJACK}). No necesitas igualar a nadie: tu apuesta busca contraparte en el lado contrario y se va cubriendo con lo que otros pongan, aunque sean montos distintos a los tuyos.`,
+    body: `Eliges un lado y un monto entre S/${BET_MIN} y S/${BET_MAX}. No necesitas igualar a nadie: tu apuesta busca contraparte en el lado contrario y se va cubriendo con lo que otros pongan, aunque sean montos distintos a los tuyos.`,
   },
   {
     title: "4. Varios pueden cubrirte de a poco",

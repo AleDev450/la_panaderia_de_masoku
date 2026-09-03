@@ -22,7 +22,7 @@ quien eligió el lado contrario.
 1. El staff publica un **título del día** (pregunta + lado A + lado B +
    categoría + minutos hasta el cierre).
 2. Un jugador **abre sala**: elige un título, un lado y un monto
-   (S/10–S/100; en blackjack desde S/5). Necesita saldo, que carga yapeando al QR de la casa y
+   (S/5–S/100). Necesita saldo, que carga yapeando al QR de la casa y
    subiendo la captura para que el staff la apruebe.
 3. Otros lo **cubren por partes**. El emparejamiento es FIFO y parcial:
    varias personas pueden cubrir a una sola, con montos distintos. Nadie
@@ -149,8 +149,7 @@ el motor de verdad hay que ejercitarlo contra la base — ver
 
 Reglas que el SQL garantiza (no la UI):
 
-- Monto entre S/10 y S/100 — S/5 en blackjack (0045) —, con saldo
-  suficiente, retenido al apostar.
+- Monto entre S/5 y S/100 (0047), con saldo suficiente, retenido al apostar.
 - Emparejamiento FIFO parcial; nadie se empareja consigo mismo.
 - **Un solo bando por sala**: si ya apostaste a un lado, el contrario te
   rechaza — cubrirse a sí mismo no es apostar.

@@ -20,6 +20,7 @@ import {
   confirmarPago,
   corregirResultado,
   declararResultado,
+  corregirResultadoPagado,
   eliminarEventoPrueba,
   liquidarVencidos,
   reiniciarTurnos,
@@ -42,6 +43,11 @@ function AdminTitulosContent() {
   const [cancelandoEvento, setCancelandoEvento] = useState<Evento | null>(null);
   const [motivoCancelacion, setMotivoCancelacion] = useState("");
   const [cancelandoProcesando, setCancelandoProcesando] = useState(false);
+  // Corrección de una partida YA PAGADA (0046) — distinta de la ventana de
+  // un minuto, que corrige antes de repartir.
+  const [corrigiendoPagado, setCorrigiendoPagado] = useState<Evento | null>(null);
+  const [motivoCorreccion, setMotivoCorreccion] = useState("");
+  const [corrigiendoProcesando, setCorrigiendoProcesando] = useState(false);
 
   const [nombre, setNombre] = useState("");
   const [ladoA, setLadoA] = useState("");
@@ -235,6 +241,38 @@ function AdminTitulosContent() {
       await refresh();
     } finally {
       setProcesando(null);
+    }
+  }
+
+  async function handleCorregirPagado(evento: Evento, forzar = false) {
+    // El resultado nuevo es siempre el contrario: una mano tiene dos lados.
+    const nuevo = evento.resultado === "a" ? "b" : "a";
+    setCorrigiendoProcesando(true);
+    try {
+      const result = await corregirResultadoPagado({
+        eventoId: evento.id,
+        resultado: nuevo,
+        motivo: motivoCorreccion,
+        forzar,
+      });
+      if (!result.ok) {
+        showToast({
+          variant: "warning",
+          title: "No se pudo corregir",
+          description: result.error,
+        });
+        return;
+      }
+      showToast({
+        variant: "success",
+        title: "Resultado corregido",
+        description: `Ahora gana ${nuevo === "a" ? evento.lado_a : evento.lado_b}. La plata ya se movió.`,
+      });
+      setCorrigiendoPagado(null);
+      setMotivoCorreccion("");
+      await refresh();
+    } finally {
+      setCorrigiendoProcesando(false);
     }
   }
 
@@ -572,16 +610,31 @@ function AdminTitulosContent() {
                     onVentanaVencida={handleVencidos}
                   />
 
-                  {HERRAMIENTAS_PRUEBA && evento.estado === "resuelto" ? (
-                    <div className="mt-3 border-t border-gold-dark/30 pt-3 text-right">
+                  {evento.estado === "resuelto" ? (
+                    <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-gold-dark/30 pt-3">
+                      {/* Declaraste mal el ganador y ya se pagó: esto mueve
+                          la plata del que cobró de más al que le tocaba. */}
                       <Button
                         type="button"
                         variant="ghost"
-                        onClick={() => setEliminandoEvento(evento)}
-                        className="min-h-8 border border-lose-glow/40 px-2 py-1 text-xs text-lose-glow"
+                        onClick={() => {
+                          setCorrigiendoPagado(evento);
+                          setMotivoCorreccion("");
+                        }}
+                        className="min-h-8 px-2 py-1 text-xs"
                       >
-                        Eliminar (era de prueba)
+                        Ganó el otro lado (corregir pago)
                       </Button>
+                      {HERRAMIENTAS_PRUEBA ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => setEliminandoEvento(evento)}
+                          className="min-h-8 border border-lose-glow/40 px-2 py-1 text-xs text-lose-glow"
+                        >
+                          Eliminar (era de prueba)
+                        </Button>
+                      ) : null}
                     </div>
                   ) : null}
                 </Panel>
@@ -590,6 +643,87 @@ function AdminTitulosContent() {
           )}
         </section>
       </main>
+
+      {corrigiendoPagado ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Corregir el resultado de ${corrigiendoPagado.nombre}`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCorrigiendoPagado(null);
+          }}
+        >
+          <div className="panel-stone w-full max-w-md rounded-xl p-5">
+            <h2 className="font-display text-lg font-bold text-gold-light">
+              Corregir un resultado ya pagado
+            </h2>
+            <p className="mt-2 text-sm text-parchment/70">
+              {corrigiendoPagado.nombre}
+            </p>
+
+            <div className="mt-3 rounded-md border border-gold-light/40 bg-gold/5 p-3 text-xs leading-relaxed text-parchment/75">
+              <p>
+                Ahora figura que ganó{" "}
+                <strong className="text-parchment">
+                  {corrigiendoPagado.resultado === "a"
+                    ? corrigiendoPagado.lado_a
+                    : corrigiendoPagado.lado_b}
+                </strong>
+                . Va a pasar a{" "}
+                <strong className="text-gold">
+                  {corrigiendoPagado.resultado === "a"
+                    ? corrigiendoPagado.lado_b
+                    : corrigiendoPagado.lado_a}
+                </strong>
+                .
+              </p>
+              <p className="mt-2">
+                Se le quita el premio a quien lo cobró y se le paga al que le
+                tocaba. Lo que nadie cubrió no se toca: ya se devolvió y no
+                depende del resultado.
+              </p>
+              <p className="mt-2 text-parchment/55">
+                Si el que cobró ya se gastó la plata, la corrección se rechaza
+                diciéndote quién y cuánto falta.
+              </p>
+            </div>
+
+            <label
+              htmlFor="motivo-correccion"
+              className="mt-4 mb-1.5 block text-sm text-parchment/80"
+            >
+              Por qué se corrige
+            </label>
+            <input
+              id="motivo-correccion"
+              value={motivoCorreccion}
+              onChange={(e) => setMotivoCorreccion(e.target.value)}
+              placeholder="Ej. Declaré banca por error, ganó el jugador"
+              className="min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-sm text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            />
+
+            <div className="mt-5 flex gap-2">
+              <Button
+                type="button"
+                disabled={corrigiendoProcesando || motivoCorreccion.trim().length < 3}
+                onClick={() => handleCorregirPagado(corrigiendoPagado)}
+                className="flex-1"
+              >
+                {corrigiendoProcesando ? "Corrigiendo…" : "Corregir y mover la plata"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setCorrigiendoPagado(null)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {eliminandoEvento ? (
         <div

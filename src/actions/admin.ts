@@ -259,6 +259,55 @@ export async function getIngresosManuales(): Promise<ActionResult<IngresoConNomb
   };
 }
 
+const corregirPagadoSchema = z.object({
+  eventoId: z.string().uuid("Evento inválido."),
+  resultado: z.enum(["a", "b"]),
+  motivo: z
+    .string()
+    .trim()
+    .min(3, "Indica por qué se corrige.")
+    .max(300, "Máximo 300 caracteres."),
+  /** Corrige aunque no se pueda recuperar todo el premio ya cobrado. */
+  forzar: z.boolean().optional(),
+});
+export type CorregirPagadoInput = z.infer<typeof corregirPagadoSchema>;
+
+/**
+ * Cambia el ganador de una partida YA PAGADA y mueve la plata.
+ *
+ * `corregirResultado` solo sirve dentro de la ventana de un minuto antes de
+ * confirmar; esto es para cuando ya se repartió. Aplica solo la DIFERENCIA
+ * entre lo que cada uno cobró y lo que le tocaba, y recalcula la comisión
+ * (que con saldo fake de por medio sí cambia según quién gane). Ver
+ * 0046_corregir_resultado_pagado.sql.
+ *
+ * Si el que cobró de más ya no tiene la plata, se rechaza diciendo quién y
+ * cuánto falta — salvo que se mande `forzar`.
+ */
+export async function corregirResultadoPagado(
+  input: CorregirPagadoInput
+): Promise<ActionResult<Evento>> {
+  const parsed = corregirPagadoSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_corregir_resultado_pagado", {
+    p_admin_id: session.userId,
+    p_evento_id: parsed.data.eventoId,
+    p_resultado: parsed.data.resultado,
+    p_motivo: parsed.data.motivo,
+    p_forzar: parsed.data.forzar ?? false,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as Evento };
+}
+
 /** Una línea del historial de un jugador, para la hoja de Excel. */
 export interface MovimientoUsuario {
   /** ISO. Se formatea en calendario de Perú al escribir el Excel. */

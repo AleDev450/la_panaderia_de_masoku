@@ -7,7 +7,6 @@ import { LadoPanel } from "@/components/partidas/LadoPanel";
 import { LadoResumen } from "@/actions/betting";
 import { EstadoTurno, Evento } from "@/lib/supabase/types";
 import { CUOTA } from "@/lib/apuestas";
-import { BET_MIN_BLACKJACK } from "@/types";
 
 /**
  * Mesa de blackjack, dibujada como una mesa de casino: un tapete redondo
@@ -93,7 +92,6 @@ export function MesaBlackjack({
               bloqueadoPorMiLado={miLado === "b"}
               terminada={terminada}
               miUsuarioId={miUsuarioId}
-              montoMin={BET_MIN_BLACKJACK}
               onApostar={onApostar}
             />
           ) : null}
@@ -128,7 +126,6 @@ export function MesaBlackjack({
               bloqueadoPorMiLado={miLado === "a"}
               terminada={terminada}
               miUsuarioId={miUsuarioId}
-              montoMin={BET_MIN_BLACKJACK}
               onApostar={onApostar}
             />
           ) : null}

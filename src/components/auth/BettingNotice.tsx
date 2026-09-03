@@ -1,4 +1,4 @@
-import { BET_MAX, BET_MIN, BET_MIN_BLACKJACK } from "@/types";
+import { BET_MAX, BET_MIN } from "@/types";
 
 /**
  * Franja de confianza + aviso legal del pie del inicio.
@@ -39,8 +39,8 @@ export function BettingNotice() {
       </div>
 
       <p className="mt-3 text-center text-[11px] leading-relaxed text-parchment/40">
-        Apuesta mínima S/{BET_MIN} (S/{BET_MIN_BLACKJACK} en blackjack) · máxima
-        S/{BET_MAX}. Solo para mayores de 18 años — juega con responsabilidad.
+        Apuesta mínima S/{BET_MIN} · máxima S/{BET_MAX}. Solo para mayores de 18
+        años — juega con responsabilidad.
       </p>
     </div>
   );

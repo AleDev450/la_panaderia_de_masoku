@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BET_MAX, BET_MIN, BET_MIN_BLACKJACK } from "@/types";
+import { BET_MAX, BET_MIN } from "@/types";
 import { CUOTA } from "@/lib/apuestas";
 
 /**
@@ -12,7 +12,7 @@ import { CUOTA } from "@/lib/apuestas";
 const PASOS = [
   {
     titulo: "Elige tu lado",
-    detalle: `Entra a una sala abierta y apuesta entre S/${BET_MIN} y S/${BET_MAX} — en blackjack, desde S/${BET_MIN_BLACKJACK}.`,
+    detalle: `Entra a una sala abierta y apuesta entre S/${BET_MIN} y S/${BET_MAX}.`,
   },
   {
     titulo: "Encuentra rival",

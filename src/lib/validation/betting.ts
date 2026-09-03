@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BET_MAX, BET_MIN, BET_MIN_BLACKJACK } from "@/types";
+import { BET_MAX, BET_MIN } from "@/types";
 
 const money = z
   .number()
@@ -46,7 +46,7 @@ export type CrearEventoInput = z.infer<typeof crearEventoSchema>;
 export const unirseBlackjackSchema = z.object({
   lado: z.enum(["a", "b"]),
   monto: money
-    .min(BET_MIN_BLACKJACK, `En blackjack la apuesta mínima es S/${BET_MIN_BLACKJACK}.`)
+    .min(BET_MIN, `La apuesta mínima es S/${BET_MIN}.`)
     .max(BET_MAX, `La apuesta máxima es S/${BET_MAX}.`),
 });
 export type UnirseBlackjackInput = z.infer<typeof unirseBlackjackSchema>;
