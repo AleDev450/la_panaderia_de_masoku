@@ -55,7 +55,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               transition={{ duration: 0.25, ease: "easeOut" }}
               className={`panel-stone pointer-events-auto w-full max-w-sm rounded-lg border-2 px-4 py-3 shadow-xl ${variantStyles[toast.variant]}`}
             >
-              <p className="font-fantasy text-sm font-semibold tracking-wide">
+              <p className="font-display text-sm font-semibold tracking-wide">
                 {toast.title}
               </p>
               {toast.description ? (

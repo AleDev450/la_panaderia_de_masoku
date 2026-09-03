@@ -108,14 +108,14 @@ function RecargarContent() {
     <>
       <Header />
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="font-fantasy text-3xl font-bold text-parchment">Recargar saldo</h1>
+        <h1 className="font-display text-3xl font-bold text-parchment">Recargar saldo</h1>
         <p className="mt-2 text-sm text-parchment/60">
           Yapea el monto al QR, guarda la captura y súbela acá. El equipo
           verifica la hora y el monto del depósito antes de acreditarte.
         </p>
 
         <Panel className="mt-6 p-5">
-          <h2 className="font-fantasy text-lg font-semibold text-gold-light">
+          <h2 className="font-display text-lg font-semibold text-gold-light">
             1 · Yapea el monto
           </h2>
           <p className="mt-1 text-sm text-parchment/60">
@@ -150,7 +150,7 @@ function RecargarContent() {
         </Panel>
 
         <Panel className="mt-4 p-5">
-          <h2 className="mb-1 font-fantasy text-lg font-semibold text-gold-light">
+          <h2 className="mb-1 font-display text-lg font-semibold text-gold-light">
             2 · Registra tu depósito
           </h2>
           <p className="mb-4 text-sm text-parchment/60">
@@ -245,7 +245,7 @@ function RecargarContent() {
         </Panel>
 
         <section className="mt-8">
-          <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
+          <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
             Tus recargas
           </h2>
           {misRecargas === null ? (
@@ -259,7 +259,7 @@ function RecargarContent() {
               {misRecargas.map((r) => (
                 <Panel key={r.id} className="flex items-center justify-between gap-3 p-4">
                   <div className="min-w-0">
-                    <p className="font-fantasy font-bold text-gold-light">
+                    <p className="font-display font-bold text-gold-light">
                       S/{r.monto_acreditado ?? r.monto_solicitado}
                       {r.monto_acreditado !== null &&
                       Number(r.monto_acreditado) !== Number(r.monto_solicitado) ? (

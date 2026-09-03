@@ -53,7 +53,7 @@ function AdminTelefonosContent() {
     <>
       <Header />
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="font-fantasy text-3xl font-bold text-parchment">
+        <h1 className="font-display text-3xl font-bold text-parchment">
           Cambios de teléfono
         </h1>
         <p className="mt-2 text-sm text-parchment/60">
@@ -62,7 +62,7 @@ function AdminTelefonosContent() {
         </p>
 
         <section className="mt-8">
-          <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
+          <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
             Pendientes ({pendientes.length})
           </h2>
           {solicitudes === null ? (
@@ -76,7 +76,7 @@ function AdminTelefonosContent() {
               {pendientes.map(({ solicitud, nickname }) => (
                 <Panel key={solicitud.id} className="flex flex-col gap-3 p-4">
                   <div>
-                    <p className="font-fantasy font-bold text-gold-light">{nickname}</p>
+                    <p className="font-display font-bold text-gold-light">{nickname}</p>
                     <p className="mt-0.5 text-sm text-parchment/80">
                       {solicitud.telefono_actual || "—"} →{" "}
                       <span className="font-semibold text-parchment">
@@ -118,7 +118,7 @@ function AdminTelefonosContent() {
 
         {revisadas.length > 0 ? (
           <section className="mt-10">
-            <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
+            <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
               Historial
             </h2>
             <div className="flex flex-col gap-2">

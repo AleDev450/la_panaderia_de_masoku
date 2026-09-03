@@ -1,21 +1,50 @@
 @import "tailwindcss";
 
+/* =============================================================================
+   CACHUDOBET — sistema de diseño
+   Negro de fondo, blanco para texto, amarillo/dorado para toda acción.
+
+   OJO CON LOS NOMBRES DE TOKEN. Siguen siendo los de la etapa anterior
+   (obsidian, parchment, gold, crimson…) a propósito: están usados en ~30
+   archivos y cambiarlos sería un find/replace masivo sin ganancia visual.
+   Lo que cambió son los VALORES. La traducción es:
+
+     obsidian / charcoal / panel  -> negros y grises muy oscuros
+     parchment                    -> blanco
+     gold / gold-light            -> el amarillo de marca
+     gold-dark                    -> el borde sutil de las cards
+     crimson*                     -> el amarillo de acción (botón primario)
+     win / lose                   -> verde y rojo, solo semánticos
+   ========================================================================== */
+
 :root {
-  --color-obsidian: #0b0908;
-  --color-charcoal: #17130f;
-  --color-charcoal-light: #221b15;
-  --color-panel: #1b1512;
-  --color-crimson: #6b0f13;
-  --color-crimson-light: #8c1a1f;
-  --color-crimson-dark: #3d0a0d;
-  --color-gold: #c9a13b;
-  --color-gold-light: #e8c877;
-  --color-gold-dark: #8a6b23;
-  --color-parchment: #ece1c8;
-  --color-win: #3ea44b;
-  --color-win-glow: #6fe583;
-  --color-lose: #b3383a;
-  --color-lose-glow: #ff6b6f;
+  /* Fondos */
+  --color-obsidian: #050506;
+  --color-charcoal: #0d0d10;
+  --color-charcoal-light: #17171c;
+  --color-panel: #101014;
+
+  /* Amarillo de acción. Ocupa el lugar del carmesí anterior: el botón
+     primario ya usaba `from-crimson-light to-crimson-dark`, así que
+     repuntar estos tres lo vuelve amarillo sin tocar el componente. */
+  --color-crimson: #f5c518;
+  --color-crimson-light: #ffd84d;
+  --color-crimson-dark: #d1a200;
+
+  /* Amarillo de marca */
+  --color-gold: #f5c518;
+  --color-gold-light: #ffd95c;
+  /* Borde de card: leído como gris neutro, con un punto de calidez. */
+  --color-gold-dark: #2c2a24;
+
+  /* Texto */
+  --color-parchment: #f4f4f6;
+
+  --color-win: #17a34a;
+  --color-win-glow: #4ade80;
+  --color-lose: #b3261e;
+  --color-lose-glow: #ff6161;
+
   --background: var(--color-obsidian);
   --foreground: var(--color-parchment);
 }
@@ -38,7 +67,7 @@
   --color-lose-glow: var(--color-lose-glow);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-serif-fantasy: var(--font-cinzel);
+  --font-display: var(--font-archivo);
   --font-sans: var(--font-inter);
 }
 
@@ -52,48 +81,84 @@ body {
   color: var(--foreground);
 }
 
+/* Fondo: negro con un halo amarillo arriba y una trama técnica muy tenue.
+   Reemplaza el degradado carmesí + textura de pergamino de la etapa
+   anterior. */
 body {
   font-family: var(--font-inter), system-ui, sans-serif;
   background-image:
-    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(140, 26, 31, 0.18), transparent 60%),
-    radial-gradient(ellipse 60% 50% at 90% 100%, rgba(201, 161, 59, 0.08), transparent 60%),
-    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.012) 0px, rgba(255, 255, 255, 0.012) 1px, transparent 1px, transparent 3px),
-    linear-gradient(180deg, #0b0908 0%, #120d0a 100%);
+    radial-gradient(ellipse 70% 45% at 50% -8%, rgba(245, 197, 24, 0.12), transparent 62%),
+    radial-gradient(ellipse 55% 45% at 92% 102%, rgba(245, 197, 24, 0.06), transparent 60%),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.016) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.016) 1px, transparent 1px),
+    linear-gradient(180deg, #050506 0%, #0a0a0d 100%);
+  background-size: auto, auto, 46px 46px, 46px 46px, auto;
   background-attachment: fixed;
 }
 
-.font-fantasy {
-  font-family: var(--font-cinzel), serif;
+.font-display {
+  font-family: var(--font-archivo), system-ui, sans-serif;
+  letter-spacing: -0.01em;
 }
 
-/* Stone / parchment panel texture */
+/* Titular del hero: pesado, condensado e inclinado, como el arte de marca. */
+.title-cachudo {
+  font-family: var(--font-archivo), system-ui, sans-serif;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.035em;
+  line-height: 0.92;
+  text-transform: uppercase;
+}
+
+/* Card base. Conserva el nombre `.panel-stone` porque está en decenas de
+   componentes; lo que cambió es que ya no imita piedra ni pergamino. */
 .panel-stone {
   background-color: var(--color-panel);
-  background-image:
-    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.035), transparent 40%),
-    radial-gradient(circle at 80% 80%, rgba(0, 0, 0, 0.35), transparent 45%),
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.015) 0px, transparent 2px, transparent 4px);
+  background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.045), transparent 45%);
   border: 1px solid var(--color-gold-dark);
   box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 10px 30px -10px rgba(0, 0, 0, 0.7);
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 32px -18px rgba(0, 0, 0, 0.9);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+/* Glow amarillo al pasar el mouse. Se aplica solo donde hay puntero fino:
+   en táctil el :hover se queda "pegado" después de tocar. */
+@media (hover: hover) and (pointer: fine) {
+  .panel-glow:hover {
+    border-color: rgba(245, 197, 24, 0.55);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 0 0 1px rgba(245, 197, 24, 0.12),
+      0 10px 40px -12px rgba(245, 197, 24, 0.28);
+    transform: translateY(-2px);
+  }
 }
 
 .border-gold-frame {
   border: 1px solid var(--color-gold-dark);
-  box-shadow: inset 0 0 0 1px rgba(201, 161, 59, 0.15);
+  box-shadow: inset 0 0 0 1px rgba(245, 197, 24, 0.12);
 }
 
 .text-glow-gold {
-  text-shadow: 0 0 18px rgba(232, 200, 119, 0.35);
+  text-shadow: 0 0 22px rgba(245, 197, 24, 0.4);
+}
+
+/* Halo detrás de la foto de Masoku y del isotipo. */
+.brand-glow {
+  filter: drop-shadow(0 0 42px rgba(245, 197, 24, 0.28))
+    drop-shadow(0 14px 28px rgba(0, 0, 0, 0.65));
 }
 
 .scrollbar-thin::-webkit-scrollbar {
   width: 8px;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: var(--color-gold-dark);
+  background: #2c2a24;
   border-radius: 4px;
 }
 .scrollbar-thin::-webkit-scrollbar-track {

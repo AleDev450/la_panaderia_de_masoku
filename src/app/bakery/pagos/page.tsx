@@ -174,7 +174,7 @@ function AdminPagosContent() {
     <>
       <Header />
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="font-fantasy text-3xl font-bold text-parchment">
+        <h1 className="font-display text-3xl font-bold text-parchment">
           Pagos y ajustes de Yape
         </h1>
         <p className="mt-2 text-sm text-parchment/60">
@@ -190,7 +190,7 @@ function AdminPagosContent() {
             <p className="text-[11px] uppercase tracking-wide text-parchment/40">
               Reconciliación de Yape
             </p>
-            <p className="mt-1 font-fantasy text-2xl font-bold text-gold-light">
+            <p className="mt-1 font-display text-2xl font-bold text-gold-light">
               En Yape deberías tener: S/{metricas.yape_esperado}
             </p>
             <p className="mt-2 text-xs text-parchment/60">
@@ -205,7 +205,7 @@ function AdminPagosContent() {
         ) : null}
 
         <Panel className="mt-6 border-win-glow/40 bg-win/5 p-5">
-          <h2 className="mb-1 font-fantasy text-lg font-semibold text-win-glow">
+          <h2 className="mb-1 font-display text-lg font-semibold text-win-glow">
             Registrar ingreso del día
           </h2>
           <p className="mb-3 text-xs leading-relaxed text-parchment/60">
@@ -269,7 +269,7 @@ function AdminPagosContent() {
         </Panel>
 
         <section className="mt-8">
-          <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
+          <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
             Historial de ingresos
           </h2>
           {ingresos === null ? (
@@ -296,7 +296,7 @@ function AdminPagosContent() {
                       {usuarioNickname ? ` · saldo a ${usuarioNickname}` : " · sin acreditar a nadie"}
                     </p>
                   </div>
-                  <p className="font-fantasy text-lg font-bold text-win-glow">
+                  <p className="font-display text-lg font-bold text-win-glow">
                     +S/{ingreso.monto}
                   </p>
                 </Panel>
@@ -306,7 +306,7 @@ function AdminPagosContent() {
         </section>
 
         <Panel className="mt-6 p-5">
-          <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
+          <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
             Registrar pago
           </h2>
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -344,7 +344,7 @@ function AdminPagosContent() {
         </Panel>
 
         <section className="mt-8">
-          <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
+          <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
             Historial de pagos
           </h2>
           {pagos === null ? (
@@ -367,7 +367,7 @@ function AdminPagosContent() {
                       {pago.afecta_ganancia ? " · resta de la ganancia" : ""}
                     </p>
                   </div>
-                  <span className="font-fantasy font-bold text-lose-glow">S/{pago.monto}</span>
+                  <span className="font-display font-bold text-lose-glow">S/{pago.monto}</span>
                 </Panel>
               ))}
             </div>
@@ -375,7 +375,7 @@ function AdminPagosContent() {
         </section>
 
         <Panel className="mt-10 p-5">
-          <h2 className="mb-1 font-fantasy text-lg font-semibold text-gold-light">
+          <h2 className="mb-1 font-display text-lg font-semibold text-gold-light">
             Corregir reconciliación
           </h2>
           <p className="mb-3 text-xs text-parchment/50">
@@ -419,7 +419,7 @@ function AdminPagosContent() {
         </Panel>
 
         <section className="mt-8">
-          <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
+          <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
             Historial de ajustes
           </h2>
           {ajustes === null ? (
@@ -443,7 +443,7 @@ function AdminPagosContent() {
                   </div>
                   <span
                     className={clsx(
-                      "font-fantasy font-bold",
+                      "font-display font-bold",
                       ajuste.monto > 0 ? "text-win-glow" : "text-lose-glow"
                     )}
                   >

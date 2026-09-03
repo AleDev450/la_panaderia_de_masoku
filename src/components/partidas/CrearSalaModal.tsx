@@ -68,7 +68,7 @@ export function CrearSalaModal({
     >
       <div className="panel-stone flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-t-xl sm:rounded-xl">
         <div className="flex items-center justify-between border-b border-gold-dark/50 px-5 py-4">
-          <h2 className="font-fantasy text-lg font-bold text-gold-light">Crear sala</h2>
+          <h2 className="font-display text-lg font-bold text-gold-light">Crear sala</h2>
           <button
             type="button"
             onClick={onClose}
@@ -123,7 +123,7 @@ export function CrearSalaModal({
                 ← Elegir otro título
               </button>
 
-              <p className="font-fantasy text-sm font-bold text-parchment">
+              <p className="font-display text-sm font-bold text-parchment">
                 {seleccionado.evento.nombre}
               </p>
 
@@ -140,7 +140,7 @@ export function CrearSalaModal({
                         aria-pressed={lado === opcion}
                         onClick={() => setLado(opcion)}
                         className={clsx(
-                          "min-h-11 flex-1 rounded-md border px-3 py-2 font-fantasy text-sm font-bold uppercase tracking-wide transition focus-visible:ring-2 focus-visible:ring-gold-light",
+                          "min-h-11 flex-1 rounded-md border px-3 py-2 font-display text-sm font-bold uppercase tracking-wide transition focus-visible:ring-2 focus-visible:ring-gold-light",
                           lado === opcion
                             ? opcion === "a"
                               ? "border-win-glow bg-win/20 text-win-glow"
@@ -171,7 +171,7 @@ export function CrearSalaModal({
                   className="min-h-12 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-lg font-semibold text-parchment outline-none [appearance:textfield] focus-visible:ring-2 focus-visible:ring-gold-light [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 />
                 <p className="mt-1.5 text-xs text-parchment/50">
-                  Otros panaderos podrán cubrir tu monto por partes, desde el
+                  Otros jugadores podrán cubrir tu monto por partes, desde el
                   lado contrario.
                 </p>
               </div>

@@ -56,7 +56,7 @@ export function HistorialReciente({ limite = 5 }: { limite?: number }) {
     <section aria-labelledby="historial-reciente">
       <h2
         id="historial-reciente"
-        className="mb-3 font-fantasy text-lg font-semibold text-gold-light"
+        className="mb-3 font-display text-lg font-semibold text-gold-light"
       >
         Últimos resultados
       </h2>

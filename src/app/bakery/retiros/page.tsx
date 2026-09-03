@@ -94,7 +94,7 @@ function AdminRetirosContent() {
     <>
       <Header />
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="font-fantasy text-3xl font-bold text-parchment">Retiros</h1>
+        <h1 className="font-display text-3xl font-bold text-parchment">Retiros</h1>
         <p className="mt-2 text-sm text-parchment/60">
           Yapea el monto al número indicado y recién entonces marca como
           pagado. El saldo ya está apartado del jugador desde que lo
@@ -103,11 +103,11 @@ function AdminRetirosContent() {
 
         <section className="mt-8">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-fantasy text-lg font-semibold text-gold-light">
+            <h2 className="font-display text-lg font-semibold text-gold-light">
               Por pagar ({pendientes.length})
             </h2>
             {totalPendiente > 0 ? (
-              <span className="font-fantasy text-sm font-bold text-parchment">
+              <span className="font-display text-sm font-bold text-parchment">
                 Total: S/{totalPendiente}
               </span>
             ) : null}
@@ -127,7 +127,7 @@ function AdminRetirosContent() {
                   <Panel key={retiro.id} className="flex flex-col gap-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-fantasy text-lg font-bold text-gold-light">
+                        <p className="font-display text-lg font-bold text-gold-light">
                           {usuario.nickname}
                         </p>
                         {usuario.fullName ? (
@@ -135,7 +135,7 @@ function AdminRetirosContent() {
                         ) : null}
                         <p className="mt-1 text-sm text-parchment/80">
                           Yapear a{" "}
-                          <span className="font-fantasy font-bold text-parchment">
+                          <span className="font-display font-bold text-parchment">
                             {retiro.telefono_destino}
                           </span>
                         </p>
@@ -143,7 +143,7 @@ function AdminRetirosContent() {
                           Solicitado: {new Date(retiro.created_at).toLocaleString("es-PE")}
                         </p>
                       </div>
-                      <p className="font-fantasy text-2xl font-bold text-parchment">
+                      <p className="font-display text-2xl font-bold text-parchment">
                         S/{retiro.monto}
                       </p>
                     </div>
@@ -178,7 +178,7 @@ function AdminRetirosContent() {
 
         {revisados.length > 0 ? (
           <section className="mt-10">
-            <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
+            <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
               Historial
             </h2>
             <div className="flex flex-col gap-2">
@@ -240,7 +240,7 @@ function AdminRetirosContent() {
           }}
         >
           <div className="panel-stone w-full max-w-md rounded-xl p-5">
-            <h2 className="font-fantasy text-lg font-bold text-lose-glow">
+            <h2 className="font-display text-lg font-bold text-lose-glow">
               Rechazar retiro de {rechazando.usuario.nickname}
             </h2>
             <p className="mt-2 text-sm text-parchment/70">
@@ -292,7 +292,7 @@ function AdminRetirosContent() {
           }}
         >
           <div className="panel-stone w-full max-w-md rounded-xl p-5">
-            <h2 className="font-fantasy text-lg font-bold text-gold-light">
+            <h2 className="font-display text-lg font-bold text-gold-light">
               Revertir retiro de {revirtiendo.usuario.nickname}
             </h2>
             <p className="mt-2 text-sm text-parchment/70">

@@ -286,7 +286,7 @@ function AdminTitulosContent() {
     <>
       <Header />
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="font-fantasy text-3xl font-bold text-parchment">Títulos de apuesta</h1>
+        <h1 className="font-display text-3xl font-bold text-parchment">Títulos de apuesta</h1>
         <p className="mt-2 text-sm text-parchment/60">
           Publica el título que los jugadores verán en /partidas y declara
           el resultado cuando termine — el saldo se reparte automáticamente
@@ -294,7 +294,7 @@ function AdminTitulosContent() {
         </p>
 
         <Panel className="mt-6 p-5">
-          <h2 className="mb-4 font-fantasy text-lg font-semibold text-gold-light">
+          <h2 className="mb-4 font-display text-lg font-semibold text-gold-light">
             Nuevo título
           </h2>
           <form onSubmit={handleCreate} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -306,7 +306,7 @@ function AdminTitulosContent() {
                 id="nombre"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
-                placeholder="¿Horno Real gana la serie?"
+                placeholder="¿Gana el equipo local?"
                 className="min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none"
               />
             </div>
@@ -382,7 +382,7 @@ function AdminTitulosContent() {
 
         <section className="mt-10">
           <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-            <h2 className="font-fantasy text-lg font-semibold text-gold-light">
+            <h2 className="font-display text-lg font-semibold text-gold-light">
               {esHoy ? "Títulos de hoy" : "Títulos del período"}
             </h2>
 
@@ -465,7 +465,7 @@ function AdminTitulosContent() {
                 <Panel key={evento.id} className="p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <p className="font-fantasy font-bold text-parchment">{evento.nombre}</p>
+                      <p className="font-display font-bold text-parchment">{evento.nombre}</p>
                       <p className="text-xs text-parchment/50">
                         {evento.lado_a} vs {evento.lado_b}
                       </p>
@@ -602,7 +602,7 @@ function AdminTitulosContent() {
           }}
         >
           <div className="panel-stone w-full max-w-md rounded-xl p-5">
-            <h2 className="font-fantasy text-lg font-bold text-lose-glow">
+            <h2 className="font-display text-lg font-bold text-lose-glow">
               Eliminar &quot;{eliminandoEvento.nombre}&quot;
             </h2>
             <p className="mt-2 text-sm text-parchment/70">
@@ -654,7 +654,7 @@ function AdminTitulosContent() {
           }}
         >
           <div className="panel-stone w-full max-w-md rounded-xl p-5">
-            <h2 className="font-fantasy text-lg font-bold text-lose-glow">
+            <h2 className="font-display text-lg font-bold text-lose-glow">
               Cancelar &quot;{cancelandoEvento.nombre}&quot;
             </h2>
             <p className="mt-2 text-sm text-parchment/70">

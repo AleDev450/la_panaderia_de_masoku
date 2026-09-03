@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
 import { UserServiceError } from "@/services/userService";
-import { ArtPanel } from "@/components/auth/ArtPanel";
+import { AuthCard } from "@/components/auth/AuthCard";
 import { PanelField } from "@/components/auth/PanelField";
 
 export function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
@@ -48,58 +48,50 @@ export function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => vo
 
   return (
     <form onSubmit={handleSubmit} noValidate aria-label="Ingresar" className="flex w-full justify-center">
-      {/* iniciar-sesion.png (ingresar_account.png) es un panel de arte en
-          blanco — solo trae el marco y el título "INICIAR SESIÓN"
-          dibujados. Mismo enfoque que RegisterForm: campos en flujo normal
-          dentro de un recuadro absoluto sobre el área de madera vacía. */}
-      <ArtPanel src="/images/home/iniciar-sesion.png" alt="" ratio="962 / 1634">
-        <div
-          className="absolute overflow-y-auto"
-          style={{ top: "calc(25% + 5px)", bottom: "12%", left: "14%", right: "14%" }}
+      <AuthCard
+        titulo="Iniciar sesión"
+        descripcion="Entra con tu correo y vuelve a la mesa."
+      >
+        <PanelField
+          id="login-email"
+          label="Correo"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          placeholder="tu@correo.com"
+        />
+        <PanelField
+          id="login-password"
+          label="Contraseña"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
+        />
+
+        {error ? (
+          <p role="alert" className="text-sm leading-tight text-lose-glow">
+            {error}
+          </p>
+        ) : null}
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="mt-1 min-h-12 rounded-lg bg-gold font-display text-sm font-extrabold uppercase tracking-wide text-obsidian shadow-[0_6px_24px_-8px_rgba(245,197,24,0.8)] outline-none transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-gold-light disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <div className="flex flex-col gap-4">
-            <PanelField
-              id="login-email"
-              label="Correo"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              placeholder="tu@correo.com"
-            />
-            <PanelField
-              id="login-password"
-              label="Contraseña"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-            />
+          {submitting ? "Ingresando…" : "Ingresar"}
+        </button>
 
-            {error ? (
-              <p role="alert" className="text-[clamp(0.65rem,1.4vw,0.8rem)] leading-tight text-lose-glow">
-                {error}
-              </p>
-            ) : null}
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="mt-1 min-h-11 rounded-md border border-gold bg-gradient-to-b from-[#8a5a1f] to-[#5c3a13] font-fantasy text-sm font-bold uppercase tracking-wide text-parchment shadow-[0_2px_10px_rgba(0,0,0,0.4)] outline-none transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-gold-light disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {submitting ? "Ingresando…" : "Ingresar"}
-            </button>
-
-            <button
-              type="button"
-              onClick={onSwitchToRegister}
-              className="min-h-8 text-center text-[clamp(0.7rem,1.5vw,0.85rem)] font-semibold text-gold-light underline outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
-            >
-              ¿No tienes cuenta? Crear cuenta
-            </button>
-          </div>
-        </div>
-      </ArtPanel>
+        <button
+          type="button"
+          onClick={onSwitchToRegister}
+          className="min-h-8 text-center text-sm font-semibold text-gold underline-offset-4 outline-none transition hover:underline focus-visible:ring-2 focus-visible:ring-gold-light"
+        >
+          ¿No tienes cuenta? Regístrate
+        </button>
+      </AuthCard>
     </form>
   );
 }

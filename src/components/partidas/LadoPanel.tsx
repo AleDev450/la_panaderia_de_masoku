@@ -77,7 +77,7 @@ export function LadoPanel({
     <div className="flex min-w-0 flex-1 flex-col items-center gap-3 rounded-md border border-gold-dark/40 p-4">
       <p
         className={clsx(
-          "font-fantasy text-sm font-bold uppercase tracking-wide",
+          "font-display text-sm font-bold uppercase tracking-wide",
           lado === "a" ? "text-win-glow" : "text-lose-glow"
         )}
       >
@@ -106,7 +106,7 @@ export function LadoPanel({
                     <span className="ml-1 text-[10px] font-normal text-gold/70">(tú)</span>
                   ) : null}
                 </span>
-                <span className="shrink-0 font-fantasy text-xs font-bold text-gold-light">
+                <span className="shrink-0 font-display text-xs font-bold text-gold-light">
                   S/{p.monto}
                 </span>
               </li>
@@ -183,7 +183,7 @@ export function LadoPanel({
           <div className="relative">
             <span
               aria-hidden
-              className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-fantasy text-sm font-bold text-parchment/40"
+              className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-display text-sm font-bold text-parchment/40"
             >
               S/
             </span>
@@ -196,7 +196,7 @@ export function LadoPanel({
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
               aria-label={`Monto a apostar en ${resumen.label}`}
-              className="min-h-12 w-full rounded-md border border-gold-dark bg-obsidian/60 py-2 pl-9 pr-3 text-center font-fantasy text-lg font-bold text-parchment outline-none [appearance:textfield] focus-visible:ring-2 focus-visible:ring-gold-light [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              className="min-h-12 w-full rounded-md border border-gold-dark bg-obsidian/60 py-2 pl-9 pr-3 text-center font-display text-lg font-bold text-parchment outline-none [appearance:textfield] focus-visible:ring-2 focus-visible:ring-gold-light [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
           </div>
           <Button

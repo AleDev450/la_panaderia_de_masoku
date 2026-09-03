@@ -57,14 +57,14 @@ export function PartidaCard({
   const cerrado = terminada || evento.estado !== "abierto" || restanteMs <= 0;
 
   return (
-    <Panel className="flex flex-col p-4 sm:p-5">
+    <Panel glow className="flex flex-col p-4 sm:p-5">
       <div className="flex items-center justify-between gap-2">
         <CategoriaBadge categoria={evento.categoria} />
         <span
           className={
             cerrado
               ? "rounded-md border border-gold-dark/60 px-2 py-1 text-[11px] font-semibold text-parchment/50"
-              : "rounded-md border border-gold-dark bg-charcoal px-2 py-1 font-fantasy text-xs font-bold text-gold-light"
+              : "rounded-md border border-gold-dark bg-charcoal px-2 py-1 font-display text-xs font-bold text-gold-light"
           }
         >
           {evento.estado === "cancelado"
@@ -75,38 +75,51 @@ export function PartidaCard({
         </span>
       </div>
 
-      <p className="mt-3 text-center font-fantasy text-sm font-semibold text-parchment">
+      <p className="mt-3 text-center font-display text-sm font-semibold text-parchment">
         {evento.nombre}
       </p>
 
-      <div className="mt-4 flex items-stretch gap-2">
-        <LadoPanel
-          lado="a"
-          resumen={ladoA}
-          resumenContrario={ladoB}
+      {/* Blackjack no usa los dos paneles genéricos: es una mesa 1v1, así
+          que se dibuja como mesa —banca arriba, jugador abajo— y el control
+          de apostar va dentro de la silla libre. Ver MesaBlackjack. */}
+      {evento.categoria === "blackjack" ? (
+        <MesaBlackjack
+          evento={evento}
+          ladoA={ladoA}
+          ladoB={ladoB}
+          miLado={miLado}
           disabled={cerrado}
-          // En una sala se elige un bando: si ya entraste por un lado, el
-          // contrario queda bloqueado (crear_apuesta lo rechaza igual).
-          bloqueadoPorMiLado={miLado === "b"}
           terminada={terminada}
           miUsuarioId={miUsuarioId}
           onApostar={(lado, monto) => onApostar(evento.id, lado, monto)}
+          onMarcarTurno={onMarcarTurno}
         />
-        <LadoPanel
-          lado="b"
-          resumen={ladoB}
-          resumenContrario={ladoA}
-          disabled={cerrado}
-          bloqueadoPorMiLado={miLado === "a"}
-          terminada={terminada}
-          miUsuarioId={miUsuarioId}
-          onApostar={(lado, monto) => onApostar(evento.id, lado, monto)}
-        />
-      </div>
-
-      {evento.categoria === "blackjack" && !terminada && onMarcarTurno ? (
-        <MesaBlackjack evento={evento} miLado={miLado} onMarcarTurno={onMarcarTurno} />
-      ) : null}
+      ) : (
+        <div className="mt-4 flex items-stretch gap-2">
+          <LadoPanel
+            lado="a"
+            resumen={ladoA}
+            resumenContrario={ladoB}
+            disabled={cerrado}
+            // En una sala se elige un bando: si ya entraste por un lado, el
+            // contrario queda bloqueado (crear_apuesta lo rechaza igual).
+            bloqueadoPorMiLado={miLado === "b"}
+            terminada={terminada}
+            miUsuarioId={miUsuarioId}
+            onApostar={(lado, monto) => onApostar(evento.id, lado, monto)}
+          />
+          <LadoPanel
+            lado="b"
+            resumen={ladoB}
+            resumenContrario={ladoA}
+            disabled={cerrado}
+            bloqueadoPorMiLado={miLado === "a"}
+            terminada={terminada}
+            miUsuarioId={miUsuarioId}
+            onApostar={(lado, monto) => onApostar(evento.id, lado, monto)}
+          />
+        </div>
+      )}
 
       {evento.estado === "cancelado" ? (
         <p className="mt-4 rounded-md border border-lose/50 bg-lose/5 px-3 py-2.5 text-center text-xs text-parchment/60">
@@ -115,7 +128,7 @@ export function PartidaCard({
       ) : evento.estado === "resuelto" && evento.resultado ? (
         <p className="mt-4 rounded-md border border-gold-dark/60 bg-obsidian/40 px-3 py-2.5 text-center text-xs text-parchment/60">
           Ganó:{" "}
-          <span className="font-fantasy font-bold text-gold-light">
+          <span className="font-display font-bold text-gold-light">
             {evento.resultado === "a" ? evento.lado_a : evento.lado_b}
           </span>
         </p>

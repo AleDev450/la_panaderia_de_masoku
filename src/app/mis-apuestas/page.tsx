@@ -59,7 +59,7 @@ function MisApuestasContent() {
     <>
       <Header />
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="font-fantasy text-3xl font-bold text-parchment">Mis apuestas</h1>
+        <h1 className="font-display text-3xl font-bold text-parchment">Mis apuestas</h1>
         <p className="mt-2 text-sm text-parchment/60">
           Tus apuestas en títulos todavía sin resultado. Puedes cancelar solo
           la parte que aún no se emparejó — lo ya emparejado sigue en juego.
@@ -146,7 +146,7 @@ function Dato({
       <p className="text-[10px] uppercase tracking-wide text-parchment/40">{label}</p>
       <p
         className={clsx(
-          "font-fantasy text-sm font-bold",
+          "font-display text-sm font-bold",
           destacado ? "text-gold-light" : "text-parchment/80"
         )}
       >

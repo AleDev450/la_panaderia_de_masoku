@@ -42,7 +42,7 @@ export function ResolverPanel({
     return (
       <p className="mt-3 rounded-md border border-gold-dark/60 bg-obsidian/40 px-3 py-2 text-xs text-parchment/60">
         Resultado:{" "}
-        <span className="font-fantasy font-bold text-gold-light">
+        <span className="font-display font-bold text-gold-light">
           {evento.resultado === "a" ? evento.lado_a : evento.lado_b}
         </span>{" "}
         · pagado
@@ -134,11 +134,11 @@ function ConfirmacionPendiente({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-parchment/80">
           Declarado ganador:{" "}
-          <span className="font-fantasy font-bold text-gold-light">{ganador}</span>
+          <span className="font-display font-bold text-gold-light">{ganador}</span>
         </p>
         <span
           className={clsx(
-            "rounded-md border px-2 py-1 font-fantasy text-xs font-bold",
+            "rounded-md border px-2 py-1 font-display text-xs font-bold",
             restanteMs > 0
               ? "border-gold-dark text-gold-light"
               : "border-lose/60 text-lose-glow"

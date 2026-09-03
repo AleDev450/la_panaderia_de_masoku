@@ -55,15 +55,15 @@ function AdminHomeContent() {
     <>
       <Header />
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="font-fantasy text-3xl font-bold text-parchment">
-          Panel de la panadería
+        <h1 className="font-display text-3xl font-bold text-parchment">
+          Panel CACHUDOBET
         </h1>
         <p className="mt-2 text-sm text-parchment/60">
           Movimiento del día y accesos de administración.
         </p>
 
         <section className="mt-8">
-          <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">Hoy</h2>
+          <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">Hoy</h2>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <Metrica
               label="Depositado"
@@ -116,7 +116,7 @@ function AdminHomeContent() {
               {/* Yape y efectivo van juntos en un solo número, a pedido: el
                   efectivo nunca entra al teléfono, así que "en Yape" sería
                   mentira (0044). */}
-              <p className="mt-1 font-fantasy text-2xl font-bold text-gold-light">
+              <p className="mt-1 font-display text-2xl font-bold text-gold-light">
                 Deberías tener: S/{metricas.yape_esperado}
               </p>
               <p className="text-[11px] text-parchment/40">
@@ -141,7 +141,7 @@ function AdminHomeContent() {
                   <p className="text-[11px] uppercase tracking-wide text-parchment/40">
                     De los jugadores
                   </p>
-                  <p className="font-fantasy text-lg font-bold text-parchment">
+                  <p className="font-display text-lg font-bold text-parchment">
                     S/{metricas.saldos_usuarios_total}
                   </p>
                   <p className="text-[11px] text-parchment/40">Se lo debes</p>
@@ -153,7 +153,7 @@ function AdminHomeContent() {
                   {/* Lo que queda si le pagas a todos. Siempre cuadra, sin
                       derivar nada — y NO es lo mismo que la ganancia. */}
                   <p
-                    className={`font-fantasy text-lg font-bold ${
+                    className={`font-display text-lg font-bold ${
                       metricas.yape_esperado - metricas.saldos_usuarios_total < 0
                         ? "text-lose-glow"
                         : "text-win-glow"
@@ -415,7 +415,7 @@ async function descargarLibro(
       : [["Sin datos", 0, "No se pudieron cargar las metricas"]],
   };
 
-  descargarXlsx(`panca-${hoyIsoEnPeru()}.xlsx`, [hojaMes, hojaSaldos, hojaMiDinero]);
+  descargarXlsx(`cachudobet-${hoyIsoEnPeru()}.xlsx`, [hojaMes, hojaSaldos, hojaMiDinero]);
   return null;
 }
 
@@ -459,7 +459,7 @@ function ResumenDiario({
   return (
     <section className="mt-8">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-fantasy text-lg font-semibold text-gold-light">Día a día · {mes}</h2>
+        <h2 className="font-display text-lg font-semibold text-gold-light">Día a día · {mes}</h2>
         <Button
           type="button"
           variant="ghost"
@@ -577,7 +577,7 @@ function Metrica({
   return (
     <Panel className="p-4">
       <p className="text-[11px] uppercase tracking-wide text-parchment/40">{label}</p>
-      <p className={`mt-1 font-fantasy text-2xl font-bold ${color}`}>{valor}</p>
+      <p className={`mt-1 font-display text-2xl font-bold ${color}`}>{valor}</p>
       <p className="mt-0.5 text-[11px] text-parchment/40">{detalle}</p>
     </Panel>
   );
@@ -598,12 +598,12 @@ function Tarjeta({
 }) {
   return (
     <Link href={href}>
-      <Panel className="flex h-full flex-col justify-between p-5 transition hover:border-gold-light">
+      <Panel glow className="flex h-full flex-col justify-between p-5">
         <div>
-          <h2 className="font-fantasy text-lg font-semibold text-gold-light">{titulo}</h2>
+          <h2 className="font-display text-lg font-semibold text-gold-light">{titulo}</h2>
           <p className="mt-1 text-sm text-parchment/60">{descripcion}</p>
         </div>
-        <p className="mt-4 font-fantasy text-2xl font-bold text-parchment">
+        <p className="mt-4 font-display text-2xl font-bold text-parchment">
           {valor ?? "—"}{" "}
           <span className="text-sm font-normal text-parchment/50">{unidad}</span>
         </p>

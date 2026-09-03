@@ -26,7 +26,7 @@ function HistorialContent() {
     <>
       <Header />
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="font-fantasy text-3xl font-bold text-parchment">Historial</h1>
+        <h1 className="font-display text-3xl font-bold text-parchment">Historial</h1>
         <p className="mt-2 text-sm text-parchment/60">
           Tus apuestas en títulos ya resueltos o cancelados. Lo emparejado
           se paga a cuota 1.80x; lo que nunca llegó a cubrirse volvió a tu
@@ -57,7 +57,7 @@ function HistorialContent() {
                       </div>
 
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <span className="rounded-md border border-lose-glow/60 bg-lose/10 px-2.5 py-1 font-fantasy text-xs font-bold uppercase tracking-wide text-lose-glow">
+                        <span className="rounded-md border border-lose-glow/60 bg-lose/10 px-2.5 py-1 font-display text-xs font-bold uppercase tracking-wide text-lose-glow">
                           Cancelada
                         </span>
                         <span className="text-xs text-parchment/50">
@@ -91,7 +91,7 @@ function HistorialContent() {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <span
                         className={clsx(
-                          "rounded-md border px-2.5 py-1 font-fantasy text-xs font-bold uppercase tracking-wide",
+                          "rounded-md border px-2.5 py-1 font-display text-xs font-bold uppercase tracking-wide",
                           liq.gano
                             ? "border-win-glow/60 bg-win/10 text-win-glow"
                             : "border-lose-glow/60 bg-lose/10 text-lose-glow"

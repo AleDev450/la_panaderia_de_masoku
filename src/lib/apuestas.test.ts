@@ -5,7 +5,7 @@ import { Apuesta, Evento } from "@/lib/supabase/types";
 function evento(overrides: Partial<Evento> = {}): Evento {
   return {
     id: "e1",
-    nombre: "¿Horno Real gana la serie?",
+    nombre: "¿Gana el equipo local?",
     lado_a: "GANA",
     lado_b: "PIERDE",
     estado: "resuelto",

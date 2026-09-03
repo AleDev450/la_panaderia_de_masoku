@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { motion, useReducedMotion } from "framer-motion";
 import { useSession } from "@/context/SessionContext";
 import { GameRulesSidebar } from "@/components/auth/GameRulesSidebar";
 import { Mascot } from "@/components/Mascot";
@@ -12,6 +13,7 @@ import { HomeLogo } from "@/components/auth/HomeLogo";
 export default function Home() {
   const { user, isReady } = useSession();
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (isReady && user) router.replace("/partidas");
@@ -19,57 +21,94 @@ export default function Home() {
 
   if (!isReady || user) return null;
 
+  const aparece = reduceMotion
+    ? {}
+    : {
+        initial: { opacity: 0, y: 16 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0.5, ease: "easeOut" as const },
+      };
+
   return (
-    <div className="relative flex min-h-screen w-full flex-col overflow-y-auto lg:h-screen lg:overflow-hidden">
-      {/* Fondo a pantalla completa siempre (background.png es ~16:9, así
-          que en la gran mayoría de pantallas de escritorio "cover" no
-          recorta casi nada y la composición coincide con nuevo_index.png).
-          Sin z-index: al ser el primer hijo del contenedor se pinta
-          detrás de todo por orden normal del DOM — evita depender de
-          contextos de apilamiento. */}
+    /*
+      El inicio ya no se posiciona en porcentajes sobre `background.png`.
+      Ese fondo era una escena de panadería y toda la página estaba
+      calibrada contra él (`lg:left-[30.5%] lg:top-[3%]`…), así que cambiar
+      el arte descolocaba todo. Ahora es un hero en flujo normal: dos
+      columnas en escritorio, apilado en móvil, con el fondo hecho de
+      degradados en CSS (ver globals.css).
+    */
+    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+      {/* Resplandor de marca detrás del hero. */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 bg-[url('/images/home/background.png')] bg-cover bg-center bg-no-repeat"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 bg-gradient-to-b from-obsidian/10 via-transparent to-obsidian/35"
+        className="pointer-events-none absolute left-1/2 top-0 -z-[1] h-[520px] w-[900px] max-w-[130vw] -translate-x-1/2 rounded-full bg-gold/10 blur-[110px]"
       />
 
-      {/* En escritorio (lg:h-screen arriba le da al contenedor una altura
-          definida, necesaria para que los "top: %" de los hijos en
-          absoluto se calculen bien) cada sección se posiciona en
-          porcentaje sobre el propio contenedor de la página, calibrado
-          contra nuevas imagenes/nuevo_index.png. En pantallas < lg todo
-          vuelve al flujo normal, apilado verticalmente. */}
-      <header className="relative z-[2] flex justify-center pt-6 lg:absolute lg:left-[30.5%] lg:top-[3%] lg:w-[37%] lg:pt-0">
-        <HomeLogo />
-      </header>
+      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-8 sm:px-6 lg:py-12">
+        <div className="grid flex-1 items-center gap-10 lg:grid-cols-[1.15fr_minmax(0,26rem)] lg:gap-12">
+          {/* ---------------------------------------------------- izquierda */}
+          <div className="flex flex-col">
+            <HomeLogo />
 
-      <section
-        aria-label="Masoku, guardián de la masa"
-        className="flex w-full justify-center px-4 pt-4 lg:absolute lg:left-[calc(10%_-_20px)] lg:top-[25%] lg:block lg:w-[27%] lg:justify-start lg:px-0 lg:pt-0"
-      >
-        <Mascot />
-      </section>
+            <motion.h1
+              {...aparece}
+              className="title-cachudo mt-8 text-[clamp(2.5rem,7vw,4.75rem)] text-parchment"
+            >
+              La apuesta
+              <br />
+              <span className="text-gold text-glow-gold">del cachudo</span>
+            </motion.h1>
 
-      <section
-        aria-label="Hoy se hornea"
-        className="flex w-full justify-center px-4 pt-6 lg:absolute lg:left-1/2 lg:top-[52%] lg:w-[25%] lg:-translate-x-1/2 lg:px-0 lg:pt-0"
-      >
-        <GameRulesSidebar />
-      </section>
+            <motion.p
+              {...aparece}
+              transition={{ ...aparece.transition, delay: 0.08 }}
+              className="mt-5 max-w-md text-base leading-relaxed text-parchment/60 sm:text-lg"
+            >
+              Apuesta, gana y saca provecho.
+              <br className="hidden sm:block" /> En CACHUDOBET jugamos en serio:
+              uno contra uno, sin casa que juegue en tu contra.
+            </motion.p>
 
-      <section
-        aria-label="Acceso a tu cuenta"
-        className="flex w-full flex-1 justify-center px-4 pt-6 pb-4 lg:absolute lg:left-[68%] lg:top-[calc(8%_+_5px)] lg:w-[calc(28%_-_90px)] lg:flex-none lg:px-0 lg:pt-0 lg:pb-0"
-      >
-        <AuthPanel />
-      </section>
+            <motion.a
+              {...aparece}
+              transition={{ ...aparece.transition, delay: 0.16 }}
+              href="#acceso"
+              className="mt-7 inline-flex min-h-13 w-fit items-center gap-2.5 rounded-lg bg-gold px-7 py-3.5 font-display text-sm font-extrabold uppercase tracking-wide text-obsidian shadow-[0_10px_38px_-10px_rgba(245,197,24,0.9)] transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-gold-light"
+            >
+              Regístrate ahora <span aria-hidden>→</span>
+            </motion.a>
 
-      <footer className="relative z-[2] flex justify-center px-4 py-6 lg:absolute lg:left-1/2 lg:top-[80%] lg:h-[24%] lg:w-[90%] lg:-translate-x-1/2 lg:py-0">
-        <BettingNotice />
-      </footer>
+            {/* Masoku, protagonista, con los cachos de fondo. En móvil se
+                muestra debajo del texto para no empujar el formulario. */}
+            <div className="mt-10 flex items-end gap-8">
+              <div className="w-44 shrink-0 sm:w-56 lg:w-64">
+                <Mascot />
+              </div>
+              <div className="hidden flex-1 sm:block">
+                <GameRulesSidebar />
+              </div>
+            </div>
+
+            <div className="mt-8 sm:hidden">
+              <GameRulesSidebar />
+            </div>
+          </div>
+
+          {/* ----------------------------------------------------- derecha */}
+          <section
+            id="acceso"
+            aria-label="Acceso a tu cuenta"
+            className="w-full scroll-mt-6 justify-self-center lg:justify-self-end"
+          >
+            <AuthPanel />
+          </section>
+        </div>
+
+        <footer className="mt-12">
+          <BettingNotice />
+        </footer>
+      </main>
     </div>
   );
 }

@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import clsx from "clsx";
 
-const STORAGE_KEY = "lapanaderia:music-playing";
+const STORAGE_KEY = "cachudobet:music-playing";
 
 /**
  * Botón flotante de música de fondo, montado una sola vez en el layout
@@ -60,20 +59,16 @@ export function MusicToggle() {
         aria-pressed={playing}
         aria-label={playing ? "Silenciar música de fondo" : "Reproducir música de fondo"}
         className={clsx(
-          "fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full outline-none transition sm:h-14 sm:w-14",
+          "fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full border bg-charcoal/90 outline-none backdrop-blur transition sm:h-14 sm:w-14",
           "focus-visible:ring-2 focus-visible:ring-gold-light",
           playing
-            ? "drop-shadow-[0_0_14px_rgba(232,200,119,0.75)]"
-            : "opacity-70 grayscale hover:opacity-90"
+            ? "border-gold/60 shadow-[0_0_18px_rgba(245,197,24,0.45)]"
+            : "border-gold-dark opacity-70 hover:opacity-100"
         )}
       >
-        <Image
-          src="/images/btn-sonido.png"
-          alt=""
-          width={56}
-          height={56}
-          className="h-full w-full select-none object-contain"
-        />
+        <span aria-hidden className="text-lg leading-none text-gold">
+          {playing ? "♪" : "✕"}
+        </span>
         <span className="sr-only">{playing ? "Música activada" : "Música silenciada"}</span>
       </button>
     </>

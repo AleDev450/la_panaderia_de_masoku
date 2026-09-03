@@ -149,7 +149,7 @@ function AdminRecargasContent() {
     <>
       <Header />
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="font-fantasy text-3xl font-bold text-parchment">Recargas</h1>
+        <h1 className="font-display text-3xl font-bold text-parchment">Recargas</h1>
         <p className="mt-2 text-sm text-parchment/60">
           Amplía el comprobante para verificar la hora y el monto del
           depósito, y confirma que el teléfono coincide con quien lo envió.
@@ -160,7 +160,7 @@ function AdminRecargasContent() {
         {HERRAMIENTAS_PRUEBA && (recargas?.length ?? 0) > 0 ? (
           <Panel className="mt-6 flex flex-wrap items-center justify-between gap-3 border-dashed border-lose/40 p-4">
             <div>
-              <p className="font-fantasy text-sm font-bold text-lose-glow">
+              <p className="font-display text-sm font-bold text-lose-glow">
                 Herramienta de pruebas
               </p>
               <p className="mt-0.5 text-xs text-parchment/50">
@@ -182,7 +182,7 @@ function AdminRecargasContent() {
         ) : null}
 
         <section className="mt-8">
-          <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
+          <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
             Pendientes ({pendientes.length})
           </h2>
           {recargas === null ? (
@@ -216,7 +216,7 @@ function AdminRecargasContent() {
 
                     <div className="flex flex-1 flex-col justify-between gap-3">
                       <div>
-                        <p className="font-fantasy text-lg font-bold text-gold-light">
+                        <p className="font-display text-lg font-bold text-gold-light">
                           {usuario.nickname}
                         </p>
                         {usuario.fullName ? (
@@ -285,7 +285,7 @@ function AdminRecargasContent() {
 
         {revisadas.length > 0 ? (
           <section className="mt-10">
-            <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
+            <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
               Historial
             </h2>
             <div className="flex flex-col gap-2">
@@ -349,7 +349,7 @@ function AdminRecargasContent() {
           }}
         >
           <div className="panel-stone w-full max-w-md rounded-xl p-5">
-            <h2 className="font-fantasy text-lg font-bold text-lose-glow">
+            <h2 className="font-display text-lg font-bold text-lose-glow">
               Borrar {recargas?.length} recarga(s)
             </h2>
             <p className="mt-2 text-sm text-parchment/70">
@@ -396,7 +396,7 @@ function AdminRecargasContent() {
           }}
         >
           <div className="panel-stone w-full max-w-md rounded-xl p-5">
-            <h2 className="font-fantasy text-lg font-bold text-gold-light">
+            <h2 className="font-display text-lg font-bold text-gold-light">
               Corregir monto de {corrigiendo.usuario.nickname}
             </h2>
             <p className="mt-2 text-sm text-parchment/70">

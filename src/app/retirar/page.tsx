@@ -79,7 +79,7 @@ function RetirarContent() {
     <>
       <Header />
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="font-fantasy text-3xl font-bold text-parchment">Retirar saldo</h1>
+        <h1 className="font-display text-3xl font-bold text-parchment">Retirar saldo</h1>
         <p className="mt-2 text-sm text-parchment/60">
           El equipo te yapea al número que tienes registrado. Al solicitar, el
           monto se aparta de tu saldo — no lo puedes apostar mientras el
@@ -91,7 +91,7 @@ function RetirarContent() {
             <p className="text-xs uppercase tracking-wide text-parchment/40">
               Saldo disponible
             </p>
-            <p className="font-fantasy text-2xl font-bold text-gold-light">
+            <p className="font-display text-2xl font-bold text-gold-light">
               S/{user.balance}
             </p>
             {user.balanceFake > 0 ? (
@@ -107,7 +107,7 @@ function RetirarContent() {
             <p className="text-xs uppercase tracking-wide text-parchment/40">
               Se yapea a
             </p>
-            <p className="font-fantasy text-lg font-bold text-parchment">
+            <p className="font-display text-lg font-bold text-parchment">
               {user.phone || "—"}
             </p>
           </div>
@@ -200,7 +200,7 @@ function RetirarContent() {
         )}
 
         <section className="mt-8">
-          <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
+          <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
             Tus retiros
           </h2>
           {retiros === null ? (
@@ -214,7 +214,7 @@ function RetirarContent() {
               {retiros.map((r) => (
                 <Panel key={r.id} className="flex items-center justify-between gap-3 p-4">
                   <div className="min-w-0">
-                    <p className="font-fantasy font-bold text-gold-light">S/{r.monto}</p>
+                    <p className="font-display font-bold text-gold-light">S/{r.monto}</p>
                     <p className="text-xs text-parchment/50">
                       a {r.telefono_destino} ·{" "}
                       {new Date(r.created_at).toLocaleString("es-PE")}

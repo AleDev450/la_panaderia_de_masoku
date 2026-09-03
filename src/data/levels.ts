@@ -1,22 +1,29 @@
 import { Level } from "@/types";
 
 /**
- * Niveles temáticos de panadería, en bandas de 10 puntos. Los nombres
- * coinciden exactamente con el texto horneado en los badges reales
- * (`public/images/levels/nivel-1.png` … `nivel-10.png`, pintados por
- * `LevelBadge`) — si cambias un nombre aquí, el badge queda desalineado.
+ * Rangos de CACHUDOBET, en bandas de 10 puntos.
+ *
+ * ANTES los nombres eran de panadería (Masa, Pan Dorado, Maestro
+ * Panadero…) y estaban DIBUJADOS dentro de `public/images/levels/nivel-N.png`,
+ * así que el nombre y la insignia tenían que coincidir a mano. Al
+ * rebrandear eso se vuelve una trampa: renombrar el nivel dejaba el PNG
+ * diciendo otra cosa.
+ *
+ * Por eso la insignia dejó de ser una imagen: `LevelBadge` la dibuja con el
+ * isotipo de cachos teñido del color del rango. Ahora el nombre y el color
+ * viven en un solo lugar y no se pueden desincronizar.
  */
 export const LEVELS: Level[] = [
-  { id: 1, nombre: "Masa", min: 0, max: 10 },
-  { id: 2, nombre: "Fermento", min: 11, max: 20 },
-  { id: 3, nombre: "Horneado", min: 21, max: 30 },
-  { id: 4, nombre: "Pan Dorado", min: 31, max: 40 },
-  { id: 5, nombre: "Panadero de Bronce", min: 41, max: 50 },
-  { id: 6, nombre: "Panadero de Plata", min: 51, max: 60 },
-  { id: 7, nombre: "Panadero de Oro", min: 61, max: 70 },
-  { id: 8, nombre: "Maestro Panadero", min: 71, max: 80 },
-  { id: 9, nombre: "Panadero Legendario", min: 81, max: 90 },
-  { id: 10, nombre: "Guardián de la Masa", min: 91, max: null },
+  { id: 1, nombre: "Novato", min: 0, max: 10, color: "#8b8b93" },
+  { id: 2, nombre: "Apostador", min: 11, max: 20, color: "#b0b0ba" },
+  { id: 3, nombre: "Cachudito", min: 21, max: 30, color: "#7cc4ff" },
+  { id: 4, nombre: "Cachudo", min: 31, max: 40, color: "#5aa9f7" },
+  { id: 5, nombre: "Cachudo Bronce", min: 41, max: 50, color: "#c87f3a" },
+  { id: 6, nombre: "Cachudo Plata", min: 51, max: 60, color: "#cfd3dc" },
+  { id: 7, nombre: "Cachudo Oro", min: 61, max: 70, color: "#f5c518" },
+  { id: 8, nombre: "Tiburón", min: 71, max: 80, color: "#c08cff" },
+  { id: 9, nombre: "Leyenda", min: 81, max: 90, color: "#ff8fc7" },
+  { id: 10, nombre: "Rey Cachudo", min: 91, max: null, color: "#ffd95c" },
 ];
 
 export function getLevelForPoints(puntos: number): Level {

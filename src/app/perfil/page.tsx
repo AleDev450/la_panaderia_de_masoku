@@ -151,12 +151,12 @@ function PerfilContent() {
     <>
       <Header />
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="font-fantasy text-3xl font-bold text-parchment">Mi perfil</h1>
+        <h1 className="font-display text-3xl font-bold text-parchment">Mi perfil</h1>
 
         <Panel className="mt-6 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="font-fantasy text-xl font-bold text-gold-light">{user.nickname}</p>
+              <p className="font-display text-xl font-bold text-gold-light">{user.nickname}</p>
               {/* El admin no juega: sin saldo ni rango que mostrar. */}
               <p className="text-xs text-parchment/50">
                 {isAdmin ? "Cuenta de administrador" : `Saldo disponible S/${saldoVisible(user)}`}
@@ -172,9 +172,9 @@ function PerfilContent() {
         </Panel>
 
         <Panel className="mt-6 p-5">
-          <h2 className="mb-1 font-fantasy text-lg font-semibold text-gold-light">Nickname</h2>
+          <h2 className="mb-1 font-display text-lg font-semibold text-gold-light">Nickname</h2>
           <p className="mb-3 text-xs text-parchment/50">
-            Es único: si otro panadero ya lo tiene, tendrás que elegir otro.
+            Es único: si otro jugador ya lo tiene, tendrás que elegir otro.
           </p>
           <form onSubmit={handleNickname} className="flex flex-wrap gap-2">
             <input
@@ -193,7 +193,7 @@ function PerfilContent() {
         </Panel>
 
         <Panel className="mt-4 p-5">
-          <h2 className="mb-1 font-fantasy text-lg font-semibold text-gold-light">Correo</h2>
+          <h2 className="mb-1 font-display text-lg font-semibold text-gold-light">Correo</h2>
           <p className="mb-3 text-xs text-parchment/50">
             Con este correo inicias sesión.
           </p>
@@ -212,7 +212,7 @@ function PerfilContent() {
         </Panel>
 
         <Panel className="mt-4 p-5">
-          <h2 className="mb-1 font-fantasy text-lg font-semibold text-gold-light">Contraseña</h2>
+          <h2 className="mb-1 font-display text-lg font-semibold text-gold-light">Contraseña</h2>
           <p className="mb-3 text-xs text-parchment/50">
             Mínimo 8 caracteres, combinando letras y números.
           </p>
@@ -248,7 +248,7 @@ function PerfilContent() {
             identifica sus depósitos. Un admin no recarga saldo. */}
         {isAdmin ? null : (
         <Panel className="mt-4 p-5">
-          <h2 className="mb-1 font-fantasy text-lg font-semibold text-gold-light">Teléfono</h2>
+          <h2 className="mb-1 font-display text-lg font-semibold text-gold-light">Teléfono</h2>
           <p className="mb-3 text-xs text-parchment/50">
             Tu número actual es{" "}
             <span className="font-semibold text-parchment/80">{user.phone || "—"}</span>. No se

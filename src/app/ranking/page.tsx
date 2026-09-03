@@ -4,12 +4,28 @@ import { useEffect, useState } from "react";
 import { RequirePlayer } from "@/components/RequirePlayer";
 import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
-import { LevelBadge } from "@/components/LevelBadge";
-import { LevelsCatalog } from "@/components/LevelsCatalog";
 import { useSession } from "@/context/SessionContext";
 import { JugadorRanking, getRanking } from "@/actions/perfil";
 import { PUNTOS_POR_GANAR, PUNTOS_POR_PERDER } from "@/types";
 import clsx from "clsx";
+
+/**
+ * Solo puestos: número, nickname y puntos.
+ *
+ * Antes cada fila traía la insignia de rango y al costado iba el catálogo
+ * de niveles. Con tres datos por fila (puesto, nombre, rango, puntos) la
+ * fila competía consigo misma y el puesto —lo único que se viene a ver a
+ * un ranking— era lo menos visible. Los niveles vuelven cuando estén
+ * definidos.
+ */
+
+/** Oro, plata y bronce para el podio; el resto en gris. */
+function colorPuesto(puesto: number): string {
+  if (puesto === 1) return "#f5c518";
+  if (puesto === 2) return "#cfd3dc";
+  if (puesto === 3) return "#c87f3a";
+  return "#5a5a63";
+}
 
 function RankingContent() {
   const { user } = useSession();
@@ -24,60 +40,67 @@ function RankingContent() {
   return (
     <>
       <Header />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="font-fantasy text-3xl font-bold text-parchment">
-          Ranking de panaderos
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+        <h1 className="font-display text-3xl font-extrabold uppercase tracking-tight text-parchment">
+          Ranking
         </h1>
-        <p className="mt-2 text-sm text-parchment/60">
-          Los panaderos más gosus de LA PANADERÍA DE MASOKU — gana un duelo emparejado y
-          suman {" "}
+        <p className="mt-2 text-sm text-parchment/55">
+          Gana un duelo emparejado y sumas{" "}
           <span className="font-semibold text-win-glow">{PUNTOS_POR_GANAR} puntos</span>; si
           pierdes, igual sumas{" "}
-          <span className="font-semibold text-gold-light">{PUNTOS_POR_PERDER} punto</span>.
+          <span className="font-semibold text-gold">{PUNTOS_POR_PERDER} punto</span>.
         </p>
 
-        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
-          <div>
-            {ranking === null ? (
-              <Panel className="p-6 text-center text-sm text-parchment/50">
-                Cargando ranking…
-              </Panel>
-            ) : ranking.length === 0 ? (
-              <Panel className="border-dashed p-6 text-center text-sm text-parchment/50">
-                Todavía no hay panaderos con puntos.
-              </Panel>
-            ) : (
-              <ol className="flex flex-col gap-2">
-                {ranking.map((ranked, index) => (
+        <div className="mt-8">
+          {ranking === null ? (
+            <Panel className="p-6 text-center text-sm text-parchment/50">
+              Cargando ranking…
+            </Panel>
+          ) : ranking.length === 0 ? (
+            <Panel className="border-dashed p-6 text-center text-sm text-parchment/50">
+              Todavía no hay cachudos con puntos.
+            </Panel>
+          ) : (
+            <ol className="flex flex-col gap-2">
+              {ranking.map((ranked, index) => {
+                const puesto = index + 1;
+                const soyYo = ranked.id === user?.id;
+                return (
                   <li key={ranked.id}>
                     <Panel
                       className={clsx(
-                        "flex items-center justify-between gap-3 p-4",
-                        ranked.id === user?.id && "border-gold-light"
+                        "flex items-center gap-4 px-4 py-3.5",
+                        soyYo && "border-gold/70 bg-gold/5"
                       )}
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-dark font-fantasy text-sm font-bold text-gold-light">
-                          {index + 1}
+                      <span
+                        className="w-9 shrink-0 text-center font-display text-2xl font-extrabold tabular-nums"
+                        style={{ color: colorPuesto(puesto) }}
+                      >
+                        {puesto}
+                      </span>
+
+                      <span className="min-w-0 flex-1 truncate font-display text-base font-bold text-parchment">
+                        {ranked.nickname}
+                        {soyYo ? (
+                          <span className="ml-2 align-middle text-xs font-semibold text-gold">
+                            (tú)
+                          </span>
+                        ) : null}
+                      </span>
+
+                      <span className="shrink-0 text-right">
+                        <span className="font-display text-lg font-extrabold tabular-nums text-gold">
+                          {ranked.puntos}
                         </span>
-                        <span className="font-semibold text-parchment">
-                          {ranked.nickname}
-                          {ranked.id === user?.id ? (
-                            <span className="ml-2 text-xs text-gold/70">(tú)</span>
-                          ) : null}
-                        </span>
-                      </div>
-                      <LevelBadge puntos={ranked.puntos} />
+                        <span className="ml-1 text-xs text-parchment/40">pts</span>
+                      </span>
                     </Panel>
                   </li>
-                ))}
-              </ol>
-            )}
-          </div>
-
-          <div className="lg:sticky lg:top-6 lg:self-start">
-            <LevelsCatalog />
-          </div>
+                );
+              })}
+            </ol>
+          )}
         </div>
       </main>
     </>

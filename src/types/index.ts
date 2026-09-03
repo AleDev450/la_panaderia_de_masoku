@@ -34,7 +34,7 @@ export const BET_MAX = 100;
 export const DURACION_MIN_DEFAULT = 10;
 
 // ---------------------------------------------------------------------------
-// Niveles ("panaderos más gosus")
+// Rangos ("los más cachudos")
 // ---------------------------------------------------------------------------
 
 /** Debe coincidir con `liquidar_evento` (0018_puntos_ganar_3.sql). */
@@ -46,4 +46,7 @@ export interface Level {
   nombre: string;
   min: number;
   max: number | null;
+  /** Color del rango, en hex. Se aplica al isotipo de la insignia — desde
+   * el rebrand la insignia se dibuja, ya no es un PNG por nivel. */
+  color: string;
 }

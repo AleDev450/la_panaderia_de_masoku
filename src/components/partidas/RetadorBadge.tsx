@@ -1,5 +1,5 @@
-import Image from "next/image";
 import { getLevelForPoints } from "@/data/levels";
+import { LevelCrest } from "@/components/LevelCrest";
 
 /** Escudo neutro con "?" — mismo lenguaje visual que TeamCrest.tsx (path
  * de escudo genérico), para el lado que todavía no tiene retador. */
@@ -58,16 +58,12 @@ export function RetadorBadge({
 
   const level = getLevelForPoints(retador.puntos);
   const insignia = (
-    <Image
-      src={`/images/levels/nivel-${level.id}.png`}
-      alt=""
-      aria-hidden
-      width={size}
-      height={size}
+    <span
       title={`${level.nombre} · ${retador.puntos} pts`}
-      className="shrink-0 select-none object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]"
-      style={{ width: size, height: size }}
-    />
+      className="inline-flex shrink-0 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]"
+    >
+      <LevelCrest level={level} size={size} />
+    </span>
   );
 
   if (soloEscudo) return insignia;

@@ -37,7 +37,7 @@ export default function ComoJugarPage() {
     <RequireAuth>
       <Header />
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="font-fantasy text-3xl font-bold text-parchment">Cómo jugar</h1>
+        <h1 className="font-display text-3xl font-bold text-parchment">Cómo jugar</h1>
         <p className="mt-2 text-sm text-parchment/60">
           Apuestas entre jugadores, sin casa que ponga el dinero: tu apuesta
           se empareja contra la de quienes eligieron el lado contrario. Lo
@@ -47,7 +47,7 @@ export default function ComoJugarPage() {
         <div className="mt-8 flex flex-col gap-4">
           {STEPS.map((step) => (
             <Panel key={step.title} className="p-5">
-              <h2 className="font-fantasy text-lg font-semibold text-gold-light">
+              <h2 className="font-display text-lg font-semibold text-gold-light">
                 {step.title}
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-parchment/75">{step.body}</p>
@@ -56,16 +56,16 @@ export default function ComoJugarPage() {
         </div>
 
         <Panel className="mt-8 border-gold-light/40 p-5">
-          <h2 className="font-fantasy text-lg font-semibold text-gold-light">
+          <h2 className="font-display text-lg font-semibold text-gold-light">
             Un ejemplo con números
           </h2>
           <ul className="mt-3 flex flex-col gap-2 text-sm leading-relaxed text-parchment/75">
             <li>
               Apuestas <strong className="text-parchment">S/100</strong> a que el
-              Horno Real gana la serie.
+              el equipo local gana la serie.
             </li>
             <li>
-              Entran dos panaderos al lado contrario con{" "}
+              Entran dos jugadores al lado contrario con{" "}
               <strong className="text-parchment">S/40</strong> y{" "}
               <strong className="text-parchment">S/20</strong>. Quedas
               emparejado en S/60 y siguen faltando S/40.
@@ -75,7 +75,7 @@ export default function ComoJugarPage() {
               <strong className="text-parchment">S/40 vuelven a tu saldo</strong>.
             </li>
             <li>
-              Si el Horno Real gana, cobras{" "}
+              Si el local gana, cobras{" "}
               <strong className="text-win-glow">S/{pagoPorMatcheado(60)}</strong> por los
               S/60 emparejados. Si pierde, esos S/60 se van.
             </li>
@@ -83,8 +83,8 @@ export default function ComoJugarPage() {
         </Panel>
 
         <Panel className="mt-4 p-5">
-          <h2 className="font-fantasy text-lg font-semibold text-gold-light">
-            Puntos y rango de panadero
+          <h2 className="font-display text-lg font-semibold text-gold-light">
+            Puntos y rango de cachudo
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-parchment/75">
             Al resolverse un título ganas{" "}
@@ -94,13 +94,13 @@ export default function ComoJugarPage() {
             si acertaste y{" "}
             <strong className="text-parchment">+{PUNTOS_POR_PERDER} punto</strong>{" "}
             si no — participar siempre suma. Solo puntúan las apuestas que
-            llegaron a emparejar algo. Los puntos suben tu rango, de Masa
-            hasta Guardián de la Masa, y te posicionan en el Ranking.
+            llegaron a emparejar algo. Los puntos suben tu rango, de Novato
+            hasta Rey Cachudo, y te posicionan en el Ranking.
           </p>
         </Panel>
 
         <Panel className="mt-4 border-gold-light/50 bg-gold/5 p-5">
-          <h2 className="font-fantasy text-lg font-semibold text-gold-light">
+          <h2 className="font-display text-lg font-semibold text-gold-light">
             Juego responsable
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-parchment/75">

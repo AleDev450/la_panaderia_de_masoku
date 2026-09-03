@@ -202,7 +202,7 @@ function AdminSorteosContent() {
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-fantasy text-3xl font-bold text-parchment">Sorteos</h1>
+            <h1 className="font-display text-3xl font-bold text-parchment">Sorteos</h1>
             <p className="mt-2 text-sm text-parchment/60">
               Publica un sorteo, revisa quién se inscribió y marca a los
               ganadores. Los jugadores dejan su Steam y su Discord en /sorteos.
@@ -217,7 +217,7 @@ function AdminSorteosContent() {
 
         {form !== null ? (
           <Panel className="mt-6 p-5">
-            <h2 className="font-fantasy text-lg font-semibold text-gold-light">
+            <h2 className="font-display text-lg font-semibold text-gold-light">
               {form.id ? "Editar sorteo" : "Nuevo sorteo"}
             </h2>
 
@@ -354,7 +354,7 @@ function AdminSorteosContent() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-fantasy text-lg font-semibold text-parchment">
+                        <h3 className="font-display text-lg font-semibold text-parchment">
                           {sorteo.nombre}
                         </h3>
                         <span

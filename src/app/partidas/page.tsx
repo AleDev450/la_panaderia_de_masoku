@@ -193,10 +193,10 @@ function PartidasContent() {
         <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_19rem]">
           <div className="min-w-0">
           <div className="text-center">
-            <h1 className="font-fantasy text-3xl font-bold tracking-wide text-parchment sm:text-4xl">
+            <h1 className="font-display text-3xl font-bold tracking-wide text-parchment sm:text-4xl">
               Partidas de hoy
             </h1>
-            <p className="mt-2 font-fantasy text-sm font-semibold uppercase tracking-[0.25em] text-gold-light">
+            <p className="mt-2 font-display text-sm font-semibold uppercase tracking-[0.25em] text-gold-light">
               Cuota 1.80x · emparejamiento entre jugadores
             </p>
             <p className="mx-auto mt-3 max-w-lg text-sm text-parchment/60">
@@ -242,7 +242,7 @@ function PartidasContent() {
             </p>
           ) : (
             <section className="mt-8">
-              <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
+              <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
                 Salas activas ({salasActivas.length})
               </h2>
               {salasActivas.length === 0 ? (

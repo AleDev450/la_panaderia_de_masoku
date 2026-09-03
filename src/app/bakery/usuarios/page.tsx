@@ -213,7 +213,7 @@ function AdminUsuariosContent() {
     <>
       <Header />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="font-fantasy text-3xl font-bold text-parchment">Usuarios</h1>
+        <h1 className="font-display text-3xl font-bold text-parchment">Usuarios</h1>
         <p className="mt-2 text-sm text-parchment/60">
           Suspender una cuenta no borra nada: el usuario conserva su saldo e
           historial, solo deja de poder apostar.
@@ -222,7 +222,7 @@ function AdminUsuariosContent() {
         {HERRAMIENTAS_PRUEBA && (usuarios?.length ?? 0) > 0 ? (
           <Panel className="mt-6 flex flex-wrap items-center justify-between gap-3 border-dashed border-lose/40 p-4">
             <div>
-              <p className="font-fantasy text-sm font-bold text-lose-glow">
+              <p className="font-display text-sm font-bold text-lose-glow">
                 Herramienta de pruebas
               </p>
               <p className="mt-0.5 text-xs text-parchment/50">
@@ -302,7 +302,7 @@ function AdminUsuariosContent() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="flex flex-wrap items-center gap-2">
-                        <span className="font-fantasy text-lg font-bold text-gold-light">
+                        <span className="font-display text-lg font-bold text-gold-light">
                           {u.nickname}
                         </span>
                         {u.baneado ? (
@@ -442,7 +442,7 @@ function AdminUsuariosContent() {
           }}
         >
           <div className="panel-stone w-full max-w-md rounded-xl p-5">
-            <h2 className="font-fantasy text-lg font-bold text-lose-glow">
+            <h2 className="font-display text-lg font-bold text-lose-glow">
               Suspender a {confirmando.nickname}
             </h2>
             <p className="mt-2 text-sm text-parchment/70">
@@ -497,7 +497,7 @@ function AdminUsuariosContent() {
           }}
         >
           <div className="panel-stone w-full max-w-md rounded-xl p-5">
-            <h2 className="font-fantasy text-lg font-bold text-lose-glow">
+            <h2 className="font-display text-lg font-bold text-lose-glow">
               Eliminar a {eliminando.nickname}
             </h2>
             <p className="mt-2 text-sm text-parchment/70">
@@ -540,7 +540,7 @@ function AdminUsuariosContent() {
           }}
         >
           <div className="panel-stone w-full max-w-md rounded-xl p-5">
-            <h2 className="font-fantasy text-lg font-bold text-gold-light">
+            <h2 className="font-display text-lg font-bold text-gold-light">
               Cambiar contraseña de {cambiandoPassword.nickname}
             </h2>
             <p className="mt-2 text-sm text-parchment/70">
@@ -591,7 +591,7 @@ function AdminUsuariosContent() {
           }}
         >
           <div className="panel-stone w-full max-w-md rounded-xl p-5">
-            <h2 className="font-fantasy text-lg font-bold text-gold-light">
+            <h2 className="font-display text-lg font-bold text-gold-light">
               Ajustar saldo de {ajustandoSaldo.nickname}
             </h2>
             <p className="mt-2 text-sm text-parchment/70">
@@ -680,7 +680,7 @@ function AdminUsuariosContent() {
           }}
         >
           <div className="panel-stone w-full max-w-md rounded-xl p-5">
-            <h2 className="font-fantasy text-lg font-bold text-gold-light">
+            <h2 className="font-display text-lg font-bold text-gold-light">
               Dar saldo fake a {dandoFake.nickname}
             </h2>
             <p className="mt-2 text-sm text-parchment/70">
@@ -775,7 +775,7 @@ function AdminUsuariosContent() {
           }}
         >
           <div className="panel-stone w-full max-w-md rounded-xl p-5">
-            <h2 className="font-fantasy text-lg font-bold text-lose-glow">
+            <h2 className="font-display text-lg font-bold text-lose-glow">
               Reiniciar la plataforma
             </h2>
             <p className="mt-2 text-sm text-parchment/70">
@@ -832,7 +832,7 @@ function Dato({ label, valor }: { label: string; valor: string }) {
   return (
     <div className="rounded-md border border-gold-dark/40 bg-obsidian/40 px-2 py-1.5 text-center">
       <p className="text-[10px] uppercase tracking-wide text-parchment/40">{label}</p>
-      <p className="font-fantasy text-sm font-bold text-parchment/80">{valor}</p>
+      <p className="font-display text-sm font-bold text-parchment/80">{valor}</p>
     </div>
   );
 }

@@ -1,7 +1,14 @@
-# LA PANADERÍA DE MASOKU
+# CACHUDOBET
 
-Apuestas peer-to-peer entre jugadores, con estética de fantasía medieval.
-Mascota oficial: el "Guardián de la masa", un panadero de batalla.
+Apuestas peer-to-peer entre jugadores. Identidad oscura, amarilla y
+deportiva; la cara de la marca es Masoku.
+
+> **Rebrand.** El proyecto nació como "La Panadería de Masoku" y conserva
+> nombres internos de esa etapa que NO se renombraron a propósito, porque
+> tocarlos sería un find/replace masivo sin ganancia funcional:
+> la ruta de administración `/bakery`, y los tokens de color
+> (`obsidian`, `parchment`, `gold`, `crimson`) cuyos VALORES sí cambiaron
+> —ver la tabla de traducción en `src/app/globals.css`.
 
 > Proyecto de demostración. No procesa pagos, depósitos, retiros ni
 > criptomonedas reales. Acceso restringido a mayores de 18 años —
@@ -27,7 +34,7 @@ quien eligió el lado contrario.
    ganancia fija, sin riesgo de mercado… salvo que haya saldo fake de por
    medio (ver abajo).
 5. Se reparten puntos: **+5** al que acertó, **+1** al que no (solo si
-   llegó a emparejar algo). Los puntos suben el rango del panadero.
+   llegó a emparejar algo). Los puntos suben el rango del cachudo.
 6. Para **retirar**, el jugador solicita un monto de su saldo disponible.
    Ese monto se aparta al instante — no se puede apostar ni pedir dos
    veces — y el staff lo yapea al número registrado y marca como pagado.

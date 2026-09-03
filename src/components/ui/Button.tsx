@@ -3,13 +3,19 @@ import clsx from "clsx";
 
 type Variant = "primary" | "ghost" | "win" | "lose";
 
+/**
+ * `primary` es amarillo sólido con texto NEGRO. Antes era un degradado
+ * carmesí con texto dorado; al repuntar los tokens de carmesí al amarillo
+ * de marca (globals.css) ese texto habría quedado dorado sobre amarillo —
+ * ilegible. El contraste de la acción principal se fija acá, no se hereda.
+ */
 const variantClasses: Record<Variant, string> = {
   primary:
-    "bg-gradient-to-b from-crimson-light to-crimson-dark border-gold text-gold-light hover:brightness-110 focus-visible:outline-gold-light",
+    "bg-gold border-gold text-obsidian shadow-[0_6px_24px_-10px_rgba(245,197,24,0.9)] hover:bg-gold-light hover:brightness-105 focus-visible:outline-gold-light",
   ghost:
-    "bg-transparent border-gold-dark text-parchment hover:border-gold hover:text-gold-light",
-  win: "bg-gradient-to-b from-win to-[#1f5b28] border-win-glow text-white hover:brightness-110",
-  lose: "bg-gradient-to-b from-lose to-[#5c1417] border-lose-glow text-white hover:brightness-110",
+    "bg-transparent border-gold-dark text-parchment/80 hover:border-gold/70 hover:bg-white/5 hover:text-parchment",
+  win: "bg-win border-win-glow/70 text-white hover:brightness-115",
+  lose: "bg-lose border-lose-glow/70 text-white hover:brightness-115",
 };
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -24,7 +30,7 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
     <button
       ref={ref}
       className={clsx(
-        "min-h-11 rounded-md border-2 px-5 py-2.5 font-fantasy text-sm font-semibold tracking-wider uppercase transition disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100",
+        "min-h-11 rounded-lg border px-5 py-2.5 font-display text-sm font-extrabold tracking-wide uppercase transition disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100",
         variantClasses[variant],
         className
       )}

@@ -50,7 +50,9 @@ function SorteosContent() {
     <>
       <Header />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="font-fantasy text-3xl font-bold text-parchment">Sorteos</h1>
+        <h1 className="font-display text-3xl font-extrabold uppercase tracking-tight text-parchment">
+          Promociones
+        </h1>
         <p className="mt-2 text-sm text-parchment/60">
           Déjanos tu perfil de Steam y tu Discord. Si sales sorteado te
           escribimos por Discord y el premio te llega a esa cuenta de Steam.
@@ -70,14 +72,14 @@ function SorteosContent() {
 
             {cerrados.length > 0 ? (
               <section className="mt-10">
-                <h2 className="mb-3 font-fantasy text-lg font-semibold text-gold-light">
+                <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
                   Sorteos cerrados
                 </h2>
                 <div className="space-y-2">
                   {cerrados.map(({ sorteo, miInscripcion, inscritos }) => (
                     <Panel key={sorteo.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
                       <div>
-                        <p className="font-fantasy font-semibold text-parchment/80">{sorteo.nombre}</p>
+                        <p className="font-display font-semibold text-parchment/80">{sorteo.nombre}</p>
                         <p className="text-xs text-parchment/50">
                           {sorteo.premio} · {inscritos} inscritos
                         </p>
@@ -154,7 +156,7 @@ function TarjetaSorteo({
         <div className="grid gap-0 lg:grid-cols-[1fr_22rem]">
           {/* Izquierda: de qué va el sorteo y cómo se participa. */}
           <div className="p-6 sm:p-8">
-            <h2 className="font-fantasy text-2xl font-bold text-gold-light">{sorteo.nombre}</h2>
+            <h2 className="font-display text-2xl font-bold text-gold-light">{sorteo.nombre}</h2>
             <p className="mt-1 text-sm text-parchment/70">Participa por {sorteo.premio}</p>
             {sorteo.fecha_sorteo ? (
               <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-gold-light/70">

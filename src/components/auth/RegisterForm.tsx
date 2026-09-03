@@ -13,7 +13,7 @@ import {
   validatePassword,
   validatePhone,
 } from "@/lib/validation";
-import { ArtPanel } from "@/components/auth/ArtPanel";
+import { AuthCard } from "@/components/auth/AuthCard";
 import { PanelField } from "@/components/auth/PanelField";
 
 interface FormErrors {
@@ -87,18 +87,10 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
       aria-label="Crear cuenta"
       className="flex w-full justify-center"
     >
-      {/* registrar.png (create_account.png) es un panel de arte en blanco —
-          solo trae el marco y el título "REGISTRAR" dibujados, sin cajas de
-          campo ni botón. Los campos van en flujo normal dentro de un
-          recuadro absoluto que cubre el área de madera vacía (ver
-          PanelField), en vez de intentar alinearlos a una caja que ya no
-          existe en el arte. */}
-      <ArtPanel src="/images/home/registrar.png" alt="" ratio="950 / 1750">
-        <div
-          className="absolute overflow-y-auto"
-          style={{ top: "calc(20% + 5px)", bottom: "9%", left: "50%", width: "70%", transform: "translateX(-50%)" }}
-        >
-          <div className="flex flex-col gap-1">
+      <AuthCard
+        titulo="Crear cuenta"
+        descripcion="Regístrate y entra a jugar. Solo mayores de 18 años."
+      >
             <PanelField
               id="fullName"
               label="Nombre completo"
@@ -184,7 +176,7 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
                   aria-describedby={errors.ageConsent ? "ageConsent-error" : undefined}
                   className="mt-0.5 h-4 w-4 shrink-0 accent-gold"
                 />
-                <span className="text-[clamp(0.65rem,1.4vw,0.8rem)] text-parchment/80">
+                <span className="text-xs text-parchment/80">
                   Confirmo que soy mayor de 18 años y acepto las reglas de juego responsable.
                 </span>
               </label>
@@ -192,7 +184,7 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
                 <p
                   id="ageConsent-error"
                   role="alert"
-                  className="mt-1 text-[clamp(0.6rem,1.3vw,0.75rem)] leading-tight text-lose-glow"
+                  className="mt-1 text-xs leading-tight text-lose-glow"
                 >
                   {errors.ageConsent}
                 </p>
@@ -202,7 +194,7 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
             <button
               type="submit"
               disabled={submitting}
-              className="min-h-11 rounded-md border border-gold bg-gradient-to-b from-[#8a5a1f] to-[#5c3a13] font-fantasy text-sm font-bold uppercase tracking-wide text-parchment shadow-[0_2px_10px_rgba(0,0,0,0.4)] outline-none transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-gold-light disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-1 min-h-12 rounded-lg bg-gold font-display text-sm font-extrabold uppercase tracking-wide text-obsidian shadow-[0_6px_24px_-8px_rgba(245,197,24,0.8)] outline-none transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-gold-light disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? "Creando cuenta…" : "Crear cuenta"}
             </button>
@@ -210,13 +202,11 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
             <button
               type="button"
               onClick={onSwitchToLogin}
-              className="py-0.5 text-center text-[clamp(0.7rem,1.5vw,0.85rem)] font-semibold text-gold-light underline outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+              className="min-h-8 text-center text-sm font-semibold text-gold underline-offset-4 outline-none transition hover:underline focus-visible:ring-2 focus-visible:ring-gold-light"
             >
               ¿Ya tienes cuenta? Ingresar
             </button>
-          </div>
-        </div>
-      </ArtPanel>
+      </AuthCard>
     </form>
   );
 }

@@ -3,43 +3,63 @@
 import { useState } from "react";
 import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
+import { LadoPanel } from "@/components/partidas/LadoPanel";
+import { LadoResumen } from "@/actions/betting";
 import { EstadoTurno, Evento } from "@/lib/supabase/types";
+import { CUOTA } from "@/lib/apuestas";
+
+/**
+ * Mesa de blackjack, dibujada como una mesa de casino: un tapete redondo
+ * con dos asientos enfrentados, BANCA arriba y JUGADOR abajo.
+ *
+ * Antes eran los dos `LadoPanel` genéricos, uno al lado del otro, igual que
+ * en un título de deportes. Pero acá no son "dos lados de una apuesta":
+ * son dos sillas de una mesa 1v1, y quién se sienta en cuál cambia lo que
+ * puedes hacer. El círculo lo dice sin explicarlo.
+ *
+ * REGLA QUE SE VE EN EL LAYOUT: solo el JUGADOR (lado A) pide cartas. La
+ * BANCA (lado B) no tiene turno — su mano la juega quien reparte siguiendo
+ * la regla de la casa (ver 0040_blackjack_solo_jugador_pide.sql).
+ *
+ * `LadoPanel` se reutiliza tal cual dentro del asiento libre: toda la
+ * lógica de apostar (montos, confirmación, errores) sigue viviendo ahí.
+ */
 
 const TURNO_LABEL: Record<EstadoTurno, string> = {
   esperando: "En su turno",
   pidiendo: "Pide carta",
-  quedado: "Se quedó",
+  quedado: "Se plantó",
 };
 
-const TURNO_COLOR: Record<EstadoTurno, string> = {
-  esperando: "border-gold-dark/40 text-parchment/50",
-  pidiendo: "border-gold-light/60 bg-gold/10 text-gold-light",
-  quedado: "border-win-glow/50 bg-win/10 text-win-glow",
-};
-
-/**
- * La franja de turno de una mesa de blackjack. La app NO reparte cartas ni
- * cuenta puntos: esto es solo la señal de "quiero otra" / "me planto" que
- * ve el que reparte (y el rival). Ver 0039_blackjack.sql.
- *
- * Solo el LADO A pide cartas. El lado B apuesta a que gana el host, y la
- * mano del host la juega quien reparte siguiendo la regla de la casa: ahí
- * no hay nada que decidir. `marcar_turno` lo rechaza en SQL además de que
- * acá no se muestren los botones (0040).
- */
 export function MesaBlackjack({
   evento,
+  ladoA,
+  ladoB,
   miLado,
+  disabled,
+  terminada,
+  miUsuarioId,
+  onApostar,
   onMarcarTurno,
 }: {
   evento: Evento;
+  ladoA: LadoResumen;
+  ladoB: LadoResumen;
   miLado: "a" | "b" | null;
-  onMarcarTurno: (eventoId: string, accion: "pedir" | "quedarse") => Promise<void>;
+  disabled: boolean;
+  terminada: boolean;
+  miUsuarioId?: string;
+  onApostar: (lado: "a" | "b", monto: number) => Promise<void>;
+  onMarcarTurno?: (eventoId: string, accion: "pedir" | "quedarse") => Promise<void>;
 }) {
   const [enviando, setEnviando] = useState<"pedir" | "quedarse" | null>(null);
+
+  const jugador = ladoA.participantes[0] ?? null;
+  const banca = ladoB.participantes[0] ?? null;
   const soyElJugador = miLado === "a";
 
   async function marcar(accion: "pedir" | "quedarse") {
+    if (!onMarcarTurno) return;
     setEnviando(accion);
     try {
       await onMarcarTurno(evento.id, accion);
@@ -49,82 +69,187 @@ export function MesaBlackjack({
   }
 
   return (
-    <div className="mt-4 rounded-md border border-gold-dark/50 bg-obsidian/40 p-3">
-      <p className="text-[11px] uppercase tracking-wide text-parchment/40">Turnos</p>
+    <div className="mt-4">
+      {/* Tapete. El degradado radial es lo que lo lee como mesa y no como
+          otra card más. */}
+      <div className="relative overflow-hidden rounded-[2rem] border border-gold-dark bg-[radial-gradient(ellipse_at_center,rgba(245,197,24,0.09),transparent_70%)] px-4 py-5 sm:px-6">
+        {/* ------------------------------------------------------ BANCA */}
+        <Asiento
+          rotulo="Banca"
+          nombre={evento.lado_b}
+          ocupante={banca}
+          esMio={miLado === "b"}
+          acento="#cfd3dc"
+        >
+          {!banca && !terminada ? (
+            <LadoPanel
+              lado="b"
+              resumen={ladoB}
+              resumenContrario={ladoA}
+              disabled={disabled}
+              bloqueadoPorMiLado={miLado === "a"}
+              terminada={terminada}
+              miUsuarioId={miUsuarioId}
+              onApostar={onApostar}
+            />
+          ) : null}
+        </Asiento>
 
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <TurnoLado nombre={evento.lado_a} turno={evento.turno_a} cartas={evento.cartas_a} />
-        <LadoHost nombre={evento.lado_b} />
+        {/* ------------------------------------------------ centro mesa */}
+        <div className="relative my-4 flex items-center justify-center">
+          <span
+            aria-hidden
+            className="absolute h-px w-full bg-gradient-to-r from-transparent via-gold-dark to-transparent"
+          />
+          <span className="relative flex h-20 w-20 flex-col items-center justify-center rounded-full border border-gold/40 bg-obsidian/80 shadow-[0_0_28px_-6px_rgba(245,197,24,0.5)]">
+            <span className="font-display text-lg font-extrabold text-gold">{CUOTA}x</span>
+            <span className="text-[9px] uppercase tracking-wider text-parchment/40">1 vs 1</span>
+          </span>
+        </div>
+
+        {/* ---------------------------------------------------- JUGADOR */}
+        <Asiento
+          rotulo="Jugador"
+          nombre={evento.lado_a}
+          ocupante={jugador}
+          esMio={soyElJugador}
+          acento="#f5c518"
+          turno={evento.turno_a}
+          cartas={evento.cartas_a}
+        >
+          {!jugador && !terminada ? (
+            <LadoPanel
+              lado="a"
+              resumen={ladoA}
+              resumenContrario={ladoB}
+              disabled={disabled}
+              bloqueadoPorMiLado={miLado === "b"}
+              terminada={terminada}
+              miUsuarioId={miUsuarioId}
+              onApostar={onApostar}
+            />
+          ) : null}
+        </Asiento>
       </div>
 
-      {miLado === null ? (
-        <p className="mt-3 text-center text-[11px] text-parchment/40">
-          Mesa de dos: siéntate en otra si esta ya está llena.
-        </p>
-      ) : !soyElJugador ? (
-        <p className="mt-3 text-center text-[11px] leading-relaxed text-parchment/50">
-          Apostaste al host. Su mano la juega quien reparte, así que no hay
-          nada que pedir — solo espera el resultado.
-        </p>
-      ) : evento.turno_a === "quedado" ? (
-        <p className="mt-3 text-center text-xs text-win-glow">
-          Te quedaste. Espera a que se reparta el resto.
-        </p>
-      ) : (
-        <div className="mt-3 flex gap-2">
-          <Button
-            type="button"
-            disabled={enviando !== null}
-            onClick={() => marcar("pedir")}
-            className="min-h-9 flex-1 px-3 py-1 text-xs"
-          >
-            {enviando === "pedir" ? "…" : "Pedir carta"}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={enviando !== null}
-            onClick={() => marcar("quedarse")}
-            className="min-h-9 flex-1 px-3 py-1 text-xs"
-          >
-            {enviando === "quedarse" ? "…" : "Quedarse"}
-          </Button>
-        </div>
-      )}
+      {/* --------------------------------------------------- tus acciones */}
+      {!terminada && miLado !== null && onMarcarTurno ? (
+        soyElJugador ? (
+          evento.turno_a === "quedado" ? (
+            <p className="mt-3 text-center text-xs font-semibold text-win-glow">
+              Te plantaste. Espera a que se reparta el resto.
+            </p>
+          ) : (
+            <div className="mt-3 flex gap-2">
+              <Button
+                type="button"
+                disabled={enviando !== null}
+                onClick={() => marcar("pedir")}
+                className="min-h-11 flex-1 text-xs"
+              >
+                {enviando === "pedir" ? "…" : "Pedir carta"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={enviando !== null}
+                onClick={() => marcar("quedarse")}
+                className="min-h-11 flex-1 text-xs"
+              >
+                {enviando === "quedarse" ? "…" : "Quedarse"}
+              </Button>
+            </div>
+          )
+        ) : (
+          <p className="mt-3 text-center text-[11px] leading-relaxed text-parchment/45">
+            Apostaste a la banca. Su mano la juega quien reparte, así que no
+            hay nada que pedir — solo espera el resultado.
+          </p>
+        )
+      ) : null}
     </div>
   );
 }
 
-/** El lado del host no tiene turno que mostrar: su mano la reparte el que
- * dirige la mesa, no se pide. */
-function LadoHost({ nombre }: { nombre: string }) {
-  return (
-    <div className="rounded-md border border-gold-dark/40 px-2.5 py-2 text-center">
-      <p className="truncate text-[11px] text-parchment/50">{nombre}</p>
-      <p className="mt-0.5 text-xs font-semibold text-parchment/50">Host</p>
-      <p className="mt-0.5 text-[10px] text-parchment/40">No pide cartas</p>
-    </div>
-  );
-}
-
-function TurnoLado({
+/** Una silla de la mesa: rótulo, quién está sentado y, si está libre, el
+ * control para sentarse. */
+function Asiento({
+  rotulo,
   nombre,
+  ocupante,
+  esMio,
+  acento,
   turno,
   cartas,
+  children,
 }: {
+  rotulo: string;
   nombre: string;
-  turno: EstadoTurno;
-  cartas: number;
+  ocupante: { nickname: string; monto: number } | null;
+  esMio: boolean;
+  acento: string;
+  turno?: EstadoTurno;
+  cartas?: number;
+  children?: React.ReactNode;
 }) {
   return (
-    <div className={clsx("rounded-md border px-2.5 py-2 text-center", TURNO_COLOR[turno])}>
-      <p className="truncate text-[11px] text-parchment/50">{nombre}</p>
-      <p className="mt-0.5 text-xs font-semibold">{TURNO_LABEL[turno]}</p>
-      {cartas > 0 ? (
-        <p className="mt-0.5 text-[10px] text-parchment/40">
-          {cartas === 1 ? "1 carta pedida" : `${cartas} cartas pedidas`}
-        </p>
+    <div
+      className={clsx(
+        "rounded-2xl border px-4 py-3.5 transition",
+        ocupante ? "bg-charcoal/70" : "border-dashed bg-charcoal/30"
+      )}
+      style={{ borderColor: ocupante ? `${acento}66` : undefined }}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p
+            className="font-display text-[10px] font-bold uppercase tracking-[0.2em]"
+            style={{ color: acento }}
+          >
+            {rotulo}
+          </p>
+          <p className="mt-0.5 truncate text-sm font-semibold text-parchment/80">{nombre}</p>
+        </div>
+
+        {ocupante ? (
+          <div className="text-right">
+            <p className="truncate font-display text-sm font-bold text-parchment">
+              {ocupante.nickname}
+              {esMio ? <span className="ml-1.5 text-xs text-gold">(tú)</span> : null}
+            </p>
+            <p className="text-xs text-parchment/45">S/{ocupante.monto}</p>
+          </div>
+        ) : (
+          <span className="rounded-full border border-gold-dark px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-parchment/40">
+            Silla libre
+          </span>
+        )}
+      </div>
+
+      {/* Señal de turno: solo el jugador la tiene. */}
+      {turno ? (
+        <div className="mt-2.5 flex items-center gap-2">
+          <span
+            className={clsx(
+              "rounded-md border px-2 py-1 text-[11px] font-bold",
+              turno === "pidiendo"
+                ? "border-gold bg-gold/15 text-gold"
+                : turno === "quedado"
+                  ? "border-win-glow/50 bg-win/10 text-win-glow"
+                  : "border-gold-dark text-parchment/45"
+            )}
+          >
+            {TURNO_LABEL[turno]}
+          </span>
+          {cartas && cartas > 0 ? (
+            <span className="text-[11px] text-parchment/40">
+              {cartas === 1 ? "1 carta pedida" : `${cartas} cartas pedidas`}
+            </span>
+          ) : null}
+        </div>
       ) : null}
+
+      {children ? <div className="mt-3">{children}</div> : null}
     </div>
   );
 }
