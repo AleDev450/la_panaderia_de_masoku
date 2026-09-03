@@ -343,7 +343,7 @@ function AdminTitulosContent() {
             <div>
               <label htmlFor="ladoA" className="mb-1.5 block text-sm text-parchment/80">
                 {/* En blackjack el asiento decide quién juega la mano: el
-                    lado A es el jugador y el B el host (0040). Se rotula acá
+                    lado A es el jugador y el B la banca (0040). Se rotula acá
                     para que no se publique al revés. */}
                 {categoria === "blackjack" ? "Lado A — el jugador (pide cartas)" : "Lado A"}
               </label>
@@ -357,7 +357,7 @@ function AdminTitulosContent() {
             </div>
             <div>
               <label htmlFor="ladoB" className="mb-1.5 block text-sm text-parchment/80">
-                {categoria === "blackjack" ? "Lado B — el host (no pide cartas)" : "Lado B"}
+                {categoria === "blackjack" ? "Lado B — la banca (no pide cartas)" : "Lado B"}
               </label>
               <input
                 id="ladoB"
@@ -875,11 +875,11 @@ function MesaDealer({
           </p>
         </div>
 
-        {/* Lado B: quien apostó al host. Su mano la juegas tú con la regla
+        {/* Lado B: quien apostó a la banca. Su mano la juegas tú con la regla
             de la casa, así que no tiene turno ni pide nada (0040). */}
         <div className="rounded-md border border-gold-dark/40 px-3 py-2">
           <p className="truncate text-xs text-parchment/60">{evento.lado_b}</p>
-          <p className="mt-0.5 text-sm font-bold text-parchment/50">Host</p>
+          <p className="mt-0.5 text-sm font-bold text-parchment/50">Banca</p>
           <p className="mt-0.5 text-[11px] text-parchment/40">No pide cartas</p>
         </div>
       </div>

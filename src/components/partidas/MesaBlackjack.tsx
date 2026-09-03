@@ -7,10 +7,11 @@ import { LadoPanel } from "@/components/partidas/LadoPanel";
 import { LadoResumen } from "@/actions/betting";
 import { EstadoTurno, Evento } from "@/lib/supabase/types";
 import { CUOTA } from "@/lib/apuestas";
+import { BET_MIN_BLACKJACK } from "@/types";
 
 /**
  * Mesa de blackjack, dibujada como una mesa de casino: un tapete redondo
- * con dos asientos enfrentados, BANCA arriba y JUGADOR abajo.
+ * con dos asientos enfrentados, JUGADOR arriba y BANCA abajo.
  *
  * Antes eran los dos `LadoPanel` genéricos, uno al lado del otro, igual que
  * en un título de deportes. Pero acá no son "dos lados de una apuesta":
@@ -73,40 +74,6 @@ export function MesaBlackjack({
       {/* Tapete. El degradado radial es lo que lo lee como mesa y no como
           otra card más. */}
       <div className="relative overflow-hidden rounded-[2rem] border border-gold-dark bg-[radial-gradient(ellipse_at_center,rgba(245,197,24,0.09),transparent_70%)] px-4 py-5 sm:px-6">
-        {/* ------------------------------------------------------ BANCA */}
-        <Asiento
-          rotulo="Banca"
-          nombre={evento.lado_b}
-          ocupante={banca}
-          esMio={miLado === "b"}
-          acento="#cfd3dc"
-        >
-          {!banca && !terminada ? (
-            <LadoPanel
-              lado="b"
-              resumen={ladoB}
-              resumenContrario={ladoA}
-              disabled={disabled}
-              bloqueadoPorMiLado={miLado === "a"}
-              terminada={terminada}
-              miUsuarioId={miUsuarioId}
-              onApostar={onApostar}
-            />
-          ) : null}
-        </Asiento>
-
-        {/* ------------------------------------------------ centro mesa */}
-        <div className="relative my-4 flex items-center justify-center">
-          <span
-            aria-hidden
-            className="absolute h-px w-full bg-gradient-to-r from-transparent via-gold-dark to-transparent"
-          />
-          <span className="relative flex h-20 w-20 flex-col items-center justify-center rounded-full border border-gold/40 bg-obsidian/80 shadow-[0_0_28px_-6px_rgba(245,197,24,0.5)]">
-            <span className="font-display text-lg font-extrabold text-gold">{CUOTA}x</span>
-            <span className="text-[9px] uppercase tracking-wider text-parchment/40">1 vs 1</span>
-          </span>
-        </div>
-
         {/* ---------------------------------------------------- JUGADOR */}
         <Asiento
           rotulo="Jugador"
@@ -126,6 +93,42 @@ export function MesaBlackjack({
               bloqueadoPorMiLado={miLado === "b"}
               terminada={terminada}
               miUsuarioId={miUsuarioId}
+              montoMin={BET_MIN_BLACKJACK}
+              onApostar={onApostar}
+            />
+          ) : null}
+        </Asiento>
+
+        {/* ------------------------------------------------ centro mesa */}
+        <div className="relative my-4 flex items-center justify-center">
+          <span
+            aria-hidden
+            className="absolute h-px w-full bg-gradient-to-r from-transparent via-gold-dark to-transparent"
+          />
+          <span className="relative flex h-20 w-20 flex-col items-center justify-center rounded-full border border-gold/40 bg-obsidian/80 shadow-[0_0_28px_-6px_rgba(245,197,24,0.5)]">
+            <span className="font-display text-lg font-extrabold text-gold">{CUOTA}x</span>
+            <span className="text-[9px] uppercase tracking-wider text-parchment/40">1 vs 1</span>
+          </span>
+        </div>
+
+        {/* ------------------------------------------------------ BANCA */}
+        <Asiento
+          rotulo="Banca"
+          nombre={evento.lado_b}
+          ocupante={banca}
+          esMio={miLado === "b"}
+          acento="#cfd3dc"
+        >
+          {!banca && !terminada ? (
+            <LadoPanel
+              lado="b"
+              resumen={ladoB}
+              resumenContrario={ladoA}
+              disabled={disabled}
+              bloqueadoPorMiLado={miLado === "a"}
+              terminada={terminada}
+              miUsuarioId={miUsuarioId}
+              montoMin={BET_MIN_BLACKJACK}
               onApostar={onApostar}
             />
           ) : null}

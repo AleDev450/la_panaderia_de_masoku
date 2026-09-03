@@ -22,7 +22,7 @@ quien eligió el lado contrario.
 1. El staff publica un **título del día** (pregunta + lado A + lado B +
    categoría + minutos hasta el cierre).
 2. Un jugador **abre sala**: elige un título, un lado y un monto
-   (S/10–S/100). Necesita saldo, que carga yapeando al QR de la casa y
+   (S/10–S/100; en blackjack desde S/5). Necesita saldo, que carga yapeando al QR de la casa y
    subiendo la captura para que el staff la apruebe.
 3. Otros lo **cubren por partes**. El emparejamiento es FIFO y parcial:
    varias personas pueden cubrir a una sola, con montos distintos. Nadie
@@ -48,8 +48,8 @@ quien eligió el lado contrario.
    parcial como en todo el motor, y lo que nadie cubrió vuelve al saldo. La
    app **no reparte cartas ni cuenta puntos**: el jugador marca "pedir" o
    "quedarse" y el staff lo ve en vivo en /bakery/titulos, que refresca solo.
-   **Lado A = el jugador** (pide cartas); **lado B = el host** — quien apostó
-   ahí no decide nada, porque la mano del host la juega el que reparte
+   **Lado A = el jugador** (pide cartas); **lado B = la banca** — quien apostó
+   ahí no decide nada, porque la mano de la banca la juega el que reparte
    siguiendo la regla de la casa (0040). El staff no confirma cada carta:
    solo mira el contador.
 8. Aparte hay **sorteos**: el staff publica uno, el jugador deja su perfil
@@ -149,7 +149,8 @@ el motor de verdad hay que ejercitarlo contra la base — ver
 
 Reglas que el SQL garantiza (no la UI):
 
-- Monto entre S/10 y S/100, con saldo suficiente, retenido al apostar.
+- Monto entre S/10 y S/100 — S/5 en blackjack (0045) —, con saldo
+  suficiente, retenido al apostar.
 - Emparejamiento FIFO parcial; nadie se empareja consigo mismo.
 - **Un solo bando por sala**: si ya apostaste a un lado, el contrario te
   rechaza — cubrirse a sí mismo no es apostar.

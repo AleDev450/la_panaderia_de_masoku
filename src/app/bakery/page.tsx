@@ -8,7 +8,12 @@ import { Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
 import { getSolicitudesTelefono } from "@/actions/perfil";
 import { getRecargas } from "@/actions/recargas";
-import { getMetricas, getResumenDiario, getUsuarios } from "@/actions/admin";
+import {
+  getMetricas,
+  getMovimientosUsuarios,
+  getResumenDiario,
+  getUsuarios,
+} from "@/actions/admin";
 import { getSorteos } from "@/actions/sorteos";
 import { AdminMetricas, ResumenDia } from "@/lib/supabase/types";
 import { hoyIsoEnPeru } from "@/lib/eventos";
@@ -21,9 +26,12 @@ function AdminHomeContent() {
   const [resumen, setResumen] = useState<ResumenDia[] | null>(null);
   const [sorteosActivos, setSorteosActivos] = useState<number | null>(null);
 
-  // Mes en curso, en calendario de Perú: del día 1 a hoy.
+  // Rango del cuadro y de la descarga. Arranca en el mes en curso
+  // (calendario de Perú) y lo mueve el propio panel.
   const hoyIso = hoyIsoEnPeru();
   const primerDiaMes = `${hoyIso.slice(0, 7)}-01`;
+  const [desde, setDesde] = useState(primerDiaMes);
+  const [hasta, setHasta] = useState(hoyIso);
 
   useEffect(() => {
     getMetricas().then((result) => {
@@ -44,12 +52,12 @@ function AdminHomeContent() {
       // colgado para siempre.
       setSorteosActivos(result.ok ? result.data.filter((s) => s.sorteo.activo).length : 0);
     });
-    getResumenDiario(primerDiaMes, hoyIso).then((result) => {
+    getResumenDiario(desde, hasta).then((result) => {
       // Si el RPC todavía no existe (migración 0034 sin correr), se muestra
       // vacío en vez de quedarse en "Cargando…" para siempre.
       setResumen(result.ok ? result.data : []);
     });
-  }, [primerDiaMes, hoyIso]);
+  }, [desde, hasta]);
 
   return (
     <>
@@ -105,7 +113,14 @@ function AdminHomeContent() {
           </div>
         </section>
 
-        <ResumenDiario resumen={resumen} mes={hoyIso.slice(0, 7)} metricas={metricas} />
+        <ResumenDiario
+          resumen={resumen}
+          desde={desde}
+          hasta={hasta}
+          onDesde={setDesde}
+          onHasta={setHasta}
+          metricas={metricas}
+        />
 
         {metricas ? (
           <section className="mt-6">
@@ -273,7 +288,8 @@ function fechaCorta(iso: string) {
  */
 async function descargarLibro(
   filas: ResumenDia[],
-  mes: string,
+  desde: string,
+  hasta: string,
   metricas: AdminMetricas | null
 ): Promise<string | null> {
   const t = filas.reduce(
@@ -291,7 +307,7 @@ async function descargarLibro(
   const yapeActual = filas[0]?.yape_acumulado ?? 0;
 
   const hojaMes: HojaExcel = {
-    nombre: `Dia a dia ${mes}`,
+    nombre: `Dia a dia`,
     encabezados: [
       "Fecha",
       "Ingreso (S/)",
@@ -415,17 +431,61 @@ async function descargarLibro(
       : [["Sin datos", 0, "No se pudieron cargar las metricas"]],
   };
 
-  descargarXlsx(`cachudobet-${hoyIsoEnPeru()}.xlsx`, [hojaMes, hojaSaldos, hojaMiDinero]);
+  // Historial por jugador: de dónde salió cada sol y a dónde se fue.
+  const movimientos = await getMovimientosUsuarios(desde, hasta);
+  if (!movimientos.ok) return movimientos.error;
+
+  const hojaHistorial: HojaExcel = {
+    nombre: "Historial de jugadores",
+    encabezados: [
+      "Fecha",
+      "Hora",
+      "Jugador",
+      "Tipo",
+      "Detalle",
+      "Monto (S/)",
+      "Es fake",
+    ],
+    filas: movimientos.data.map((m) => {
+      const d = new Date(m.fecha);
+      return [
+        d.toLocaleDateString("es-PE", { timeZone: "America/Lima" }),
+        d.toLocaleTimeString("es-PE", {
+          timeZone: "America/Lima",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        m.nickname,
+        m.tipo,
+        m.detalle,
+        redondear(m.monto),
+        m.esFake ? "SI" : "",
+      ];
+    }),
+  };
+
+  descargarXlsx(`cachudobet-${desde}_a_${hasta}.xlsx`, [
+    hojaMes,
+    hojaSaldos,
+    hojaHistorial,
+    hojaMiDinero,
+  ]);
   return null;
 }
 
 function ResumenDiario({
   resumen,
-  mes,
+  desde,
+  hasta,
+  onDesde,
+  onHasta,
   metricas,
 }: {
   resumen: ResumenDia[] | null;
-  mes: string;
+  desde: string;
+  hasta: string;
+  onDesde: (v: string) => void;
+  onHasta: (v: string) => void;
   metricas: AdminMetricas | null;
 }) {
   const [descargando, setDescargando] = useState(false);
@@ -436,7 +496,7 @@ function ResumenDiario({
     setDescargando(true);
     setErrorDescarga(null);
     try {
-      setErrorDescarga(await descargarLibro(resumen, mes, metricas));
+      setErrorDescarga(await descargarLibro(resumen, desde, hasta, metricas));
     } finally {
       setDescargando(false);
     }
@@ -458,8 +518,33 @@ function ResumenDiario({
 
   return (
     <section className="mt-8">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-display text-lg font-semibold text-gold-light">Día a día · {mes}</h2>
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <h2 className="font-display text-lg font-semibold text-gold-light">Día a día</h2>
+
+        {/* El rango manda sobre el cuadro Y sobre la descarga: tener uno
+            mostrando el mes y el otro exportando otra cosa se presta a
+            mandar el Excel equivocado. */}
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-[11px] uppercase tracking-wide text-parchment/40">
+            Desde
+            <input
+              type="date"
+              value={desde}
+              max={hasta}
+              onChange={(e) => onDesde(e.target.value)}
+              className="mt-1 block min-h-9 rounded-md border border-gold-dark bg-obsidian/60 px-2 py-1 text-xs text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            />
+          </label>
+          <label className="text-[11px] uppercase tracking-wide text-parchment/40">
+            Hasta
+            <input
+              type="date"
+              value={hasta}
+              min={desde}
+              onChange={(e) => onHasta(e.target.value)}
+              className="mt-1 block min-h-9 rounded-md border border-gold-dark bg-obsidian/60 px-2 py-1 text-xs text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            />
+          </label>
         <Button
           type="button"
           variant="ghost"
@@ -469,6 +554,7 @@ function ResumenDiario({
         >
           {descargando ? "Armando el Excel…" : "Descargar Excel"}
         </Button>
+        </div>
       </div>
 
       {errorDescarga ? (

@@ -5,10 +5,14 @@ import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
 import { RetadorBadge } from "@/components/partidas/RetadorBadge";
 import { LadoResumen } from "@/actions/betting";
+import { BET_MAX, BET_MIN } from "@/types";
 
 export function LadoPanel({
   lado,
   resumen,
+  /** Mínimo por apuesta en ESTA sala. Blackjack usa uno más bajo que el
+   * resto de categorías (ver 0045_minimo_blackjack.sql). */
+  montoMin = BET_MIN,
   /** Resumen del lado contrario: lo que tu apuesta cubriría al entrar. */
   resumenContrario,
   disabled,
@@ -19,6 +23,7 @@ export function LadoPanel({
 }: {
   lado: "a" | "b";
   resumen: LadoResumen;
+  montoMin?: number;
   resumenContrario: LadoResumen;
   disabled: boolean;
   /** Ya apostaste al lado contrario de esta sala. */
@@ -57,8 +62,14 @@ export function LadoPanel({
     setError(undefined);
 
     const montoNumber = Number(monto);
-    if (!Number.isFinite(montoNumber) || montoNumber <= 0) {
+    if (!Number.isFinite(montoNumber)) {
       setError("Ingresa un monto válido.");
+      return;
+    }
+    // Se avisa acá y no recién en el servidor: el mínimo cambia por
+    // categoría y un rebote de Postgres no explica cuál era.
+    if (montoNumber < montoMin || montoNumber > BET_MAX) {
+      setError(`El monto debe estar entre S/${montoMin} y S/${BET_MAX}.`);
       return;
     }
 
@@ -189,7 +200,7 @@ export function LadoPanel({
             </span>
             <input
               type="number"
-              min={1}
+              min={montoMin}
               step="0.01"
               inputMode="decimal"
               placeholder={cubrible > 0 ? String(cubrible) : "0"}

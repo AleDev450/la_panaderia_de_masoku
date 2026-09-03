@@ -24,7 +24,8 @@ function AdminUsuariosContent() {
   const { showToast } = useToast();
   const [usuarios, setUsuarios] = useState<UsuarioAdmin[] | null>(null);
   const [busqueda, setBusqueda] = useState("");
-  const [filtroDeposito, setFiltroDeposito] = useState<"todos" | "con" | "sin">("todos");
+  const [filtroDeposito, setFiltroDeposito] =
+    useState<"todos" | "con-saldo" | "con" | "sin">("todos");
   const [procesando, setProcesando] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState<UsuarioAdmin | null>(null);
   const [motivo, setMotivo] = useState("");
@@ -62,6 +63,10 @@ function AdminUsuariosContent() {
           (u.phone ?? "").includes(q)
       )
       .filter((u) => {
+        // "Con saldo" mira la plata REAL que tienen ahora (disponible + en
+        // juego), no lo que depositaron alguna vez: es la lista de a quién
+        // le debes hoy. El saldo fake queda fuera a propósito — no es plata.
+        if (filtroDeposito === "con-saldo") return u.saldoDisponible + u.saldoRetenido > 0;
         if (filtroDeposito === "con") return u.depositadoTotal > 0;
         if (filtroDeposito === "sin") return u.depositadoTotal === 0;
         return true;
@@ -257,6 +262,7 @@ function AdminUsuariosContent() {
         <div className="mt-3 flex flex-wrap gap-2">
           {[
             { value: "todos" as const, label: "Todos" },
+            { value: "con-saldo" as const, label: "Con saldo" },
             { value: "con" as const, label: "Depositaron" },
             { value: "sin" as const, label: "Sin depósito real" },
           ].map((opcion) => (

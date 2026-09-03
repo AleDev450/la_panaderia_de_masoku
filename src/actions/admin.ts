@@ -34,6 +34,7 @@ import {
   eliminarEventoPruebaSchema,
 } from "@/lib/validation/betting";
 import { HERRAMIENTAS_PRUEBA } from "@/lib/flags";
+import { inicioDeDiaEnPeru } from "@/lib/eventos";
 
 async function requireAdminId(): Promise<
   { ok: true; userId: string } | { ok: false; error: string }
@@ -256,6 +257,177 @@ export async function getIngresosManuales(): Promise<ActionResult<IngresoConNomb
       usuarioNickname: i.usuario_id ? (nicknamePorId.get(i.usuario_id) ?? "—") : null,
     })),
   };
+}
+
+/** Una línea del historial de un jugador, para la hoja de Excel. */
+export interface MovimientoUsuario {
+  /** ISO. Se formatea en calendario de Perú al escribir el Excel. */
+  fecha: string;
+  nickname: string;
+  /** Depósito · Retiro · Apuesta · Ajuste. Es la columna por la que se filtra. */
+  tipo: string;
+  /** Cómo entró o salió: "Yape con comprobante", "Efectivo", "Ganó", … */
+  detalle: string;
+  /** Positivo entra al jugador, negativo sale. */
+  monto: number;
+  /** Movió saldo fake, no plata. Se marca para no sumarlo con lo real. */
+  esFake: boolean;
+}
+
+/**
+ * Historial de movimientos de TODOS los jugadores en un rango de fechas:
+ * cómo depositaron, cuándo retiraron y qué apuestas ganaron o perdieron.
+ *
+ * Las apuestas se leen de `apuestas` + `eventos` y no de `movimientos_saldo`
+ * porque ahí una derrota no existe como fila: es una retención que nunca
+ * volvió. Cruzando el lado de la apuesta con el resultado del evento sale
+ * "Ganó"/"Perdió" directo, que es lo que se quiere leer en la hoja.
+ *
+ * El rango es en calendario de Perú, ambos días incluidos.
+ */
+export async function getMovimientosUsuarios(
+  desde: string,
+  hasta: string
+): Promise<ActionResult<MovimientoUsuario[]>> {
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const inicio = inicioDeDiaEnPeru(desde).toISOString();
+  // El día final entero: hasta el arranque del día siguiente.
+  const finDate = new Date(inicioDeDiaEnPeru(hasta).getTime() + 24 * 60 * 60 * 1000);
+  const fin = finDate.toISOString();
+
+  const admin = createSupabaseAdminClient();
+
+  const [perfiles, recargas, ingresos, retiros, apuestas, ajustes] = await Promise.all([
+    admin.from("perfiles").select("id, nickname"),
+    admin
+      .from("recargas")
+      .select("usuario_id, monto_acreditado, revisado_at")
+      .eq("estado", "aprobada")
+      .gte("revisado_at", inicio)
+      .lt("revisado_at", fin),
+    admin
+      .from("ingresos_manuales")
+      .select("usuario_id, concepto, monto, created_at")
+      .gte("created_at", inicio)
+      .lt("created_at", fin),
+    admin
+      .from("retiros")
+      .select("usuario_id, monto, revisado_at")
+      .eq("estado", "pagado")
+      .gte("revisado_at", inicio)
+      .lt("revisado_at", fin),
+    admin
+      .from("apuestas")
+      .select("usuario_id, evento_id, lado, monto_total, monto_matcheado, es_fake, created_at")
+      .gte("created_at", inicio)
+      .lt("created_at", fin),
+    admin
+      .from("ajustes_saldo")
+      .select("usuario_id, saldo_anterior, saldo_nuevo, motivo, es_fake, created_at")
+      .gte("created_at", inicio)
+      .lt("created_at", fin),
+  ]);
+
+  const nick = new Map((perfiles.data ?? []).map((p) => [p.id, p.nickname]));
+  const quien = (id: string) => nick.get(id) ?? "—";
+
+  const filas: MovimientoUsuario[] = [];
+
+  for (const r of recargas.data ?? []) {
+    filas.push({
+      fecha: r.revisado_at ?? "",
+      nickname: quien(r.usuario_id),
+      tipo: "Depósito",
+      detalle: "Recarga por Yape (con comprobante)",
+      monto: Number(r.monto_acreditado ?? 0),
+      esFake: false,
+    });
+  }
+
+  for (const i of ingresos.data ?? []) {
+    if (!i.usuario_id) continue;
+    filas.push({
+      fecha: i.created_at,
+      nickname: quien(i.usuario_id),
+      tipo: "Depósito",
+      detalle: `Registrado a mano — ${i.concepto}`,
+      monto: Number(i.monto ?? 0),
+      esFake: false,
+    });
+  }
+
+  for (const t of retiros.data ?? []) {
+    filas.push({
+      fecha: t.revisado_at ?? "",
+      nickname: quien(t.usuario_id),
+      tipo: "Retiro",
+      detalle: "Yapeado al jugador",
+      monto: -Number(t.monto ?? 0),
+      esFake: false,
+    });
+  }
+
+  for (const a of ajustes.data ?? []) {
+    const delta = Number(a.saldo_nuevo ?? 0) - Number(a.saldo_anterior ?? 0);
+    filas.push({
+      fecha: a.created_at,
+      nickname: quien(a.usuario_id),
+      tipo: a.es_fake ? "Saldo fake" : "Ajuste",
+      detalle: a.motivo,
+      monto: delta,
+      esFake: a.es_fake,
+    });
+  }
+
+  // Las apuestas necesitan el resultado del evento para saber si ganó o
+  // perdió; se piden solo los eventos tocados por el rango.
+  const eventoIds = [...new Set((apuestas.data ?? []).map((a) => a.evento_id))];
+  const eventosPorId = new Map<string, { nombre: string; estado: string; resultado: string | null }>();
+  if (eventoIds.length > 0) {
+    const { data: eventos } = await admin
+      .from("eventos")
+      .select("id, nombre, estado, resultado")
+      .in("id", eventoIds);
+    for (const e of eventos ?? []) {
+      eventosPorId.set(e.id, { nombre: e.nombre, estado: e.estado, resultado: e.resultado });
+    }
+  }
+
+  for (const a of apuestas.data ?? []) {
+    const evento = eventosPorId.get(a.evento_id);
+    const matcheado = Number(a.monto_matcheado ?? 0);
+    const total = Number(a.monto_total ?? 0);
+
+    if (!evento || evento.estado !== "resuelto" || !evento.resultado) {
+      filas.push({
+        fecha: a.created_at,
+        nickname: quien(a.usuario_id),
+        tipo: "Apuesta",
+        detalle: `${evento?.nombre ?? "Partida"} — sin resolver`,
+        monto: -total,
+        esFake: a.es_fake,
+      });
+      continue;
+    }
+
+    const gano = evento.resultado === a.lado;
+    filas.push({
+      fecha: a.created_at,
+      nickname: quien(a.usuario_id),
+      tipo: "Apuesta",
+      detalle: `${evento.nombre} — ${gano ? "GANÓ" : "PERDIÓ"}`,
+      // Neto de la mano: si ganó cobra 1.80 y había puesto lo emparejado.
+      monto: gano
+        ? Math.round(matcheado * 0.8 * 100) / 100
+        : -matcheado,
+      esFake: a.es_fake,
+    });
+  }
+
+  filas.sort((x, y) => (x.fecha < y.fecha ? 1 : x.fecha > y.fecha ? -1 : 0));
+  return { ok: true, data: filas };
 }
 
 export interface PagoManualConAdmin {

@@ -24,12 +24,20 @@ export interface User {
   createdAt: string;
 }
 
-/** Límites por apuesta — se validan en el schema Zod (`crearApuestaSchema`)
- * y otra vez en `crear_apuesta` (SQL, 0016_limites_y_requisito_retiro.sql).
- * OJO: el arte del footer ("aviso-apuestas.png") tiene "S/10" pintado a
- * mano en la imagen — cambiar este número no lo actualiza, hay que
- * regenerar ese PNG aparte. */
-export const BET_MIN = 5;
+/**
+ * Límites por apuesta. Se validan en Zod y OTRA VEZ en `crear_apuesta`
+ * (SQL, 0045_minimo_blackjack.sql) — el SQL es el que manda.
+ *
+ * El mínimo depende de la categoría: en blackjack se juega mano tras mano,
+ * así que 10 por mano era mucho. Los dos números tienen que coincidir con
+ * los de 0045; si cambias uno, cambia el otro.
+ *
+ * (Hasta 0045 esta constante decía 5 y el SQL exigía 10: la UI prometía un
+ * mínimo que el motor rechazaba.)
+ */
+export const BET_MIN = 10;
+/** Mínimo en mesas de blackjack. */
+export const BET_MIN_BLACKJACK = 5;
 export const BET_MAX = 100;
 export const DURACION_MIN_DEFAULT = 10;
 

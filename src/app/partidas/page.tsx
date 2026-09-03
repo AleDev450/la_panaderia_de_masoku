@@ -136,10 +136,10 @@ function PartidasContent() {
           asiento.data.lado === "a"
             ? asiento.data.monto_matcheado > 0
               ? "Juegas la mano y ya tienes rival: tú pides las cartas."
-              : "Juegas la mano. Esperando a quien apueste al host."
+              : "Juegas la mano. Esperando a quien apueste a la banca."
             : asiento.data.monto_matcheado > 0
-              ? "Apostaste al host — su mano la juega quien reparte."
-              : "Apostaste al host. Esperando a quien juegue la mano.",
+              ? "Apostaste a la banca — su mano la juega quien reparte."
+              : "Apostaste a la banca. Esperando a quien juegue la mano.",
       });
       await Promise.all([refresh(), refreshUser()]);
       return;
