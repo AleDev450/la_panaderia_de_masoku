@@ -5,10 +5,16 @@ import clsx from "clsx";
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
+import { Button } from "@/components/ui/Button";
+import { useToast } from "@/context/ToastContext";
 import {
   JugadaConUsuario,
+  SalaConJugadores,
+  cancelarSalaCaraSello,
   getHistorialCaraSello,
+  getMesasAdmin,
   getMetricasCaraSello,
+  lanzarMoneda,
 } from "@/actions/caraSello";
 import { MetricasCaraSello } from "@/lib/supabase/types";
 import { LADO_MONEDA_LABEL } from "@/lib/caraSello";
@@ -30,21 +36,54 @@ import { LADO_MONEDA_LABEL } from "@/lib/caraSello";
 const soles = (n: number) => n.toFixed(2);
 
 function AdminCaraSelloContent() {
+  const { showToast } = useToast();
   const [metricas, setMetricas] = useState<MetricasCaraSello | null>(null);
   const [historial, setHistorial] = useState<JugadaConUsuario[] | null>(null);
+  const [mesas, setMesas] = useState<SalaConJugadores[] | null>(null);
+  const [procesando, setProcesando] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const [m, h] = await Promise.all([getMetricasCaraSello(), getHistorialCaraSello()]);
+    const [m, h, s] = await Promise.all([
+      getMetricasCaraSello(),
+      getHistorialCaraSello(),
+      getMesasAdmin(),
+    ]);
     setMetricas(m.ok ? m.data : null);
     setHistorial(h.ok ? h.data : []);
+    setMesas(s.ok ? s.data : []);
   }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time bootstrap on mount
     refresh();
-    const id = setInterval(refresh, 15_000);
+    // 5s como /bakery/titulos: las mesas se llenan mientras miras, y hay que
+    // ver cuál está lista para lanzar sin recargar a mano.
+    const id = setInterval(refresh, 5_000);
     return () => clearInterval(id);
   }, [refresh]);
+
+  async function accion(
+    id: string,
+    ejecutar: () => Promise<{ ok: true } | { ok: false; error: string }>,
+    exito: { title: string; description?: string }
+  ) {
+    setProcesando(id);
+    try {
+      const result = await ejecutar();
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo", description: result.error });
+        return;
+      }
+      showToast({ variant: "success", ...exito });
+      await refresh();
+    } finally {
+      setProcesando(null);
+    }
+  }
+
+  const pendientes = (mesas ?? []).filter(
+    (m) => m.sala.estado === "esperando" || m.sala.estado === "lista"
+  );
 
   const totalResultados = metricas ? metricas.salio_cara + metricas.salio_sello : 0;
 
@@ -59,6 +98,98 @@ function AdminCaraSelloContent() {
           El resultado de cada jugada lo decide Postgres y se paga en el acto. Acá solo se
           mira cómo va.
         </p>
+
+        <section className="mt-8">
+          <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
+            Mesas por atender
+          </h2>
+
+          {mesas === null ? (
+            <p className="text-sm text-parchment/50">Cargando…</p>
+          ) : pendientes.length === 0 ? (
+            <Panel className="border-dashed p-6 text-center text-sm text-parchment/50">
+              No hay mesas esperando. Cuando dos jugadores se sienten, aparece acá el botón
+              para lanzar.
+            </Panel>
+          ) : (
+            <div className="space-y-3">
+              {pendientes.map(({ sala, creadorNickname, rivalNickname }) => {
+                const lista = sala.estado === "lista";
+                const enCurso = procesando === sala.id;
+                return (
+                  <Panel
+                    key={sala.id}
+                    className={clsx("p-5", lista && "border-gold/60 bg-gold/5")}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-display text-base font-semibold text-parchment">
+                          {creadorNickname}{" "}
+                          <span className="text-xs font-normal text-gold">
+                            ({LADO_MONEDA_LABEL[sala.lado_creador]})
+                          </span>
+                          <span className="mx-2 text-parchment/40">vs</span>
+                          {rivalNickname ? (
+                            <>
+                              {rivalNickname}{" "}
+                              <span className="text-xs font-normal text-parchment/60">
+                                ({LADO_MONEDA_LABEL[sala.lado_creador === "cara" ? "sello" : "cara"]}
+                                )
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-parchment/40">silla libre</span>
+                          )}
+                        </p>
+                        <p className="mt-0.5 text-xs text-parchment/45">
+                          S/{soles(sala.monto)} cada uno · pozo S/{soles(sala.monto * 2)} · premio
+                          S/{soles(sala.monto * sala.multiplicador)} · casa S/
+                          {soles(sala.monto * 2 - sala.monto * sala.multiplicador)}
+                        </p>
+                      </div>
+
+                      <div className="flex shrink-0 flex-wrap gap-2">
+                        {lista ? (
+                          <Button
+                            type="button"
+                            disabled={enCurso}
+                            onClick={() =>
+                              accion(sala.id, () => lanzarMoneda(sala.id), {
+                                title: "¡Moneda en el aire!",
+                                description: "Los dos jugadores están viendo el mismo lanzamiento.",
+                              })
+                            }
+                            className="min-h-9 px-4 py-1 text-xs"
+                          >
+                            {enCurso ? "Lanzando…" : "🪙 Lanzar moneda"}
+                          </Button>
+                        ) : (
+                          <span className="self-center rounded-full border border-gold-dark px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-parchment/45">
+                            Falta rival
+                          </span>
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          disabled={enCurso}
+                          onClick={() =>
+                            accion(sala.id, () => cancelarSalaCaraSello(sala.id), {
+                              title: "Mesa cancelada",
+                              description: "Se devolvió lo retenido.",
+                            })
+                          }
+                          className="min-h-9 px-3 py-1 text-xs"
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  </Panel>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
         <section className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Metrica label="Jugadas" valor={metricas ? String(metricas.jugadas) : "—"} detalle="Manos jugadas" />

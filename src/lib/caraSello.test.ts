@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  CUENTA_REGRESIVA_MONEDA_MS,
+  DURACION_MONEDA_MS,
   VUELTAS_MONEDA,
   comisionDelDuelo,
+  faseDeLanzamiento,
   gananciaNeta,
   ladoDe,
   pagoCaraSello,
@@ -74,6 +77,61 @@ describe("comisionDelDuelo", () => {
     // El premio no depende del resultado, así que la comisión tampoco.
     expect(comisionDelDuelo(20, 1.8)).toBe(comisionDelDuelo(20, 1.8));
     expect(comisionDelDuelo(20, 1.8)).toBeGreaterThan(0);
+  });
+});
+
+describe("faseDeLanzamiento", () => {
+  it("antes del lanzamiento muestra la cuenta regresiva", () => {
+    expect(faseDeLanzamiento(-2500, "cara")).toEqual({
+      fase: "cuenta",
+      segundos: 3,
+      rotacion: 0,
+    });
+    expect(faseDeLanzamiento(-400, "sello")).toMatchObject({ fase: "cuenta", segundos: 1 });
+  });
+
+  it("la cuenta nunca pasa de los segundos que fija el backend", () => {
+    const fase = faseDeLanzamiento(-45_000, "cara");
+    expect(fase.fase).toBe("cuenta");
+    expect(fase.fase === "cuenta" && fase.segundos).toBeLessThanOrEqual(
+      CUENTA_REGRESIVA_MONEDA_MS / 1000
+    );
+  });
+
+  it("termina exactamente en la cara que mandó el backend", () => {
+    // Si esto se rompe, la animación podría terminar enseñando el lado
+    // contrario al que se pagó.
+    for (const [resultado, resto] of [
+      ["cara", 0],
+      ["sello", 180],
+    ] as const) {
+      const fase = faseDeLanzamiento(DURACION_MONEDA_MS, resultado);
+      expect(fase.fase).toBe("terminado");
+      expect(fase.rotacion % 360).toBe(resto);
+    }
+  });
+
+  it("una mesa vieja se muestra ya caída, sin animar", () => {
+    expect(faseDeLanzamiento(60 * 60_000, "sello")).toEqual({
+      fase: "terminado",
+      rotacion: rotacionFinalMoneda("sello"),
+    });
+  });
+
+  it("dos pantallas que se enteraron en momentos distintos dibujan lo mismo", () => {
+    // Depende SOLO del tiempo transcurrido desde la marca del servidor, así
+    // que preguntando por el mismo instante da el mismo frame.
+    const instante = 1200;
+    expect(faseDeLanzamiento(instante, "cara")).toEqual(faseDeLanzamiento(instante, "cara"));
+  });
+
+  it("avanza sin retroceder mientras gira", () => {
+    let anterior = -1;
+    for (let t = 0; t <= DURACION_MONEDA_MS; t += 100) {
+      const fase = faseDeLanzamiento(t, "sello");
+      expect(fase.rotacion).toBeGreaterThanOrEqual(anterior);
+      anterior = fase.rotacion;
+    }
   });
 });
 

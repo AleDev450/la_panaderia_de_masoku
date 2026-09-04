@@ -68,13 +68,19 @@ export interface SalaConJugadores {
 }
 
 export interface VistaCaraSello {
-  /** Salas de otros esperando rival. */
-  abiertas: SalaConJugadores[];
-  /** La mía esperando, si tengo una. Solo se permite una a la vez. */
+  /**
+   * TODAS las mesas vivas: esperando rival, llenas esperando al staff, y las
+   * que acaban de resolverse. Se ven completas —quién contra quién— porque la
+   * gracia es mirar la mesa en vivo, como en blackjack.
+   */
+  mesas: SalaConJugadores[];
+  /** La mía pendiente, si tengo una. Solo se permite una a la vez. */
   miSala: CaraSelloSala | null;
   /** Mis últimos duelos resueltos, del más nuevo al más viejo. */
   misDuelos: SalaConJugadores[];
   config: CachudobetConfig;
+  /** `now()` de Postgres: el reloj contra el que se mide la animación. */
+  servidorAhora: string;
 }
 
 type Admin = ReturnType<typeof createSupabaseAdminClient>;
@@ -104,22 +110,38 @@ async function conJugadores(
   }));
 }
 
-/** El lobby: contra quién puedo sentarme, qué dejé abierto y cómo me fue. */
+/** El `now()` de Postgres, con el reloj de Node como red de seguridad si el
+ * RPC todavía no existe (migración sin correr). */
+async function servidorAhora(admin: Admin): Promise<string> {
+  const { data } = await admin.rpc("ahora_servidor");
+  return typeof data === "string" ? data : new Date().toISOString();
+}
+
+/**
+ * Las mesas en vivo. Se devuelven completas —con los dos nombres— porque la
+ * mesa es el espectáculo: se mira quién se enfrenta a quién y se espera a que
+ * el staff lance.
+ *
+ * Las resueltas se incluyen un rato después de caer la moneda, para que la
+ * gente alcance a ver el resultado antes de que la mesa desaparezca.
+ */
 export async function getLobbyCaraSello(): Promise<ActionResult<VistaCaraSello>> {
   const session = await requireSessionUserId();
   if (!session.ok) return session;
 
   const admin = createSupabaseAdminClient();
+  // Ventana de cortesía: una mesa resuelta sigue en pantalla 2 minutos.
+  const desde = new Date(Date.now() - 2 * 60_000).toISOString();
 
-  const [{ data: config, error: errorConfig }, { data: esperando }, { data: duelos }] =
+  const [{ data: config, error: errorConfig }, { data: vivas }, { data: duelos }, ahora] =
     await Promise.all([
       admin.from("cachudobet_config").select("*").single(),
       admin
         .from("cara_sello_salas")
         .select("*")
-        .eq("estado", "esperando")
+        .or(`estado.in.(esperando,lista),and(estado.eq.resuelta,resuelta_at.gte.${desde})`)
         .order("created_at", { ascending: false })
-        .limit(50),
+        .limit(60),
       admin
         .from("cara_sello_salas")
         .select("*")
@@ -127,25 +149,70 @@ export async function getLobbyCaraSello(): Promise<ActionResult<VistaCaraSello>>
         .or(`creador_id.eq.${session.userId},rival_id.eq.${session.userId}`)
         .order("resuelta_at", { ascending: false })
         .limit(10),
+      servidorAhora(admin),
     ]);
 
   if (errorConfig || !config) {
     return { ok: false, error: errorConfig?.message ?? "Falta la configuración de CACHUDOBET." };
   }
 
-  const todas = (esperando ?? []) as CaraSelloSala[];
-  const miSala = todas.find((s) => s.creador_id === session.userId) ?? null;
-  const deOtros = todas.filter((s) => s.creador_id !== session.userId);
+  const todas = (vivas ?? []) as CaraSelloSala[];
+  const miSala =
+    todas.find(
+      (s) => s.creador_id === session.userId && (s.estado === "esperando" || s.estado === "lista")
+    ) ?? null;
 
-  const [abiertas, misDuelos] = await Promise.all([
-    conJugadores(admin, deOtros),
+  const [mesas, misDuelos] = await Promise.all([
+    conJugadores(admin, todas),
     conJugadores(admin, (duelos ?? []) as CaraSelloSala[]),
   ]);
 
   return {
     ok: true,
-    data: { abiertas, miSala, misDuelos, config: config as CachudobetConfig },
+    data: { mesas, miSala, misDuelos, config: config as CachudobetConfig, servidorAhora: ahora },
   };
+}
+
+/** Admin-only: las mesas que el staff tiene que atender, más las últimas
+ * resueltas para poder mirar qué salió. */
+export async function getMesasAdmin(): Promise<ActionResult<SalaConJugadores[]>> {
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("cara_sello_salas")
+    .select("*")
+    .neq("estado", "cancelada")
+    .order("created_at", { ascending: false })
+    .limit(40);
+  if (error) return { ok: false, error: error.message };
+
+  return { ok: true, data: await conJugadores(admin, (data ?? []) as CaraSelloSala[]) };
+}
+
+/**
+ * EL botón del staff. El resultado se decide, se paga y se guarda dentro del
+ * RPC; recién después se fija `lanza_inicia_en`, así que para cuando la
+ * primera pantalla se entera, la moneda ya cayó en la base.
+ *
+ * Un segundo clic sobre la misma mesa lo rebota Postgres, no esta función.
+ */
+export async function lanzarMoneda(salaId: string): Promise<ActionResult<CaraSelloSala>> {
+  const parsed = z.string().uuid("Sala inválida.").safeParse(salaId);
+  if (!parsed.success) return { ok: false, error: "Sala inválida." };
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_lanzar_moneda", {
+    p_admin_id: session.userId,
+    p_sala_id: parsed.data,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as CaraSelloSala };
 }
 
 /** Abre la mesa y deja el monto retenido esperando rival. */
@@ -172,8 +239,8 @@ export async function crearSalaCaraSello(
 }
 
 /**
- * Sentarse enfrente. Devuelve la sala YA RESUELTA: la moneda cayó dentro del
- * RPC, así que lo que llega acá es el resultado, no una promesa.
+ * Sentarse enfrente. Desde 0053 esto NO lanza la moneda: deja la mesa lista
+ * y con la plata de los dos retenida, esperando a que el staff la lance.
  */
 export async function unirseCaraSello(salaId: string): Promise<ActionResult<CaraSelloSala>> {
   const parsed = z.string().uuid("Sala inválida.").safeParse(salaId);

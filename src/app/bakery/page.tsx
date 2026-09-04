@@ -131,6 +131,8 @@ function AdminHomeContent() {
           </div>
         </section>
 
+        <GananciaPorJuego metricas={metricas} />
+
         <ResumenDiario
           resumen={resumen}
           desde={desde}
@@ -205,9 +207,9 @@ function AdminHomeContent() {
 
               <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
                 Tu <strong className="text-parchment/60">ganancia</strong> del
-                negocio es S/{metricas.ganancia_total} — comisión menos pagos a
-                personal. Es otro número: no todo lo que te queda en caja es
-                ganancia, ni al revés.
+                negocio es S/{metricas.ganancia_total} — la comisión de los tres juegos
+                menos los pagos a personal. Es otro número: no todo lo que te queda en
+                caja es ganancia, ni al revés.
                 {metricas.ajustes_saldo_total !== 0
                   ? ` Además diste S/${metricas.ajustes_saldo_total} de saldo con "Ajustar saldo", que no fue plata que entró: sale de lo tuyo.`
                   : ""}
@@ -331,8 +333,11 @@ async function descargarLibro(
       pag: acc.pag + d.pagado,
       ret: acc.ret + d.retirado,
       gan: acc.gan + d.ganancia_real,
+      par: acc.par + d.comision_partidas,
+      rul: acc.rul + d.comision_ruleta,
+      mon: acc.mon + d.comision_cara_sello,
     }),
-    { dep: 0, apo: 0, pag: 0, ret: 0, gan: 0 }
+    { dep: 0, apo: 0, pag: 0, ret: 0, gan: 0, par: 0, rul: 0, mon: 0 }
   );
   // El "acumulado en Yape" ya es un running total: el total del mes es el del
   // día más reciente (filas viene ordenado del más nuevo al más viejo).
@@ -348,6 +353,11 @@ async function descargarLibro(
       "Yapee en retiros (S/)",
       "Me queda (S/)",
       "Ganancia real (S/)",
+      // Desglose de la ganancia (0052): en la hoja sí entra completo, que en
+      // la pantalla haría la tabla impasable de ancha.
+      "De partidas (S/)",
+      "De ruleta (S/)",
+      "De cara o sello (S/)",
       "Acumulado en Yape (S/)",
     ],
     filas: [
@@ -359,6 +369,9 @@ async function descargarLibro(
         d.retirado,
         redondear(d.depositado - d.pagado - d.retirado),
         d.ganancia_real,
+        d.comision_partidas,
+        d.comision_ruleta,
+        d.comision_cara_sello,
         d.yape_acumulado,
       ]),
       [
@@ -369,6 +382,9 @@ async function descargarLibro(
         redondear(t.ret),
         redondear(t.dep - t.pag - t.ret),
         redondear(t.gan),
+        redondear(t.par),
+        redondear(t.rul),
+        redondear(t.mon),
         yapeActual,
       ],
     ],
@@ -503,6 +519,132 @@ async function descargarLibro(
     hojaMiDinero,
   ]);
   return null;
+}
+
+/**
+ * De dónde sale cada sol de ganancia.
+ *
+ * Existe porque "Ganancia: S/240" no dice si el negocio lo está haciendo la
+ * ruleta, las partidas o la moneda — y esas tres se arreglan de formas
+ * distintas cuando una va mal. Partidas puede salir NEGATIVA cuando hubo
+ * saldo fake de por medio (0036): ahí la casa sí arriesga.
+ */
+function GananciaPorJuego({ metricas }: { metricas: AdminMetricas | null }) {
+  const fuentes = metricas
+    ? [
+        {
+          nombre: "Partidas y blackjack",
+          detalle: "0.20 por sol emparejado",
+          hoy: metricas.ganancia_partidas_hoy,
+          total: metricas.ganancia_partidas_total,
+        },
+        {
+          nombre: "Ruleta",
+          detalle: "Lo que no se llevó el ganador",
+          hoy: metricas.ganancia_ruleta_hoy,
+          total: metricas.ganancia_ruleta_total,
+        },
+        {
+          nombre: "Cara o sello",
+          detalle: "Apostado − pagado",
+          hoy: metricas.ganancia_cara_sello_hoy,
+          total: metricas.ganancia_cara_sello_total,
+        },
+      ]
+    : [];
+
+  return (
+    <section className="mt-8">
+      <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
+        De dónde viene la ganancia
+      </h2>
+      <Panel className="overflow-x-auto p-0">
+        <table className="w-full min-w-[480px] text-sm">
+          <thead>
+            <tr className="border-b border-gold-dark/40 text-left text-[11px] uppercase tracking-wide text-parchment/40">
+              <th className="px-4 py-2 font-semibold">Juego</th>
+              <th className="px-4 py-2 text-right font-semibold">Hoy</th>
+              <th className="px-4 py-2 text-right font-semibold">Histórico</th>
+            </tr>
+          </thead>
+          <tbody>
+            {metricas === null ? (
+              <tr>
+                <td colSpan={3} className="px-4 py-4 text-parchment/50">
+                  Cargando…
+                </td>
+              </tr>
+            ) : (
+              <>
+                {fuentes.map((f) => (
+                  <tr key={f.nombre} className="border-b border-gold-dark/20">
+                    <td className="px-4 py-2.5">
+                      <span className="text-parchment/85">{f.nombre}</span>
+                      <span className="block text-[11px] text-parchment/40">{f.detalle}</span>
+                    </td>
+                    <td
+                      className={`px-4 py-2.5 text-right ${f.hoy < 0 ? "text-lose-glow" : "text-parchment/70"}`}
+                    >
+                      S/{fmt(f.hoy)}
+                    </td>
+                    <td
+                      className={`px-4 py-2.5 text-right font-semibold ${
+                        f.total < 0 ? "text-lose-glow" : "text-win-glow"
+                      }`}
+                    >
+                      S/{fmt(f.total)}
+                    </td>
+                  </tr>
+                ))}
+                {metricas.pagos_personal_total !== 0 ? (
+                  <tr className="border-b border-gold-dark/20">
+                    <td className="px-4 py-2.5">
+                      <span className="text-parchment/85">Pagos a personal</span>
+                      <span className="block text-[11px] text-parchment/40">
+                        Se restan de la ganancia
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-lose-glow">
+                      −S/{fmt(metricas.pagos_personal_hoy)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-semibold text-lose-glow">
+                      −S/{fmt(metricas.pagos_personal_total)}
+                    </td>
+                  </tr>
+                ) : null}
+              </>
+            )}
+          </tbody>
+          {metricas ? (
+            <tfoot>
+              <tr className="border-t border-gold-dark/50 font-bold text-parchment">
+                <td className="px-4 py-2.5">TOTAL</td>
+                <td
+                  className={`px-4 py-2.5 text-right ${metricas.ganancia_hoy < 0 ? "text-lose-glow" : "text-parchment"}`}
+                >
+                  S/{fmt(metricas.ganancia_hoy)}
+                </td>
+                <td
+                  className={`px-4 py-2.5 text-right ${
+                    metricas.ganancia_total < 0 ? "text-lose-glow" : "text-win-glow"
+                  }`}
+                >
+                  S/{fmt(metricas.ganancia_total)}
+                </td>
+              </tr>
+            </tfoot>
+          ) : null}
+        </table>
+      </Panel>
+      <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
+        <strong className="text-parchment/60">Partidas</strong> puede salir negativa: es el
+        único juego donde la casa arriesga, por el saldo fake (ver 0036). En{" "}
+        <strong className="text-parchment/60">ruleta</strong> y{" "}
+        <strong className="text-parchment/60">cara o sello</strong> la comisión sale siempre
+        de plata de los jugadores, así que nunca baja de cero.
+      </p>
+    </section>
+  );
 }
 
 function ResumenDiario({
@@ -662,8 +804,8 @@ function ResumenDiario({
         <strong className="text-parchment/60">Yapeé (retiros)</strong> = retiros que pagaste ese
         día ·{" "}
         <strong className="text-parchment/60">Me queda</strong> = Ingreso − Se pagó − Yapeé ·{" "}
-        <strong className="text-parchment/60">Ganancia real</strong> = comisión del día menos
-        pagos a personal ·{" "}
+        <strong className="text-parchment/60">Ganancia real</strong> = comisión de los tres
+        juegos (partidas, ruleta y cara o sello) menos pagos a personal ·{" "}
         <strong className="text-parchment/60">Acum. Yape</strong> = lo que deberías tener en el
         Yape al cierre de ese día.
       </p>

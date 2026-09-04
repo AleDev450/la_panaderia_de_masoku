@@ -123,6 +123,17 @@ export async function getMetricas(): Promise<ActionResult<AdminMetricas>> {
       recargas_total: num(fila.recargas_total),
       retiros_total: num(fila.retiros_total),
       ingresos_manuales_total: num(fila.ingresos_manuales_total),
+      // Desglose por juego (0052). Si 0052 no corrió todavía, llegan
+      // undefined y quedan en 0: el panel muestra el total viejo y el
+      // desglose en cero, en vez de "S/NaN".
+      ganancia_partidas_hoy: num(fila.ganancia_partidas_hoy),
+      ganancia_partidas_total: num(fila.ganancia_partidas_total),
+      ganancia_ruleta_hoy: num(fila.ganancia_ruleta_hoy),
+      ganancia_ruleta_total: num(fila.ganancia_ruleta_total),
+      ganancia_cara_sello_hoy: num(fila.ganancia_cara_sello_hoy),
+      ganancia_cara_sello_total: num(fila.ganancia_cara_sello_total),
+      pagos_personal_hoy: num(fila.pagos_personal_hoy),
+      pagos_personal_total: num(fila.pagos_personal_total),
     },
   };
 }
@@ -158,6 +169,10 @@ export async function getResumenDiario(
       comision: Number(d.comision ?? 0),
       ganancia_real: Number(d.ganancia_real ?? 0),
       yape_acumulado: Number(d.yape_acumulado ?? 0),
+      // Desglose por juego (0052) — 0 si la migración todavía no corrió.
+      comision_partidas: Number(d.comision_partidas ?? 0),
+      comision_ruleta: Number(d.comision_ruleta ?? 0),
+      comision_cara_sello: Number(d.comision_cara_sello ?? 0),
     })),
   };
 }

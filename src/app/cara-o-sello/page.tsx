@@ -6,6 +6,7 @@ import { RequirePlayer } from "@/components/RequirePlayer";
 import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
+import { MesaCaraSello } from "@/components/caraSello/MesaCaraSello";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
 import {
@@ -15,27 +16,19 @@ import {
   getLobbyCaraSello,
   unirseCaraSello,
 } from "@/actions/caraSello";
-import { CaraSelloSala, LadoMoneda } from "@/lib/supabase/types";
-import {
-  DURACION_MONEDA_MS,
-  LADO_MONEDA_LABEL,
-  ladoDe,
-  pagoCaraSello,
-  rotacionFinalMoneda,
-} from "@/lib/caraSello";
+import { LadoMoneda } from "@/lib/supabase/types";
+import { LADO_MONEDA_LABEL, ladoDe, pagoCaraSello } from "@/lib/caraSello";
 
 /**
- * Cara o sello 1v1.
+ * Salón de cara o sello.
  *
- * Uno abre la sala eligiendo lado y monto; otro se sienta enfrente con el
- * mismo monto y ahí cae la moneda. El resultado lo decide Postgres dentro de
- * `unirse_cara_sello`, en la misma transacción que mueve el saldo de los dos:
- * esta pantalla solo lo anima.
+ * Funciona como las mesas de blackjack: las mesas se ven en vivo con los dos
+ * jugadores sentados, y **la moneda la lanza el staff**. El jugador abre mesa
+ * o se sienta en una, y espera mirando.
  *
- * Los dos jugadores se enteran por caminos distintos —el que se sienta lo
- * recibe como respuesta de su propia acción, el que abrió lo ve en el
- * siguiente poll— pero los dos ven exactamente el mismo resultado, porque ya
- * está escrito en la base antes de que gire nada.
+ * Nada de esto decide el resultado: `admin_lanzar_moneda` ya lo escribió en
+ * Postgres antes de que la primera pantalla empiece a animar. Acá solo se
+ * mide contra el reloj del servidor para que todos vean lo mismo.
  */
 
 const soles = (n: number) => n.toFixed(2);
@@ -45,36 +38,14 @@ function CaraSelloContent() {
   const { showToast } = useToast();
   const [vista, setVista] = useState<VistaCaraSello | null>(null);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
-
-  const [rotacion, setRotacion] = useState(0);
-  const [conTransicion, setConTransicion] = useState(true);
-  const [duelo, setDuelo] = useState<CaraSelloSala | null>(null);
-  const [animando, setAnimando] = useState(false);
   const [reducirMovimiento, setReducirMovimiento] = useState(false);
 
-  /** Duelos que ya se mostraron. Sin esto, el poll volvería a animar el mismo
-   * resultado cada dos segundos. */
-  const animados = useRef<Set<string>>(new Set());
+  /** Reloj del servidor menos el de este navegador. */
+  const desfaseRef = useRef(0);
+  const [desfase, setDesfase] = useState(0);
+  /** Mesas cuyo resultado ya avisamos, para no repetir el toast en cada poll. */
+  const avisadas = useRef<Set<string>>(new Set());
   const primeraCarga = useRef(true);
-
-  const lanzarMoneda = useCallback(
-    async (sala: CaraSelloSala) => {
-      if (!sala.resultado) return;
-      animados.current.add(sala.id);
-
-      const base = Math.ceil(rotacion / 360) * 360;
-      setConTransicion(!reducirMovimiento);
-      setRotacion(base + rotacionFinalMoneda(sala.resultado));
-
-      if (!reducirMovimiento) {
-        setAnimando(true);
-        await new Promise((resolver) => setTimeout(resolver, DURACION_MONEDA_MS));
-        setAnimando(false);
-      }
-      setDuelo(sala);
-    },
-    [rotacion, reducirMovimiento]
-  );
 
   const refresh = useCallback(async () => {
     const result = await getLobbyCaraSello();
@@ -83,28 +54,47 @@ function CaraSelloContent() {
       return;
     }
     setErrorCarga(null);
+
+    const nuevoDesfase = new Date(result.data.servidorAhora).getTime() - Date.now();
+    desfaseRef.current = nuevoDesfase;
+    setDesfase(nuevoDesfase);
     setVista(result.data);
 
-    // En la primera carga los duelos viejos se marcan como vistos: entrar a
-    // la página no debería reproducir la partida de ayer.
+    // En la primera carga no se avisa nada: entrar a la página no debería
+    // anunciar duelos de hace media hora.
     if (primeraCarga.current) {
       primeraCarga.current = false;
-      for (const d of result.data.misDuelos) animados.current.add(d.sala.id);
+      for (const m of result.data.mesas) avisadas.current.add(m.sala.id);
       return;
     }
 
-    // El que abrió la sala se entera acá: su duelo aparece resuelto.
-    const reciente = result.data.misDuelos[0];
-    if (reciente && !animados.current.has(reciente.sala.id)) {
-      await lanzarMoneda(reciente.sala);
+    for (const { sala } of result.data.mesas) {
+      if (sala.estado !== "resuelta" || avisadas.current.has(sala.id)) continue;
+      avisadas.current.add(sala.id);
+
+      const juego = sala.creador_id === user?.id || sala.rival_id === user?.id;
+      if (!juego) continue;
+
+      const gane = sala.ganador_id === user?.id;
+      showToast(
+        gane
+          ? {
+              variant: "success",
+              title: "¡Ganaste!",
+              description: `Se te acreditaron S/${soles(sala.premio ?? 0)}.`,
+            }
+          : { variant: "info", title: "Esta vez no", description: "Se la llevó tu rival." }
+      );
       await refreshUser();
     }
-  }, [lanzarMoneda, refreshUser]);
+  }, [user?.id, showToast, refreshUser]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time bootstrap on mount
     refresh();
-    const id = setInterval(refresh, 3_000);
+    // 2s, igual que la ruleta: es lo que tienen que cubrir los 3 segundos de
+    // cuenta regresiva para que todos lleguen al lanzamiento.
+    const id = setInterval(refresh, 2_000);
     return () => clearInterval(id);
   }, [refresh]);
 
@@ -124,7 +114,11 @@ function CaraSelloContent() {
       await refresh();
       return;
     }
-    await lanzarMoneda(result.data);
+    showToast({
+      variant: "success",
+      title: "Estás sentado",
+      description: "Ahora el staff lanza la moneda. Quédate mirando.",
+    });
     await Promise.all([refresh(), refreshUser()]);
   }
 
@@ -134,132 +128,87 @@ function CaraSelloContent() {
       showToast({ variant: "warning", title: "No se pudo cancelar", description: result.error });
       return;
     }
-    showToast({ variant: "info", title: "Sala cancelada", description: "Te devolvimos tu monto." });
+    showToast({ variant: "info", title: "Mesa cancelada", description: "Te devolvimos tu monto." });
     await Promise.all([refresh(), refreshUser()]);
   }
 
-  const gane = duelo && user ? duelo.ganador_id === user.id : false;
-  const miLadoDelDuelo = duelo && user ? ladoDe(duelo, user.id) : null;
+  const mesas = vista?.mesas ?? [];
+  // La mesa propia primero: es la que le importa a quien está jugando.
+  const ordenadas = [...mesas].sort((a, b) => {
+    const mia = (m: (typeof mesas)[number]) =>
+      m.sala.creador_id === user?.id || m.sala.rival_id === user?.id ? 0 : 1;
+    return mia(a) - mia(b);
+  });
 
   return (
     <>
       <Header />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="title-cachudo text-4xl text-parchment sm:text-5xl">Cara o sello</h1>
-        <p className="mt-2 text-sm text-parchment/60">
-          Uno contra uno. Abre una sala con tu lado y tu monto, o siéntate en la de otro:
-          quien acierta se lleva{" "}
-          <span className="text-gold-light">
-            {vista ? `${vista.config.cara_sello_multiplicador}x` : "—"}
-          </span>
-          .
-        </p>
-
-        <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-          <Panel className="flex flex-col items-center justify-center p-8">
-            <Moneda rotacion={rotacion} conTransicion={conTransicion} />
-
-            <p
-              aria-live="polite"
-              className={clsx(
-                "mt-7 min-h-8 text-center font-display text-xl font-black uppercase tracking-wide",
-                duelo && !animando
-                  ? gane
-                    ? "text-win-glow"
-                    : "text-lose-glow"
-                  : "text-parchment/40"
-              )}
-            >
-              {animando
-                ? "Girando…"
-                : duelo
-                  ? gane
-                    ? `🎉 ¡Ganaste S/${soles(duelo.premio ?? 0)}!`
-                    : "❌ Perdiste"
-                  : "Siéntate en una sala"}
-            </p>
-
-            {duelo && !animando ? (
-              <p className="mt-1 text-center text-xs text-parchment/45">
-                Salió {LADO_MONEDA_LABEL[duelo.resultado!].toLowerCase()}
-                {miLadoDelDuelo
-                  ? ` · ibas a ${LADO_MONEDA_LABEL[miLadoDelDuelo].toLowerCase()}`
-                  : null}{" "}
-                · S/{soles(duelo.monto)} cada uno
-              </p>
-            ) : null}
-          </Panel>
-
-          <div className="space-y-4">
-            {vista?.miSala ? (
-              <MiSala sala={vista.miSala} onCancelar={() => cancelar(vista.miSala!.id)} />
-            ) : (
-              <FormularioSala
-                config={vista?.config ?? null}
-                saldo={user?.balance ?? 0}
-                onCreada={async () => {
-                  await Promise.all([refresh(), refreshUser()]);
-                }}
-                showToast={showToast}
-              />
-            )}
-
-            <p className="text-xs text-parchment/45">
-              Tu saldo: <span className="text-parchment/80">S/{soles(user?.balance ?? 0)}</span>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="title-cachudo text-4xl text-parchment sm:text-5xl">Cara o sello</h1>
+            <p className="mt-2 max-w-xl text-sm text-parchment/60">
+              Mesas de uno contra uno. Abre la tuya o siéntate en la de alguien; cuando la
+              mesa se llena,{" "}
+              <span className="text-parchment/85">el staff lanza la moneda en vivo</span> y
+              todos la vemos caer al mismo tiempo.
             </p>
           </div>
-        </section>
+          <p className="text-xs text-parchment/45">
+            Tu saldo:{" "}
+            <span className="font-display text-sm font-bold text-gold">
+              S/{soles(user?.balance ?? 0)}
+            </span>
+          </p>
+        </div>
 
-        <section className="mt-10">
+        {!vista?.miSala ? (
+          <FormularioSala
+            config={vista?.config ?? null}
+            saldo={user?.balance ?? 0}
+            onCreada={async () => {
+              await Promise.all([refresh(), refreshUser()]);
+            }}
+            showToast={showToast}
+          />
+        ) : null}
+
+        <section className="mt-8">
           <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
-            Salas esperando rival
+            Mesas en vivo
           </h2>
 
           {vista === null ? (
             errorCarga ? (
               <Panel className="border-dashed p-6 text-center">
-                <p className="text-sm text-lose-glow">No se pudo cargar el lobby.</p>
+                <p className="text-sm text-lose-glow">No se pudieron cargar las mesas.</p>
                 <p className="mt-1 text-xs text-parchment/45">{errorCarga}</p>
               </Panel>
             ) : (
               <p className="text-sm text-parchment/50">Cargando…</p>
             )
-          ) : vista.abiertas.length === 0 ? (
-            <Panel className="border-dashed p-6 text-center text-sm text-parchment/50">
-              Nadie tiene una sala abierta. Abre la tuya y espera rival.
+          ) : ordenadas.length === 0 ? (
+            <Panel className="border-dashed p-8 text-center">
+              <p className="font-display text-lg text-parchment/70">No hay mesas abiertas</p>
+              <p className="mt-1 text-sm text-parchment/45">
+                Abre la tuya arriba y espera a que alguien se siente.
+              </p>
             </Panel>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {vista.abiertas.map(({ sala, creadorNickname }) => {
-                const miLado = sala.lado_creador === "cara" ? "sello" : "cara";
-                const sinSaldo = (user?.balance ?? 0) < sala.monto;
-                return (
-                  <Panel key={sala.id} className="flex flex-col justify-between p-5">
-                    <div>
-                      <p className="truncate font-display text-sm font-bold text-parchment">
-                        {creadorNickname}
-                      </p>
-                      <p className="mt-0.5 text-xs text-parchment/45">
-                        Eligió {LADO_MONEDA_LABEL[sala.lado_creador].toLowerCase()}
-                      </p>
-                      <p className="mt-3 font-display text-2xl font-bold text-gold-light">
-                        S/{soles(sala.monto)}
-                      </p>
-                      <p className="text-[11px] text-parchment/40">
-                        Ganas S/{soles(pagoCaraSello(sala.monto, sala.multiplicador))}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      disabled={animando || sinSaldo}
-                      onClick={() => void sentarse(sala.id)}
-                      className="mt-4 w-full text-xs"
-                    >
-                      {sinSaldo ? "Saldo insuficiente" : `Ir con ${LADO_MONEDA_LABEL[miLado]}`}
-                    </Button>
-                  </Panel>
-                );
-              })}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {ordenadas.map((item) => (
+                <MesaCaraSello
+                  key={item.sala.id}
+                  item={item}
+                  miUsuarioId={user?.id}
+                  saldo={user?.balance ?? 0}
+                  desfaseMs={desfase}
+                  reducirMovimiento={reducirMovimiento}
+                  ocupado={vista.miSala !== null}
+                  onUnirse={sentarse}
+                  onCancelar={cancelar}
+                />
+              ))}
             </div>
           )}
         </section>
@@ -321,32 +270,6 @@ function CaraSelloContent() {
   );
 }
 
-function MiSala({ sala, onCancelar }: { sala: CaraSelloSala; onCancelar: () => void }) {
-  return (
-    <Panel className="border-gold-light/50 bg-gold/5 p-5">
-      <p className="font-display text-sm font-bold uppercase tracking-wide text-gold-light">
-        Tu sala está abierta
-      </p>
-      <p className="mt-2 text-sm text-parchment/70">
-        Vas con <strong className="text-parchment">{LADO_MONEDA_LABEL[sala.lado_creador]}</strong>{" "}
-        por <strong className="text-parchment">S/{soles(sala.monto)}</strong>. Cuando alguien
-        se siente, la moneda cae sola y lo verás acá.
-      </p>
-      <p className="mt-2 text-[11px] text-parchment/40">
-        Tu monto está apartado mientras esperas. Si cancelas, vuelve entero.
-      </p>
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={onCancelar}
-        className="mt-4 w-full text-xs"
-      >
-        Cancelar sala
-      </Button>
-    </Panel>
-  );
-}
-
 function FormularioSala({
   config,
   saldo,
@@ -388,8 +311,8 @@ function FormularioSala({
       }
       showToast({
         variant: "success",
-        title: "Sala abierta",
-        description: "Ahora falta que alguien se siente enfrente.",
+        title: "Mesa abierta",
+        description: "Cuando alguien se siente, el staff lanza la moneda.",
       });
       setMonto("");
       await onCreada();
@@ -399,131 +322,73 @@ function FormularioSala({
   }
 
   return (
-    <Panel className="p-5">
-      <form onSubmit={handleSubmit}>
-        <p className="font-display text-sm font-bold uppercase tracking-wide text-gold-light">
-          Abrir una sala
-        </p>
-
-        <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="Elige tu lado">
-          {(["cara", "sello"] as const).map((opcion) => (
-            <button
-              key={opcion}
-              type="button"
-              aria-pressed={lado === opcion}
-              onClick={() => setLado(opcion)}
-              className={clsx(
-                "min-h-14 rounded-lg border px-3 py-2 font-display text-sm font-extrabold uppercase tracking-wide transition",
-                lado === opcion
-                  ? "border-gold bg-gold/15 text-gold shadow-[0_0_20px_-8px_rgba(245,197,24,0.9)]"
-                  : "border-gold-dark bg-obsidian/60 text-parchment/60 hover:border-gold/60"
-              )}
-            >
-              <span aria-hidden className="mr-1">
-                🪙
-              </span>
-              {LADO_MONEDA_LABEL[opcion]}
-            </button>
-          ))}
+    <Panel className="mt-6 p-5">
+      <form onSubmit={handleSubmit} className="grid gap-4 lg:grid-cols-[auto_1fr_auto] lg:items-end">
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-parchment/40">Tu lado</p>
+          <div className="mt-1 grid grid-cols-2 gap-2" role="group" aria-label="Elige tu lado">
+            {(["cara", "sello"] as const).map((opcion) => (
+              <button
+                key={opcion}
+                type="button"
+                aria-pressed={lado === opcion}
+                onClick={() => setLado(opcion)}
+                className={clsx(
+                  "min-h-11 rounded-lg border px-4 py-2 font-display text-sm font-extrabold uppercase tracking-wide transition",
+                  lado === opcion
+                    ? "border-gold bg-gold/15 text-gold shadow-[0_0_20px_-8px_rgba(245,197,24,0.9)]"
+                    : "border-gold-dark bg-obsidian/60 text-parchment/60 hover:border-gold/60"
+                )}
+              >
+                <span aria-hidden className="mr-1">
+                  🪙
+                </span>
+                {LADO_MONEDA_LABEL[opcion]}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <label
-          htmlFor="monto-moneda"
-          className="mt-4 block text-[11px] uppercase tracking-wide text-parchment/40"
-        >
-          Monto
-          {config ? ` (S/${soles(config.cara_sello_min)} – S/${soles(config.cara_sello_max)})` : ""}
-        </label>
-        <input
-          id="monto-moneda"
-          type="number"
-          inputMode="decimal"
-          min={config?.cara_sello_min ?? 5}
-          max={config?.cara_sello_max ?? 100}
-          step="1"
-          value={monto}
-          onChange={(e) => {
-            setMonto(e.target.value);
-            setError(undefined);
-          }}
-          className="mt-1 min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
-          placeholder={soles(config?.cara_sello_min ?? 5)}
-        />
+        <div>
+          <label
+            htmlFor="monto-moneda"
+            className="block text-[11px] uppercase tracking-wide text-parchment/40"
+          >
+            Monto
+            {config
+              ? ` (S/${soles(config.cara_sello_min)} – S/${soles(config.cara_sello_max)})`
+              : ""}
+          </label>
+          <input
+            id="monto-moneda"
+            type="number"
+            inputMode="decimal"
+            min={config?.cara_sello_min ?? 5}
+            max={config?.cara_sello_max ?? 100}
+            step="1"
+            value={monto}
+            onChange={(e) => {
+              setMonto(e.target.value);
+              setError(undefined);
+            }}
+            className="mt-1 min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            placeholder={soles(config?.cara_sello_min ?? 5)}
+          />
+          {premio > 0 ? (
+            <p className="mt-1 text-xs text-parchment/50">
+              Tu rival pone lo mismo. Si ganas cobras{" "}
+              <span className="text-gold-light">S/{soles(premio)}</span>
+            </p>
+          ) : null}
+        </div>
 
-        {premio > 0 ? (
-          <p className="mt-2 text-xs text-parchment/50">
-            El rival pone lo mismo. Si ganas cobras{" "}
-            <span className="text-gold-light">S/{soles(premio)}</span>
-          </p>
-        ) : null}
-
-        <Button type="submit" disabled={creando || monto.trim() === ""} className="mt-4 w-full">
-          {creando ? "Abriendo…" : "Abrir sala"}
+        <Button type="submit" disabled={creando || monto.trim() === ""} className="lg:w-40">
+          {creando ? "Abriendo…" : "Abrir mesa"}
         </Button>
 
-        {error ? <p className="mt-3 text-sm text-lose-glow">{error}</p> : null}
+        {error ? <p className="text-sm text-lose-glow lg:col-span-3">{error}</p> : null}
       </form>
     </Panel>
-  );
-}
-
-/** La moneda: dos caras enfrentadas girando sobre el eje Y. La rotación la
- * manda el padre — acá no se decide nada. */
-function Moneda({ rotacion, conTransicion }: { rotacion: number; conTransicion: boolean }) {
-  return (
-    <div className="[perspective:900px]">
-      <div
-        className="relative h-40 w-40 sm:h-48 sm:w-48"
-        style={{
-          transformStyle: "preserve-3d",
-          transform: `rotateY(${rotacion}deg)`,
-          transition: conTransicion
-            ? `transform ${DURACION_MONEDA_MS}ms cubic-bezier(0.4, 0, 0.15, 1)`
-            : undefined,
-        }}
-      >
-        <CaraMoneda etiqueta="Cara" simbolo="C" />
-        <CaraMoneda etiqueta="Sello" simbolo="S" reverso />
-      </div>
-    </div>
-  );
-}
-
-function CaraMoneda({
-  etiqueta,
-  simbolo,
-  reverso = false,
-}: {
-  etiqueta: string;
-  simbolo: string;
-  reverso?: boolean;
-}) {
-  return (
-    <div
-      className="absolute inset-0 flex flex-col items-center justify-center rounded-full border-4"
-      style={{
-        backfaceVisibility: "hidden",
-        transform: reverso ? "rotateY(180deg)" : undefined,
-        borderColor: reverso ? "#cfd3dc" : "#f5c518",
-        background: reverso
-          ? "radial-gradient(circle at 35% 30%, #6b7280, #1f2937 70%)"
-          : "radial-gradient(circle at 35% 30%, #ffd95c, #b8860b 72%)",
-        boxShadow: "0 18px 40px -18px rgba(0,0,0,0.9), inset 0 2px 12px rgba(255,255,255,0.25)",
-      }}
-    >
-      <span
-        className="font-display text-5xl font-black"
-        style={{ color: reverso ? "#e5e7eb" : "#3b2c05" }}
-      >
-        {simbolo}
-      </span>
-      <span
-        className="mt-1 font-display text-[11px] font-bold uppercase tracking-[0.2em]"
-        style={{ color: reverso ? "#cbd5e1" : "#4a3806" }}
-      >
-        {etiqueta}
-      </span>
-    </div>
   );
 }
 

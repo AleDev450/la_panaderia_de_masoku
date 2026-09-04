@@ -220,6 +220,24 @@ export type AdminMetricas = {
   /** Plata que entró sin pasar por una recarga (0044) — efectivo y demás.
    * Cuenta como ingreso y sube el total esperado, igual que una recarga. */
   ingresos_manuales_total: number;
+
+  /* Desglose de la ganancia por juego (0052). Los tres suman `ganancia_*`
+   * antes de restarle los pagos a personal. */
+
+  /** Partidas y blackjack: 0.20 por sol emparejado. Puede ser NEGATIVA si
+   * hubo saldo fake de por medio (0036). */
+  ganancia_partidas_hoy: number;
+  ganancia_partidas_total: number;
+  /** Ruleta (0048): el % de lo ajeno que no se llevó el ganador. */
+  ganancia_ruleta_hoy: number;
+  ganancia_ruleta_total: number;
+  /** Cara o sello: apostado − pagado, que cubre tanto los duelos 1v1 (0050)
+   * como las jugadas viejas contra la casa (0049). */
+  ganancia_cara_sello_hoy: number;
+  ganancia_cara_sello_total: number;
+  /** Pagos a personal que se restan de la ganancia (0022). */
+  pagos_personal_hoy: number;
+  pagos_personal_total: number;
 };
 
 /** Una fila del resumen día a día (0034/0035). Fecha en calendario de Perú;
@@ -232,9 +250,14 @@ export type ResumenDia = {
   pagado: number;
   /** Retiros yapeados ese día (0038) — la plata que de verdad salió del Yape. */
   retirado: number;
+  /** Comisión de los TRES juegos (0052). Antes era solo la de partidas. */
   comision: number;
   ganancia_real: number;
   yape_acumulado: number;
+  /** Desglose de `comision` por juego (0052). */
+  comision_partidas: number;
+  comision_ruleta: number;
+  comision_cara_sello: number;
 };
 
 export type PagoManual = {
@@ -436,7 +459,9 @@ export type CaraSelloJugada = {
   created_at: string;
 };
 
-export type EstadoSalaCaraSello = "esperando" | "resuelta" | "cancelada";
+/** Ciclo de una mesa (0053): `lista` es "los dos sentados, esperando a que el
+ * staff lance". La moneda no cae sola. */
+export type EstadoSalaCaraSello = "esperando" | "lista" | "resuelta" | "cancelada";
 
 /** Un duelo 1v1 de cara o sello (0050). Los dos ponen el mismo monto; el
  * ganador cobra `premio` y la casa se queda `comision`. */
@@ -452,6 +477,10 @@ export type CaraSelloSala = {
   premio: number | null;
   comision: number | null;
   multiplicador: number;
+  /** Instante del SERVIDOR en que arranca la animación (0053). Todos los
+   * clientes anclan el lanzamiento acá, así ven caer la misma moneda en el
+   * mismo momento. */
+  lanza_inicia_en: string | null;
   created_at: string;
   resuelta_at: string | null;
   updated_at: string;
@@ -887,6 +916,10 @@ export interface Database {
       };
       cancelar_sala_cara_sello: {
         Args: { p_usuario_id: string; p_sala_id: string };
+        Returns: CaraSelloSala;
+      };
+      admin_lanzar_moneda: {
+        Args: { p_admin_id: string; p_sala_id: string };
         Returns: CaraSelloSala;
       };
       admin_metricas_cara_sello: {

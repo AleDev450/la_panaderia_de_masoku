@@ -67,13 +67,15 @@ quien eligió el lado contrario.
    código, así que el sorteo es un `order by random() limit 1` uniforme:
    tener diez tickets es tener diez filas, y ahí está toda la ponderación.
    **Solo el staff gira**; el jugador no tiene botón.
-10. **Cara o sello** es un duelo 1v1 (0050; nació contra la casa en 0049 y se
-    cambió). Uno abre una sala con su lado y su monto —que queda retenido
-    esperando—, otro se sienta enfrente con el **mismo monto**, y ahí cae la
-    moneda: `random()` en Postgres, en la misma transacción que mueve el
-    saldo de los dos. El ganador cobra 1.80x y la casa se queda 0.20 por sol,
-    la misma comisión fija del motor: gane quien gane, la casa gana lo mismo.
-    El navegador solo anima hacia el lado que la base ya decidió.
+10. **Cara o sello** es un duelo 1v1 en mesa, y **la moneda la lanza el
+    staff** (0053; nació contra la casa en 0049, pasó a 1v1 en 0050). Uno abre
+    mesa con su lado y su monto —que queda retenido—, otro se sienta enfrente
+    con el **mismo monto**, y la mesa queda `lista` a la vista de todos: se ve
+    quién se enfrenta a quién, igual que en blackjack. El staff aprieta
+    "Lanzar moneda" y ahí cae, con todos mirando el mismo lanzamiento. El
+    ganador cobra 1.80x y la casa se queda 0.20 por sol, la misma comisión
+    fija del motor: gane quien gane, la casa gana lo mismo. El navegador solo
+    anima hacia el lado que Postgres ya decidió y pagó.
 
 ### Por qué la comisión se cobra sobre lo ajeno (0051)
 
@@ -102,7 +104,10 @@ no hay a quién ganarle.
 
 ### Cómo se ve el mismo sorteo en todas las pantallas
 
-Sin websockets: el proyecto no tiene realtime y no se le agregó uno.
+Sin websockets: el proyecto no tiene realtime y no se le agregó uno. Vale
+igual para el giro de la ruleta y para la moneda de cara o sello —el mecanismo
+es el mismo, cambia el nombre de la columna (`giro_inicia_en` /
+`lanza_inicia_en`).
 
 `admin_girar_ruleta` elige al ganador, lo paga, lo escribe, y recién entonces
 fija `giro_inicia_en = now() + 3s`. Los clientes preguntan cada 2s y, cuando
@@ -117,6 +122,27 @@ trae el `now()` de Postgres (`ahora_servidor()`) y el cliente corrige el
 desfase de su propio reloj. Comparar contra el reloj del navegador —o contra
 el del servidor de Next, que es otra máquina— haría que dos pantallas frenaran
 en momentos distintos.
+
+### De dónde viene la ganancia (0052)
+
+La casa cobra en tres lugares distintos, y el panel los muestra desglosados
+porque no se arreglan igual cuando uno va mal:
+
+| Fuente | Cómo se calcula | ¿Puede ser negativa? |
+| --- | --- | --- |
+| **Partidas y blackjack** | `comisiones_plataforma` — 0.20 por sol emparejado | **Sí**, si hubo saldo fake de por medio (0036) |
+| **Ruleta** | `ruleta_rondas.comision_monto` — lo que no se llevó el ganador | No |
+| **Cara o sello** | `sum(monto) − sum(pago)` sobre `cara_sello_jugadas` | No desde 0050 |
+
+Cara o sello se calcula desde las jugadas y no desde `cara_sello_salas` a
+propósito: así una sola cuenta cubre las dos épocas del juego —las jugadas
+contra la casa de 0049 y los duelos 1v1 de 0050—. Antes de 0052 la ganancia
+sumaba **solo** la primera fila de esa tabla, así que el panel subcontaba
+desde el día en que existió la ruleta.
+
+Esto no toca `yape_esperado` ni la reconciliación de caja: esas comisiones
+nunca salieron del sistema, son saldo que dejó de pertenecerle a un jugador,
+y ya venían reflejadas solas en el "Tuyo" del panel.
 
 ### Las tres formas de darle saldo a alguien
 
@@ -234,7 +260,7 @@ src/
     recargar/               Yapear al QR y subir el comprobante
     retirar/                 Solicitar retiro del saldo disponible
     ruleta/                   Ronda con pozo: comprar tickets y ver el giro
-    cara-o-sello/             Lobby de duelos 1v1 a la moneda
+    cara-o-sello/             Mesas 1v1 a la moneda, en vivo
     sorteos/                  Inscribirse a un sorteo con Steam + Discord
     perfil/                   Nickname, correo, solicitud de cambio de teléfono
     como-jugar/               Reglas del motor
@@ -310,6 +336,10 @@ Lo que puede hacer:
   > Sin `pg_cron`, el pago automático al vencer el minuto lo dispara el
   > propio panel: si nadie lo tiene abierto, el evento queda declarado sin
   > pagar hasta que alguien vuelva a entrar.
+- **Lanzar la moneda** (0053). Las mesas de cara o sello se llenan solas entre
+  jugadores y quedan esperando; el staff decide cuándo cae la moneda. Una mesa
+  ya completa solo la cancela el staff —el que abrió no puede dejar plantado
+  al que se sentó—, y cancelarla devuelve lo retenido a los dos.
 - **Girar la ruleta** (0048). El ciclo es **borrador → abierta → cerrada →
   girando → finalizada**. Solo se gira una ronda cerrada y solo una vez: el
   RPC bloquea la fila y exige que el ganador todavía no esté escrito, así que
