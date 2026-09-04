@@ -60,12 +60,13 @@ quien eligió el lado contrario.
 
 9. **La ruleta** (0048) es un pozo común, no un emparejamiento. Cada S/3
    compra un ticket; todo lo que entra forma el pozo y al cerrar la ronda se
-   sortea UN ticket. El ganador se lleva el 80% y la casa el 20% —
-   porcentajes editables desde el panel, no clavados en el código. Cada
-   ticket es una **fila propia** con su código, así que el sorteo es un
-   `order by random() limit 1` uniforme: tener diez tickets es tener diez
-   filas, y ahí está toda la ponderación. **Solo el staff gira**; el jugador
-   no tiene botón.
+   sortea UN ticket. El ganador **recupera lo que puso y se lleva el 80% de
+   lo que pusieron los demás**; la casa cobra su 20% solo sobre esa plata
+   ajena (0051 — ver abajo). Los porcentajes se editan desde el panel, no
+   están clavados en el código. Cada ticket es una **fila propia** con su
+   código, así que el sorteo es un `order by random() limit 1` uniforme:
+   tener diez tickets es tener diez filas, y ahí está toda la ponderación.
+   **Solo el staff gira**; el jugador no tiene botón.
 10. **Cara o sello** es un duelo 1v1 (0050; nació contra la casa en 0049 y se
     cambió). Uno abre una sala con su lado y su monto —que queda retenido
     esperando—, otro se sienta enfrente con el **mismo monto**, y ahí cae la
@@ -73,6 +74,31 @@ quien eligió el lado contrario.
     saldo de los dos. El ganador cobra 1.80x y la casa se queda 0.20 por sol,
     la misma comisión fija del motor: gane quien gane, la casa gana lo mismo.
     El navegador solo anima hacia el lado que la base ya decidió.
+
+### Por qué la comisión se cobra sobre lo ajeno (0051)
+
+La primera versión pagaba el 80% del pozo **entero**, incluida la plata del
+propio ganador. Eso hacía que quien pusiera más se cobrara comisión a sí
+mismo, y que **perdiera plata ganando** si su aporte superaba el 80% del pozo:
+
+| Ronda | A pone S/39 (13 tickets) | B pone S/3 (1 ticket) |
+| --- | --- | --- |
+| Antes (80% del pozo de S/42) | cobra 33.60 → **−5.40** | cobra 33.60 → +30.60 |
+| Ahora (lo suyo + 80% de lo ajeno) | cobra 41.40 → **+2.40** | cobra 34.20 → +31.20 |
+
+```
+premio   = aporte_del_ganador + (pozo − aporte_del_ganador) * pct / 100
+comision = pozo − premio
+```
+
+Se mantienen las dos garantías que importan: `premio >= aporte` (nadie pierde
+ganando) y `comision >= 0` (la casa nunca pone plata suya). El costo es que la
+comisión deja de ser fija y depende de quién gane — con N jugadores parejos se
+cobra `(N−1)/N` de lo de antes, y se cobra bastante menos en las rondas
+dominadas por un solo jugador grande, que son justo las que estaban rotas.
+
+Con un único participante el premio es su plata de vuelta y la casa cobra 0:
+no hay a quién ganarle.
 
 ### Cómo se ve el mismo sorteo en todas las pantallas
 

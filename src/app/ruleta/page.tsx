@@ -24,7 +24,8 @@ import {
   faseDeGiro,
   montosRapidos,
   porcentajeDeParticipacion,
-  repartoDelPozo,
+  premioMinimo,
+  repartoParaGanador,
   rotacionFinal,
   segmentosDeRueda,
   ticketsPorMonto,
@@ -146,8 +147,12 @@ function RuletaContent() {
   const girando = fase?.fase === "cuenta" || fase?.fase === "girando";
   const revelado = fase?.fase === "terminado";
 
-  const premioEstimado = ronda
-    ? repartoDelPozo(ronda.ronda.pozo_total, ronda.ronda.porcentaje_premio).premio
+  // Desde 0051 el premio depende de CUÁNTO puso el que gana: recupera lo suyo
+  // y se lleva el 80% de lo ajeno. Así que ya no hay un premio único que
+  // mostrar antes de girar — se muestra el tuyo.
+  const miAporte = ronda ? (vista?.misTickets ?? 0) * ronda.ronda.precio_ticket : 0;
+  const premioSiGano = ronda
+    ? repartoParaGanador(miAporte, ronda.ronda.pozo_total, ronda.ronda.porcentaje_premio).premio
     : 0;
 
   // Solo en el giro en vivo. Una ronda ya finalizada muestra su ganador bajo
@@ -170,7 +175,12 @@ function RuletaContent() {
             </h1>
             <p className="mt-2 text-sm text-parchment/60">
               Cada S/{soles(vista?.config.precio_ticket ?? 3)} es un ticket. Mientras más
-              tickets tengas, más pedazo de la rueda ocupas.
+              tickets tengas, más pedazo de la rueda ocupas. Si ganas,{" "}
+              <span className="text-parchment/85">
+                recuperas lo tuyo y te llevas el{" "}
+                {vista?.ronda?.ronda.porcentaje_premio ?? 80}% de lo que pusieron los demás
+              </span>
+              .
             </p>
           </div>
           {ronda ? (
@@ -219,8 +229,19 @@ function RuletaContent() {
               />
               <Metrica
                 label="Premio"
-                valor={`S/${soles(ronda.ronda.premio_monto ?? premioEstimado)}`}
-                detalle={`${ronda.ronda.porcentaje_premio}% del pozo`}
+                valor={`S/${soles(
+                  ronda.ronda.premio_monto ??
+                    (vista.misTickets > 0
+                      ? premioSiGano
+                      : premioMinimo(ronda.ronda.pozo_total, ronda.ronda.porcentaje_premio))
+                )}`}
+                detalle={
+                  ronda.ronda.premio_monto !== null
+                    ? "Pagado al ganador"
+                    : vista.misTickets > 0
+                      ? "Si ganas tú"
+                      : `Lo tuyo + ${ronda.ronda.porcentaje_premio}% del resto`
+                }
               />
               <Metrica label="Tickets" valor={String(ronda.totalTickets)} detalle="En juego" />
               <Metrica

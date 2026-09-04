@@ -6,9 +6,11 @@ import {
   centroDelSegmento,
   curvaDeGiro,
   faseDeGiro,
+  comisionMaxima,
   montosRapidos,
   porcentajeDeParticipacion,
-  repartoDelPozo,
+  premioMinimo,
+  repartoParaGanador,
   rotacionFinal,
   segmentosDeRueda,
   ticketsPorMonto,
@@ -66,22 +68,75 @@ describe("montosRapidos", () => {
   });
 });
 
-describe("repartoDelPozo", () => {
-  it("reparte 80/20", () => {
-    expect(repartoDelPozo(100, 80)).toEqual({ premio: 80, comision: 20 });
-    expect(repartoDelPozo(40, 80)).toEqual({ premio: 32, comision: 8 });
-    expect(repartoDelPozo(350, 80)).toEqual({ premio: 280, comision: 70 });
+describe("repartoParaGanador", () => {
+  it("el ganador recupera lo suyo y se lleva el 80% de lo ajeno", () => {
+    // A puso 39 de un pozo de 42: recupera 39 + 80% de los 3 ajenos.
+    expect(repartoParaGanador(39, 42, 80)).toEqual({ premio: 41.4, comision: 0.6 });
+    // B puso 3: recupera 3 + 80% de los 39 ajenos.
+    expect(repartoParaGanador(3, 42, 80)).toEqual({ premio: 34.2, comision: 7.8 });
+  });
+
+  it("NADIE PUEDE PERDER GANANDO", () => {
+    // Es la razón de ser de 0051: antes, quien ponía más del 80% del pozo
+    // cobraba menos de lo que había puesto.
+    for (const [aporte, pozo] of [
+      [39, 42],
+      [99, 100],
+      [50, 50],
+      [0.03, 100],
+      [980, 1000],
+    ]) {
+      const { premio } = repartoParaGanador(aporte, pozo, 80);
+      expect(premio).toBeGreaterThanOrEqual(aporte);
+    }
+  });
+
+  it("la casa nunca pone plata suya", () => {
+    for (const [aporte, pozo] of [
+      [39, 42],
+      [50, 50],
+      [0, 30],
+      [12.35, 61.75],
+    ]) {
+      expect(repartoParaGanador(aporte, pozo, 80).comision).toBeGreaterThanOrEqual(0);
+    }
   });
 
   it("las dos partes siempre suman el pozo, aunque haya céntimos", () => {
-    for (const pozo of [100.01, 33.33, 0.05, 7.77, 999.99]) {
-      const { premio, comision } = repartoDelPozo(pozo, 80);
+    for (const [aporte, pozo] of [
+      [33.33, 100.01],
+      [0.05, 7.77],
+      [1, 999.99],
+      [0, 43],
+    ]) {
+      const { premio, comision } = repartoParaGanador(aporte, pozo, 80);
       expect(Math.round((premio + comision) * 100) / 100).toBe(pozo);
     }
   });
 
+  it("con un solo participante recupera todo y la casa no cobra", () => {
+    // No hay a quién ganarle: su plata vuelve entera.
+    expect(repartoParaGanador(30, 30, 80)).toEqual({ premio: 30, comision: 0 });
+  });
+
   it("un pozo vacío no reparte nada", () => {
-    expect(repartoDelPozo(0, 80)).toEqual({ premio: 0, comision: 0 });
+    expect(repartoParaGanador(0, 0, 80)).toEqual({ premio: 0, comision: 0 });
+  });
+});
+
+describe("premioMinimo y comisionMaxima", () => {
+  it("son las cotas de lo que puede pasar antes de saber quién gana", () => {
+    expect(premioMinimo(42, 80)).toBe(33.6);
+    expect(comisionMaxima(42, 80)).toBe(8.4);
+  });
+
+  it("ningún reparto real se sale de esas cotas", () => {
+    const pozo = 42;
+    for (const aporte of [0, 3, 12, 39, 42]) {
+      const { premio, comision } = repartoParaGanador(aporte, pozo, 80);
+      expect(premio).toBeGreaterThanOrEqual(premioMinimo(pozo, 80));
+      expect(comision).toBeLessThanOrEqual(comisionMaxima(pozo, 80));
+    }
   });
 });
 

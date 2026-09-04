@@ -22,7 +22,7 @@ import {
 } from "@/actions/ruleta";
 import { UsuarioAdmin, getUsuarios } from "@/actions/admin";
 import { CachudobetConfig } from "@/lib/supabase/types";
-import { ESTADO_RONDA_LABEL, repartoDelPozo } from "@/lib/ruleta";
+import { ESTADO_RONDA_LABEL, comisionMaxima, premioMinimo } from "@/lib/ruleta";
 
 /**
  * CACHUDOBET → Rondas. El único lugar desde donde se gira la ruleta.
@@ -119,9 +119,13 @@ function AdminRuletaContent() {
           ) : (
             <div className="space-y-3">
               {rondas.map(({ ronda, totalTickets, participantes }) => {
-                const reparto = repartoDelPozo(ronda.pozo_total, ronda.porcentaje_premio);
-                const premio = ronda.premio_monto ?? reparto.premio;
-                const comision = ronda.comision_monto ?? reparto.comision;
+                // Antes de girar no hay un premio único: depende de cuánto
+                // puso el que gane (0051). Se muestran las cotas.
+                const resuelta = ronda.premio_monto !== null;
+                const premio =
+                  ronda.premio_monto ?? premioMinimo(ronda.pozo_total, ronda.porcentaje_premio);
+                const comision =
+                  ronda.comision_monto ?? comisionMaxima(ronda.pozo_total, ronda.porcentaje_premio);
                 const enCurso = procesando === ronda.id;
 
                 return (
@@ -153,8 +157,15 @@ function AdminRuletaContent() {
 
                     <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gold-dark/40 pt-3 sm:grid-cols-5">
                       <Dato label="Pozo" valor={`S/${soles(ronda.pozo_total)}`} tono="gold" />
-                      <Dato label="Premio" valor={`S/${soles(premio)}`} />
-                      <Dato label="Casa" valor={`S/${soles(comision)}`} tono="win" />
+                      <Dato
+                        label={resuelta ? "Premio" : "Premio desde"}
+                        valor={`S/${soles(premio)}`}
+                      />
+                      <Dato
+                        label={resuelta ? "Casa" : "Casa hasta"}
+                        valor={`S/${soles(comision)}`}
+                        tono="win"
+                      />
                       <Dato label="Tickets" valor={String(totalTickets)} />
                       <Dato label="Jugadores" valor={String(participantes)} />
                     </div>
@@ -401,8 +412,9 @@ function ConfigPanel({
         <div>
           <h2 className="font-display text-lg font-semibold text-gold-light">Configuración</h2>
           <p className="mt-1 text-sm text-parchment/55">
-            Ticket S/{soles(config.precio_ticket)} · Premio {config.porcentaje_premio}% / Casa{" "}
-            {config.porcentaje_casa}% · Cara o sello {config.cara_sello_multiplicador}x (S/
+            Ticket S/{soles(config.precio_ticket)} · Ganador {config.porcentaje_premio}% de lo
+            ajeno / Casa {config.porcentaje_casa}% · Cara o sello{" "}
+            {config.cara_sello_multiplicador}x (S/
             {soles(config.cara_sello_min)}–S/{soles(config.cara_sello_max)})
           </p>
         </div>
@@ -419,7 +431,12 @@ function ConfigPanel({
       {abierto ? (
         <form onSubmit={handleSubmit} className="mt-4 grid gap-3 sm:grid-cols-3">
           <CampoNumero label="Precio del ticket" valor={precio} onChange={setPrecio} step="0.5" />
-          <CampoNumero label="% al ganador" valor={porcentaje} onChange={setPorcentaje} step="1" />
+          <CampoNumero
+            label="% de lo ajeno al ganador"
+            valor={porcentaje}
+            onChange={setPorcentaje}
+            step="1"
+          />
           <CampoNumero
             label="Multiplicador cara/sello"
             valor={multiplicador}
@@ -433,9 +450,12 @@ function ConfigPanel({
               {guardando ? "Guardando…" : "Guardar"}
             </Button>
           </div>
-          <p className="text-[11px] text-parchment/40 sm:col-span-3">
-            La casa se queda con el complemento del porcentaje al ganador. Los cambios NO
-            afectan a las rondas ya creadas: cada una guarda con qué números se jugó.
+          <p className="text-[11px] leading-relaxed text-parchment/40 sm:col-span-3">
+            El ganador <strong className="text-parchment/60">recupera su propio aporte</strong> y
+            se lleva ese porcentaje de lo que pusieron los demás; la casa cobra el
+            complemento, pero solo sobre la plata ajena. Por eso nadie puede perder
+            ganando. Los cambios NO afectan a las rondas ya creadas: cada una guarda con
+            qué números se jugó.
           </p>
           {error ? <p className="text-sm text-lose-glow sm:col-span-3">{error}</p> : null}
         </form>

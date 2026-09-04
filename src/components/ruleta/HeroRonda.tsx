@@ -5,7 +5,7 @@ import Link from "next/link";
 import clsx from "clsx";
 import { Panel } from "@/components/ui/Panel";
 import { VistaRuleta, getRuleta } from "@/actions/ruleta";
-import { ESTADO_RONDA_LABEL, repartoDelPozo } from "@/lib/ruleta";
+import { ESTADO_RONDA_LABEL, premioMinimo } from "@/lib/ruleta";
 
 /**
  * La ronda en curso, resumida para el home del jugador.
@@ -41,9 +41,11 @@ export function HeroRonda() {
   if (!vista) return null;
 
   const ronda = vista.ronda;
+  // Antes de girar el premio depende de cuánto puso el que gane (0051), así
+  // que acá se muestra el piso: lo mínimo que va a pagar esta ronda.
   const premio = ronda
     ? (ronda.ronda.premio_monto ??
-      repartoDelPozo(ronda.ronda.pozo_total, ronda.ronda.porcentaje_premio).premio)
+      premioMinimo(ronda.ronda.pozo_total, ronda.ronda.porcentaje_premio))
     : 0;
 
   return (
@@ -86,7 +88,10 @@ export function HeroRonda() {
         {ronda ? (
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Dato label="Pozo" valor={`S/${soles(ronda.ronda.pozo_total)}`} tono="gold" />
-            <Dato label="Premio" valor={`S/${soles(premio)}`} />
+            <Dato
+              label={ronda.ronda.premio_monto !== null ? "Premio" : "Premio desde"}
+              valor={`S/${soles(premio)}`}
+            />
             <Dato label="Tickets" valor={String(ronda.totalTickets)} />
             <Dato label="Jugadores" valor={String(ronda.participantes.length)} />
           </div>

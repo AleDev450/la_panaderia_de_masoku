@@ -77,14 +77,41 @@ export function montosRapidos(precioTicket: number): number[] {
   return [1, 2, 3, 5, 10].map((n) => Math.round(n * precioTicket * 100) / 100);
 }
 
-/** Espejo del reparto que hace `admin_girar_ruleta`: la comisión es el RESTO,
- * no un segundo redondeo, así las dos partes siempre suman el pozo. */
-export function repartoDelPozo(
+/**
+ * Espejo del reparto que hace `admin_girar_ruleta` (0051): el ganador
+ * recupera lo suyo y se lleva el `porcentajePremio`% de lo que pusieron los
+ * demás. La comisión sale solo de la plata ajena.
+ *
+ * Dos invariantes que valen la pena tener presentes al leer esto:
+ *   - `premio >= aporteGanador` siempre → nadie puede perder ganando.
+ *   - `comision >= 0` siempre → la casa nunca pone plata suya.
+ *
+ * La comisión es el RESTO y no un segundo redondeo, así las dos partes
+ * siempre suman exactamente el pozo.
+ */
+export function repartoParaGanador(
+  aporteGanador: number,
   pozo: number,
   porcentajePremio: number
 ): { premio: number; comision: number } {
-  const premio = Math.round(((pozo * porcentajePremio) / 100) * 100) / 100;
+  const ajeno = Math.max(0, pozo - aporteGanador);
+  const premio = Math.round((aporteGanador + (ajeno * porcentajePremio) / 100) * 100) / 100;
   return { premio, comision: Math.round((pozo - premio) * 100) / 100 };
+}
+
+/**
+ * El premio más chico que puede pagar la ronda: el que le tocaría a alguien
+ * que no puso nada. Sirve para mostrar un "desde S/X" antes de girar, cuando
+ * todavía no se sabe quién gana y por lo tanto no hay un premio único.
+ */
+export function premioMinimo(pozo: number, porcentajePremio: number): number {
+  return repartoParaGanador(0, pozo, porcentajePremio).premio;
+}
+
+/** La comisión más alta que puede quedarse la casa: la de ese mismo caso.
+ * La real siempre es esta o menos. */
+export function comisionMaxima(pozo: number, porcentajePremio: number): number {
+  return repartoParaGanador(0, pozo, porcentajePremio).comision;
 }
 
 export function porcentajeDeParticipacion(tickets: number, total: number): number {
