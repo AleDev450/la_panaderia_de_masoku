@@ -8,41 +8,36 @@ import { Isotipo, Logo } from "@/components/brand/Logo";
 import { LevelBadge } from "@/components/LevelBadge";
 import { getLevelForPoints } from "@/data/levels";
 import { saldoEnJuego, saldoVisible } from "@/lib/saldo";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 /**
  * Las etiquetas son de apuestas; las rutas son las que ya existen. NO se
  * agregan entradas para DEPORTES / SLOTS / CASINO / VIP: esas páginas no
  * existen en la app y un link a una ruta inexistente es un 404 con cara de
  * funcionalidad.
- */
-/**
+ *
  * LO QUE SE JUEGA VA PRIMERO Y SIEMPRE VISIBLE. Antes eran once entradas en
  * una sola fila: a 1280px no entraban, y la ruleta, cara o sello y el stream
  * quedaban apretados contra el saldo o directamente fuera de la pantalla —
  * estaban en el menú pero no se veían, que para el caso es lo mismo que no
  * estar.
  *
- * Estas cinco entran cómodas desde el breakpoint `lg` (1024px); el resto vive
- * en "Más". En móvil no hay recorte: el menú hamburguesa las muestra todas.
+ * Quedan siete, y todo lo de la cuenta —mis apuestas, historial, retirar,
+ * ayuda— se mudó a /perfil, que es donde uno va a buscar lo suyo.
+ *
+ * La fila completa se muestra desde `xl` (1280px) y no desde `lg`: con el
+ * saldo y el perfil a la derecha, a 1024px estas siete no entran sin
+ * apretarse. Por debajo de eso manda el menú hamburguesa, que las lista
+ * todas sin recortar nada.
  */
 const NAV_JUGADOR = [
   { href: "/partidas", label: "Partidas de hoy" },
   { href: "/ruleta", label: "Ruleta" },
   { href: "/cara-o-sello", label: "Cara o sello" },
   { href: "/en-vivo", label: "En vivo" },
-  { href: "/recargar", label: "Depositar" },
-];
-
-/** Lo de la cuenta y las pantallas de consulta: importan, pero no son a lo
- * que uno entra a jugar. Van agrupadas para no competir con los juegos. */
-const NAV_JUGADOR_MAS = [
-  { href: "/mis-apuestas", label: "Mis apuestas" },
-  { href: "/historial", label: "Historial" },
+  { href: "/sorteos", label: "Sorteos" },
   { href: "/ranking", label: "Ranking" },
-  { href: "/retirar", label: "Retirar" },
-  { href: "/sorteos", label: "Promociones" },
-  { href: "/como-jugar", label: "Ayuda" },
+  { href: "/recargar", label: "Depositar" },
 ];
 
 /** El admin no juega: nada de apuestas, ranking, depositar ni historial —
@@ -64,32 +59,9 @@ export function Header() {
   const router = useRouter();
   const { user, logout, isAdmin } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [masOpen, setMasOpen] = useState(false);
-  const masRef = useRef<HTMLDivElement>(null);
 
-  // Cerrar "Más" con Escape o tocando fuera. Van juntos porque son la misma
-  // intención —"ya no quiero esto abierto"— y separarlos deja el menú pegado
-  // en uno de los dos caminos.
-  useEffect(() => {
-    if (!masOpen) return;
-
-    const alTocarFuera = (e: MouseEvent) => {
-      if (masRef.current && !masRef.current.contains(e.target as Node)) setMasOpen(false);
-    };
-    const alTeclear = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMasOpen(false);
-    };
-
-    document.addEventListener("mousedown", alTocarFuera);
-    document.addEventListener("keydown", alTeclear);
-    return () => {
-      document.removeEventListener("mousedown", alTocarFuera);
-      document.removeEventListener("keydown", alTeclear);
-    };
-  }, [masOpen]);
-
-  // Al cambiar de página los menús se cierran solos: dejarlos abiertos sobre
-  // la pantalla nueva se ve como un menú trabado. Los links ya se cierran al
+  // Al cambiar de página el menú se cierra solo: dejarlo abierto sobre la
+  // pantalla nueva se ve como un menú trabado. Los links ya se cierran al
   // hacer clic, pero esto cubre lo que no pasa por ahí — el botón "atrás" del
   // navegador, sobre todo.
   //
@@ -99,18 +71,14 @@ export function Header() {
   const [rutaPrevia, setRutaPrevia] = useState(pathname);
   if (rutaPrevia !== pathname) {
     setRutaPrevia(pathname);
-    setMasOpen(false);
     setMenuOpen(false);
   }
 
   if (!user) return null;
 
   const links = isAdmin ? NAV_ADMIN : NAV_JUGADOR;
-  // El panel del staff no se agrupa: sus nueve entradas son todas trabajo.
-  const secundarios = isAdmin ? [] : NAV_JUGADOR_MAS;
   const nivel = getLevelForPoints(user.puntos);
   const inicio = isAdmin ? "/bakery" : "/partidas";
-  const enSecundario = secundarios.some((l) => l.href === pathname);
 
   function handleLogout() {
     logout();
@@ -133,7 +101,7 @@ export function Header() {
 
         <nav
           aria-label="Navegación principal"
-          className="hidden items-center gap-0.5 lg:flex"
+          className="hidden items-center gap-0.5 xl:flex"
         >
           {links.map((link) => {
             const activo = pathname === link.href;
@@ -160,57 +128,9 @@ export function Header() {
             );
           })}
 
-          {secundarios.length > 0 ? (
-            <div className="relative" ref={masRef}>
-              <button
-                type="button"
-                aria-expanded={masOpen}
-                aria-haspopup="true"
-                onClick={() => setMasOpen((v) => !v)}
-                className={clsx(
-                  "relative flex min-h-11 items-center gap-1 whitespace-nowrap rounded-md px-3 py-2 font-display text-[13px] font-bold uppercase tracking-wide transition",
-                  masOpen || enSecundario
-                    ? "text-gold"
-                    : "text-parchment/55 hover:bg-white/5 hover:text-parchment"
-                )}
-              >
-                Más
-                <span aria-hidden className="text-[10px]">
-                  {masOpen ? "▲" : "▼"}
-                </span>
-                {enSecundario ? (
-                  <span
-                    aria-hidden
-                    className="absolute inset-x-3 -bottom-[13px] h-0.5 rounded-full bg-gold shadow-[0_0_10px_rgba(245,197,24,0.8)]"
-                  />
-                ) : null}
-              </button>
-
-              {masOpen ? (
-                <div className="absolute right-0 top-full z-50 mt-3 min-w-48 rounded-lg border border-gold-dark bg-charcoal p-1.5 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.9)]">
-                  {secundarios.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      aria-current={pathname === link.href ? "page" : undefined}
-                      onClick={() => setMasOpen(false)}
-                      className={clsx(
-                        "block min-h-11 rounded-md px-3 py-2.5 font-display text-[13px] font-bold uppercase tracking-wide transition",
-                        pathname === link.href
-                          ? "bg-gold/10 text-gold"
-                          : "text-parchment/65 hover:bg-white/5 hover:text-parchment"
-                      )}
-                    >
-                      {link.label}
-                    </Link>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
         </nav>
 
-        <div className="hidden items-center gap-2 lg:flex">
+        <div className="hidden items-center gap-2 xl:flex">
           {!isAdmin ? (
             <div className="rounded-md border border-gold-dark bg-charcoal px-3 py-1.5 text-right">
               <p className="text-[10px] uppercase tracking-wide text-parchment/40">Saldo</p>
@@ -269,7 +189,7 @@ export function Header() {
           </button>
         </div>
 
-        <div className="flex items-center gap-2 lg:hidden">
+        <div className="flex items-center gap-2 xl:hidden">
           {!isAdmin ? (
             <span className="rounded-md border border-gold-dark bg-charcoal px-2.5 py-1.5 font-display text-sm font-extrabold text-gold">
               S/{saldoVisible(user)}
@@ -294,11 +214,9 @@ export function Header() {
         <nav
           id="mobile-nav"
           aria-label="Navegación principal"
-          className="mt-3 flex flex-col gap-1 border-t border-gold-dark pt-3 lg:hidden"
+          className="mt-3 flex flex-col gap-1 border-t border-gold-dark pt-3 xl:hidden"
         >
-          {/* En móvil no se agrupa nada: el menú es una lista vertical y hay
-              sitio de sobra, así que "Más" solo agregaría un toque extra. */}
-          {[...links, ...secundarios].map((link) => (
+          {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}

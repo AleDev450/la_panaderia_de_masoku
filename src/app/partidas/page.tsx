@@ -188,11 +188,6 @@ function PartidasContent() {
     <>
       <Header />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        {/* La ronda de la ruleta va arriba de todo: es el juego con pozo
-            común y hay que enterarse de que existe sin ir a buscarlo. Se
-            carga sola, así que el motor de partidas de abajo no cambia. */}
-        <HeroRonda />
-
         {/* El panel de resultados va a la derecha en pantallas anchas y se
             apila debajo en el resto — con menos de ~1280px la columna de
             salas ya queda muy angosta para las dos cosas al costado. */}
@@ -272,6 +267,16 @@ function PartidasContent() {
               )}
             </section>
           )}
+
+          {/* La ruleta y cara o sello van DEBAJO de las partidas, no encima:
+              esta pantalla es "partidas de hoy" y empujar su título por
+              debajo del pliegue con otro juego hacía que costara encontrar a
+              qué se entró. Acá abajo siguen apareciendo solos, después de
+              revisar las salas. Se carga solo, así que el motor de partidas
+              no cambia. */}
+          <div className="mt-10">
+            <HeroRonda />
+          </div>
 
           <div className="mt-8 text-center text-xs text-parchment/40">18+ · Juego responsable</div>
           </div>

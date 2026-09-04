@@ -4,7 +4,40 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import clsx from "clsx";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Header } from "@/components/Header";
+import Link from "next/link";
 import { Panel } from "@/components/ui/Panel";
+
+/**
+ * Lo que se bajó de la cabecera (ver `Header.tsx`). Estaban compitiendo con
+ * los juegos en una fila que ya no daba más, y son cosas que uno busca
+ * cuando entra a lo suyo, no cuando entra a jugar.
+ */
+const ACCESOS = [
+  {
+    href: "/mis-apuestas",
+    icono: "🎯",
+    titulo: "Mis apuestas",
+    detalle: "Lo que tienes en juego ahora, y cancelar lo que nadie cubrió.",
+  },
+  {
+    href: "/historial",
+    icono: "📜",
+    titulo: "Historial",
+    detalle: "Apuestas ya resueltas: lo que cobraste y lo que se te devolvió.",
+  },
+  {
+    href: "/retirar",
+    icono: "💸",
+    titulo: "Retirar",
+    detalle: "Pide tu saldo disponible y el staff te lo yapea.",
+  },
+  {
+    href: "/como-jugar",
+    icono: "❓",
+    titulo: "Ayuda",
+    detalle: "Cómo funcionan las apuestas, los juegos y los pagos.",
+  },
+];
 import { Button } from "@/components/ui/Button";
 import { LevelBadge } from "@/components/LevelBadge";
 import { LevelProgress } from "@/components/LevelProgress";
@@ -170,6 +203,36 @@ function PerfilContent() {
             </div>
           ) : null}
         </Panel>
+
+        {/* Lo de la cuenta vive acá y ya no en la cabecera: el menú de arriba
+            quedó para los juegos, y esto es lo que uno viene a buscar a su
+            perfil. El admin no juega, así que no le aparece nada de esto. */}
+        {!isAdmin ? (
+          <section className="mt-6">
+            <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
+              Mi cuenta
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {ACCESOS.map((acceso) => (
+                <Link key={acceso.href} href={acceso.href} className="block">
+                  <Panel glow className="flex h-full items-start gap-3 p-4">
+                    <span aria-hidden className="text-xl leading-none">
+                      {acceso.icono}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block font-display text-sm font-bold text-parchment">
+                        {acceso.titulo}
+                      </span>
+                      <span className="mt-0.5 block text-xs leading-relaxed text-parchment/50">
+                        {acceso.detalle}
+                      </span>
+                    </span>
+                  </Panel>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <Panel className="mt-6 p-5">
           <h2 className="mb-1 font-display text-lg font-semibold text-gold-light">Nickname</h2>
