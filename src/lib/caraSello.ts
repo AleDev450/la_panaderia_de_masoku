@@ -21,8 +21,19 @@ export const DURACION_MONEDA_MS = 3200;
  * absorbe la latencia del polling para que todos lleguen al lanzamiento. */
 export const CUENTA_REGRESIVA_MONEDA_MS = 3000;
 
-/** Vueltas completas antes de mostrar el resultado. */
-export const VUELTAS_MONEDA = 5;
+/**
+ * Vueltas completas antes de mostrar el resultado.
+ *
+ * ACÁ HAY UN TECHO QUE LA RULETA NO TIENE. La moneda se ve IGUAL cada media
+ * vuelta (es un disco de dos caras), así que su patrón visual se repite cada
+ * 180° — no cada 360°. Si avanza más de 90° por frame, el ojo pierde la
+ * dirección y la moneda se ve trabada o girando al revés, como las ruedas de
+ * carreta en el cine.
+ *
+ * A 60fps, 8 vueltas en 3.2s dan un pico de ~45°/frame: exactamente la mitad
+ * de ese límite. Subirle más vueltas la haría verse peor, no más rápida.
+ */
+export const VUELTAS_MONEDA = 8;
 
 /**
  * Con qué lado juega alguien en un duelo. El creador eligió el suyo; al que
@@ -108,8 +119,13 @@ export function faseDeLanzamiento(
     return { fase: "terminado", rotacion: destino };
   }
 
-  // Frenada cuadrática: sale rápido y se va deteniendo, como una moneda de
-  // verdad. Termina exactamente en el ángulo del resultado.
+  // Frenada cúbica: sale disparada (~7.5 giros/s) y se va deteniendo cada vez
+  // más despacio, como una moneda de verdad. El último segundo y medio va lo
+  // bastante lento como para ver en qué cara está por caer.
+  //
+  // Termina exactamente en el ángulo del resultado: la animación no puede
+  // mostrar un lado distinto al que ya se pagó.
   const t = msDesdeInicio / DURACION_MONEDA_MS;
-  return { fase: "girando", rotacion: destino * (1 - (1 - t) * (1 - t)) };
+  const restante = 1 - t;
+  return { fase: "girando", rotacion: destino * (1 - restante * restante * restante) };
 }

@@ -133,6 +133,27 @@ describe("faseDeLanzamiento", () => {
       anterior = fase.rotacion;
     }
   });
+
+  it("sale disparada y llega mansa", () => {
+    const tramo = (a: number, b: number) =>
+      faseDeLanzamiento(b, "cara").rotacion - faseDeLanzamiento(a, "cara").rotacion;
+    const d = DURACION_MONEDA_MS;
+    expect(tramo(0, d * 0.1)).toBeGreaterThan(tramo(d * 0.9, d) * 10);
+  });
+
+  it("nunca avanza tanto por frame como para verse girando al revés", () => {
+    // La moneda se ve igual cada media vuelta, así que por encima de 90° por
+    // frame el ojo pierde la dirección (efecto rueda de carreta). A 60fps
+    // ningún frame debería acercarse a ese límite.
+    const frame = 1000 / 60;
+    let peor = 0;
+    for (let t = 0; t + frame <= DURACION_MONEDA_MS; t += frame) {
+      const avance =
+        faseDeLanzamiento(t + frame, "cara").rotacion - faseDeLanzamiento(t, "cara").rotacion;
+      peor = Math.max(peor, avance);
+    }
+    expect(peor).toBeLessThan(90);
+  });
 });
 
 describe("rotacionFinalMoneda", () => {
