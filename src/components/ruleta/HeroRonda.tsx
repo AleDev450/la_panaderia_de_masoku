@@ -5,7 +5,7 @@ import Link from "next/link";
 import clsx from "clsx";
 import { Panel } from "@/components/ui/Panel";
 import { VistaRuleta, getRuleta } from "@/actions/ruleta";
-import { ESTADO_RONDA_LABEL, premioMinimo } from "@/lib/ruleta";
+import { ESTADO_RONDA_LABEL, premioMinimo, repartoParaGanador } from "@/lib/ruleta";
 
 /**
  * La ronda en curso, resumida para el home del jugador.
@@ -41,11 +41,21 @@ export function HeroRonda() {
   if (!vista) return null;
 
   const ronda = vista.ronda;
-  // Antes de girar el premio depende de cuánto puso el que gane (0051), así
-  // que acá se muestra el piso: lo mínimo que va a pagar esta ronda.
+
+  // El premio depende de CUÁNTO puso el que gane (0051), así que antes de
+  // girar no existe un número único. Si el que mira ya compró tickets, se le
+  // muestra EL SUYO —que es el que le importa— y no el piso de la ronda:
+  // "Premio desde S/50" cuando a ti te tocarían S/56 es un dato correcto
+  // contestando una pregunta que nadie hizo.
+  const miAporte = ronda ? vista.misTickets * ronda.ronda.precio_ticket : 0;
+  const esMio = ronda !== null && ronda.ronda.premio_monto === null && vista.misTickets > 0;
+
   const premio = ronda
     ? (ronda.ronda.premio_monto ??
-      premioMinimo(ronda.ronda.pozo_total, ronda.ronda.porcentaje_premio))
+      (esMio
+        ? repartoParaGanador(miAporte, ronda.ronda.pozo_total, ronda.ronda.porcentaje_premio)
+            .premio
+        : premioMinimo(ronda.ronda.pozo_total, ronda.ronda.porcentaje_premio)))
     : 0;
 
   return (
@@ -89,8 +99,15 @@ export function HeroRonda() {
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Dato label="Pozo" valor={`S/${soles(ronda.ronda.pozo_total)}`} tono="gold" />
             <Dato
-              label={ronda.ronda.premio_monto !== null ? "Premio" : "Premio desde"}
+              label={
+                ronda.ronda.premio_monto !== null
+                  ? "Premio"
+                  : esMio
+                    ? "Si ganas tú"
+                    : "Premio desde"
+              }
               valor={`S/${soles(premio)}`}
+              tono={esMio ? "gold" : "neutro"}
             />
             <Dato label="Tickets" valor={String(ronda.totalTickets)} />
             <Dato label="Jugadores" valor={String(ronda.participantes.length)} />
