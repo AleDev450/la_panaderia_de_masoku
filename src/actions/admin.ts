@@ -1062,3 +1062,48 @@ export async function reiniciarTurnos(eventoId: string): Promise<ActionResult<Ev
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: data as Evento };
 }
+
+/** Lo que el staff tiene esperando en cada cola. */
+export interface ConteosPendientes {
+  recargas: number;
+  retiros: number;
+  telefonos: number;
+}
+
+/**
+ * Cuántas cosas hay por atender, para el contador de la cabecera.
+ *
+ * Cuenta con `head: true`: Postgres devuelve SOLO el número, sin una sola
+ * fila. Importa acá más que en otros lados porque los comprobantes de recarga
+ * se guardan como data URL dentro de la tabla (ver README): traerse las filas
+ * cada 30 segundos, en cada pantalla del panel, sería mover megas para
+ * terminar pintando un "1".
+ *
+ * Devuelve las tres colas y no solo los depósitos a propósito. Con un globo
+ * en "Depósitos" y ninguno en "Retiros", la ausencia de globo se lee como
+ * "no hay nada" — y un retiro sin pagar quedaría invisible justamente por
+ * haber agregado el aviso.
+ */
+export async function getConteosPendientes(): Promise<ActionResult<ConteosPendientes>> {
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const [recargas, retiros, telefonos] = await Promise.all([
+    admin.from("recargas").select("id", { count: "exact", head: true }).eq("estado", "pendiente"),
+    admin.from("retiros").select("id", { count: "exact", head: true }).eq("estado", "pendiente"),
+    admin
+      .from("solicitudes_telefono")
+      .select("id", { count: "exact", head: true })
+      .eq("estado", "pendiente"),
+  ]);
+
+  return {
+    ok: true,
+    data: {
+      recargas: recargas.count ?? 0,
+      retiros: retiros.count ?? 0,
+      telefonos: telefonos.count ?? 0,
+    },
+  };
+}

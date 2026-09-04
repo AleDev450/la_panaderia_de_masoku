@@ -8,7 +8,8 @@ import { Isotipo, Logo } from "@/components/brand/Logo";
 import { LevelBadge } from "@/components/LevelBadge";
 import { getLevelForPoints } from "@/data/levels";
 import { saldoEnJuego, saldoVisible } from "@/lib/saldo";
-import { useState } from "react";
+import { ConteosPendientes, getConteosPendientes } from "@/actions/admin";
+import { useEffect, useState } from "react";
 
 /**
  * Las etiquetas son de apuestas; las rutas son las que ya existen. NO se
@@ -33,7 +34,14 @@ import { useState } from "react";
  * apretarse. Por debajo de eso manda el menú hamburguesa, que las lista
  * todas sin recortar nada.
  */
-const NAV_JUGADOR = [
+type NavItem = {
+  href: string;
+  label: string;
+  /** Qué cola de pendientes cuenta esta entrada, si cuenta alguna. */
+  clave?: keyof ConteosPendientes;
+};
+
+const NAV_JUGADOR: NavItem[] = [
   { href: "/en-vivo", label: "En vivo" },
   { href: "/partidas", label: "Partidas de hoy" },
   { href: "/ruleta", label: "Ruleta" },
@@ -44,24 +52,61 @@ const NAV_JUGADOR = [
 ];
 
 /** El admin no juega: nada de apuestas, ranking, depositar ni historial —
- * solo lo que administra (ver RequirePlayer). */
-const NAV_ADMIN = [
+ * solo lo que administra (ver RequirePlayer).
+ *
+ * `clave` marca las entradas que llevan globo con lo que hay por atender. */
+const NAV_ADMIN: NavItem[] = [
   { href: "/bakery", label: "Panel" },
   { href: "/bakery/titulos", label: "Eventos" },
   { href: "/bakery/ruleta", label: "Ruleta" },
   { href: "/bakery/cara-o-sello", label: "Cara o sello" },
-  { href: "/bakery/recargas", label: "Depósitos" },
-  { href: "/bakery/retiros", label: "Retiros" },
+  { href: "/bakery/recargas", label: "Depósitos", clave: "recargas" },
+  { href: "/bakery/retiros", label: "Retiros", clave: "retiros" },
   { href: "/bakery/usuarios", label: "Usuarios" },
-  { href: "/bakery/telefonos", label: "Teléfonos" },
+  { href: "/bakery/telefonos", label: "Teléfonos", clave: "telefonos" },
   { href: "/bakery/sorteos", label: "Sorteos" },
 ];
+
+/** El globo del contador. Rojo porque es una cola que alguien está
+ * esperando del otro lado, no una notificación decorativa. */
+function Globo({ cantidad }: { cantidad: number }) {
+  return (
+    <span
+      aria-label={`${cantidad} por atender`}
+      className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-lose px-1.5 py-0.5 font-display text-[10px] font-black leading-none text-parchment shadow-[0_0_10px_rgba(179,38,30,0.7)]"
+    >
+      {cantidad > 99 ? "99+" : cantidad}
+    </span>
+  );
+}
 
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout, isAdmin } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pendientes, setPendientes] = useState<ConteosPendientes | null>(null);
+
+  // Lo que hay por atender, para los globos del panel. Solo se consulta si
+  // la sesión es de staff: a un jugador la acción le respondería "no
+  // autorizado" en cada pantalla, y sería un viaje al servidor cada 30s
+  // para nada.
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    let vivo = true;
+    const cargar = async () => {
+      const result = await getConteosPendientes();
+      if (vivo && result.ok) setPendientes(result.data);
+    };
+
+    void cargar();
+    const id = setInterval(cargar, 30_000);
+    return () => {
+      vivo = false;
+      clearInterval(id);
+    };
+  }, [isAdmin]);
 
   // Al cambiar de página el menú se cierra solo: dejarlo abierto sobre la
   // pantalla nueva se ve como un menú trabado. Los links ya se cierran al
@@ -121,6 +166,9 @@ export function Header() {
                 )}
               >
                 {link.label}
+                {link.clave && pendientes && pendientes[link.clave] > 0 ? (
+                  <Globo cantidad={pendientes[link.clave]} />
+                ) : null}
                 {activo ? (
                   <span
                     aria-hidden
@@ -233,6 +281,9 @@ export function Header() {
               )}
             >
               {link.label}
+              {link.clave && pendientes && pendientes[link.clave] > 0 ? (
+                <Globo cantidad={pendientes[link.clave]} />
+              ) : null}
             </Link>
           ))}
           <Link
