@@ -250,18 +250,40 @@ describe("faseDeGiro", () => {
 });
 
 describe("curvaDeGiro", () => {
-  it("empieza quieta y termina completa", () => {
+  const tramo = (a: number, b: number) => curvaDeGiro(b) - curvaDeGiro(a);
+
+  it("arranca en cero y termina completa", () => {
     expect(curvaDeGiro(0)).toBe(0);
     expect(curvaDeGiro(1)).toBe(1);
   });
 
-  it("arranca lento y frena suave: el medio es lo más rápido", () => {
-    const alInicio = curvaDeGiro(0.1) - curvaDeGiro(0);
-    const alMedio = curvaDeGiro(0.55) - curvaDeGiro(0.45);
-    const alFinal = curvaDeGiro(1) - curvaDeGiro(0.9);
+  it("el empujón es corto: no se queda medio giro quieta", () => {
+    // La curva anterior (smootherstep) avanzaba 0.9% en el primer 10% del
+    // tiempo y por eso se veía pesada.
+    expect(curvaDeGiro(0.1)).toBeGreaterThan(0.15);
+  });
 
-    expect(alMedio).toBeGreaterThan(alInicio);
-    expect(alMedio).toBeGreaterThan(alFinal);
+  it("después del impulso no hace más que frenar", () => {
+    const tramos = [
+      tramo(0.2, 0.35),
+      tramo(0.35, 0.5),
+      tramo(0.5, 0.65),
+      tramo(0.65, 0.8),
+      tramo(0.8, 0.95),
+    ];
+    for (let i = 1; i < tramos.length; i++) {
+      expect(tramos[i]).toBeLessThan(tramos[i - 1]);
+    }
+  });
+
+  it("a mitad de tiempo ya recorrió la mayor parte", () => {
+    // Esto es lo que la hace ver rápida: el grueso del giro pasa temprano y
+    // el final se arrastra despacio hasta el ganador.
+    expect(curvaDeGiro(0.5)).toBeGreaterThan(0.7);
+  });
+
+  it("el tramo final es el más lento de todos", () => {
+    expect(tramo(0.9, 1)).toBeLessThan(tramo(0.4, 0.5));
   });
 
   it("no se sale de rango si le llega basura", () => {

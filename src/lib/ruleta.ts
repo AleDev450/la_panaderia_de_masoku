@@ -13,7 +13,7 @@ import { EstadoRondaRuleta } from "@/lib/supabase/types";
  */
 
 /** Cuánto dura el giro en sí, sin contar la cuenta regresiva. */
-export const DURACION_GIRO_MS = 9000;
+export const DURACION_GIRO_MS = 5000;
 
 /**
  * La cuenta regresiva que `admin_girar_ruleta` deja fijada en
@@ -165,14 +165,35 @@ export function rotacionFinal(anguloGanador: number): number {
   return VUELTAS * 360 + (360 - (anguloGanador % 360));
 }
 
+/** Qué parte del giro se usa para tomar impulso antes de soltar la rueda. */
+const ARRANQUE = 0.12;
+
 /**
- * Aceleración del giro. Smootherstep (6t⁵−15t⁴+10t³): arranca lento, agarra
- * velocidad, la mantiene un buen rato en el medio y frena suave al final —
- * que es exactamente el arco que se le pide a la animación.
+ * Aceleración del giro: empujón corto y frenada larga, como cuando alguien
+ * tira una ruleta de verdad.
+ *
+ * ANTES ERA SMOOTHERSTEP (6t⁵−15t⁴+10t³) y se veía pesada: esa curva pasa el
+ * primer 10% del tiempo prácticamente quieta (avanzaba 0.9%) y llegaba a un
+ * pico de apenas 1.25 vueltas/s. Se leía como una rueda que cuesta mover, no
+ * como un sorteo.
+ *
+ * Ahora el 88% del tiempo la rueda está FRENANDO, que es lo que genera la
+ * tensión: a los 5 segundos ya recorrió el 75% en la mitad del tiempo y el
+ * final se arrastra despacio hasta el ganador. Pico: 3.78 vueltas/s.
+ *
+ * El arranque no se elimina del todo —una rueda que salta de 0 a máxima
+ * velocidad en un frame se ve como un corte— pero dura 12% en vez de la
+ * mitad del giro.
  */
 export function curvaDeGiro(progreso: number): number {
   const t = Math.min(1, Math.max(0, progreso));
-  return t * t * t * (t * (t * 6 - 15) + 10);
+  // Frenada cuadrática: rápida al soltar, cada vez más lenta.
+  const salida = 1 - (1 - t) * (1 - t);
+  if (t >= ARRANQUE) return salida;
+
+  // Impulso inicial, suavizado para que no se note el empujón.
+  const r = t / ARRANQUE;
+  return salida * (r * r * (3 - 2 * r));
 }
 
 export type FaseGiro =
