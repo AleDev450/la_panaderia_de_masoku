@@ -58,6 +58,37 @@ quien eligió el lado contrario.
    al azar ponderado por tickets, resuelto en Postgres para que no se pueda
    volver a tirar hasta que salga quien uno quiere.
 
+9. **La ruleta** (0048) es un pozo común, no un emparejamiento. Cada S/3
+   compra un ticket; todo lo que entra forma el pozo y al cerrar la ronda se
+   sortea UN ticket. El ganador se lleva el 80% y la casa el 20% —
+   porcentajes editables desde el panel, no clavados en el código. Cada
+   ticket es una **fila propia** con su código, así que el sorteo es un
+   `order by random() limit 1` uniforme: tener diez tickets es tener diez
+   filas, y ahí está toda la ponderación. **Solo el staff gira**; el jugador
+   no tiene botón.
+10. **Cara o sello** (0049) es lo único donde la casa es contraparte de
+    verdad. El resultado sale de `random()` en Postgres, dentro de la misma
+    transacción que descuenta y paga; el navegador solo anima hacia el lado
+    que ya decidió la base. Paga 1.80x, igual que la cuota del motor.
+
+### Cómo se ve el mismo sorteo en todas las pantallas
+
+Sin websockets: el proyecto no tiene realtime y no se le agregó uno.
+
+`admin_girar_ruleta` elige al ganador, lo paga, lo escribe, y recién entonces
+fija `giro_inicia_en = now() + 3s`. Los clientes preguntan cada 2s y, cuando
+ven esa marca, **calculan la animación en función del tiempo transcurrido
+desde ella**, no desde que se enteraron. Quien llegó tarde no arranca de cero:
+se engancha al giro donde ya iba y frena en el ganador en el mismo instante
+que el resto. La cuenta regresiva de 3 segundos es el colchón que cubre la
+latencia del poll.
+
+Para que el ancla sirva hay que medir contra el reloj correcto: cada lectura
+trae el `now()` de Postgres (`ahora_servidor()`) y el cliente corrige el
+desfase de su propio reloj. Comparar contra el reloj del navegador —o contra
+el del servidor de Next, que es otra máquina— haría que dos pantallas frenaran
+en momentos distintos.
+
 ### Las tres formas de darle saldo a alguien
 
 No son intercambiables. Elegir mal descuadra la caja:
@@ -173,6 +204,8 @@ src/
     ranking/               Ranking de puntos / niveles
     recargar/               Yapear al QR y subir el comprobante
     retirar/                 Solicitar retiro del saldo disponible
+    ruleta/                   Ronda con pozo: comprar tickets y ver el giro
+    cara-o-sello/             Lanzar la moneda contra la casa
     sorteos/                  Inscribirse a un sorteo con Steam + Discord
     perfil/                   Nickname, correo, solicitud de cambio de teléfono
     como-jugar/               Reglas del motor
@@ -181,6 +214,8 @@ src/
   data/                  Niveles del panadero
   lib/
     apuestas.ts           Cuota, pago redondeado y liquidación (solo UI)
+    ruleta.ts              Tickets por monto, reparto del pozo y la curva del giro
+    caraSello.ts           Pago de la moneda y hacia dónde tiene que caer
     markdown.tsx           Mini-markdown de los sorteos (negrita, links, color)
     recargas.ts            Montos de recarga y etiquetas de estado
     image.ts                Compresión de comprobantes en el cliente
@@ -246,6 +281,11 @@ Lo que puede hacer:
   > Sin `pg_cron`, el pago automático al vencer el minuto lo dispara el
   > propio panel: si nadie lo tiene abierto, el evento queda declarado sin
   > pagar hasta que alguien vuelva a entrar.
+- **Girar la ruleta** (0048). El ciclo es **borrador → abierta → cerrada →
+  girando → finalizada**. Solo se gira una ronda cerrada y solo una vez: el
+  RPC bloquea la fila y exige que el ganador todavía no esté escrito, así que
+  dos clics simultáneos no sortean dos veces. También puede agregar tickets a
+  mano para quien pagó por fuera (no descuenta saldo, pero sí suma al pozo).
 - **Revisar recargas**: el jugador yapea al QR (`public/images/yape-qr.jpg`)
   y sube la captura. El staff ve nickname, nombre y teléfono del jugador, amplía
   el comprobante para leer la hora y el monto, y **corrige el monto** si no

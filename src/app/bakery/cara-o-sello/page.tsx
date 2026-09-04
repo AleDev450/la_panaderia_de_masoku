@@ -1,0 +1,204 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import clsx from "clsx";
+import { RequireAdmin } from "@/components/RequireAdmin";
+import { Header } from "@/components/Header";
+import { Panel } from "@/components/ui/Panel";
+import {
+  JugadaConUsuario,
+  getHistorialCaraSello,
+  getMetricasCaraSello,
+} from "@/actions/caraSello";
+import { MetricasCaraSello } from "@/lib/supabase/types";
+import { LADO_MONEDA_LABEL } from "@/lib/caraSello";
+
+/**
+ * CACHUDOBET → Cara o sello. Solo lectura: no hay nada que declarar ni
+ * aprobar, porque cada jugada nace y se paga sola en Postgres.
+ *
+ * `Resultado casa` puede ser NEGATIVO y eso no es un error: acá la casa es
+ * contraparte de verdad (ver 0049). Con volumen tiende al margen del
+ * multiplicador; en un día flojo puede perder.
+ */
+
+const soles = (n: number) => n.toFixed(2);
+
+function AdminCaraSelloContent() {
+  const [metricas, setMetricas] = useState<MetricasCaraSello | null>(null);
+  const [historial, setHistorial] = useState<JugadaConUsuario[] | null>(null);
+
+  const refresh = useCallback(async () => {
+    const [m, h] = await Promise.all([getMetricasCaraSello(), getHistorialCaraSello()]);
+    setMetricas(m.ok ? m.data : null);
+    setHistorial(h.ok ? h.data : []);
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time bootstrap on mount
+    refresh();
+    const id = setInterval(refresh, 15_000);
+    return () => clearInterval(id);
+  }, [refresh]);
+
+  const totalResultados = metricas ? metricas.salio_cara + metricas.salio_sello : 0;
+
+  return (
+    <>
+      <Header />
+      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+        <h1 className="font-display text-3xl font-bold text-parchment">
+          CACHUDOBET · Cara o sello
+        </h1>
+        <p className="mt-2 text-sm text-parchment/60">
+          El resultado de cada jugada lo decide Postgres y se paga en el acto. Acá solo se
+          mira cómo va.
+        </p>
+
+        <section className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Metrica label="Jugadas" valor={metricas ? String(metricas.jugadas) : "—"} detalle="Manos jugadas" />
+          <Metrica
+            label="Jugadores"
+            valor={metricas ? String(metricas.jugadores) : "—"}
+            detalle="Cuentas distintas"
+          />
+          <Metrica
+            label="Apostado"
+            valor={metricas ? `S/${soles(metricas.monto_apostado)}` : "—"}
+            detalle="Volumen total"
+          />
+          <Metrica
+            label="Resultado casa"
+            valor={metricas ? `S/${soles(metricas.resultado_casa)}` : "—"}
+            detalle="Apostado − pagado"
+            tono={metricas && metricas.resultado_casa < 0 ? "lose" : "win"}
+          />
+        </section>
+
+        <section className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Metrica
+            label="Pagado"
+            valor={metricas ? `S/${soles(metricas.monto_pagado)}` : "—"}
+            detalle="Premios acreditados"
+            tono="lose"
+          />
+          <Metrica
+            label="Ganadas"
+            valor={metricas ? String(metricas.jugadas_ganadas) : "—"}
+            detalle="Las ganó el jugador"
+          />
+          <Metrica
+            label="Perdidas"
+            valor={metricas ? String(metricas.jugadas_perdidas) : "—"}
+            detalle="Las ganó la casa"
+          />
+          <Metrica
+            label="Cara / Sello"
+            valor={metricas ? `${metricas.salio_cara} / ${metricas.salio_sello}` : "—"}
+            detalle={
+              totalResultados > 0
+                ? `${Math.round((metricas!.salio_cara / totalResultados) * 100)}% cara`
+                : "Sin jugadas"
+            }
+          />
+        </section>
+
+        <section className="mt-8">
+          <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
+            Últimas 100 jugadas
+          </h2>
+
+          {historial === null ? (
+            <p className="text-sm text-parchment/50">Cargando…</p>
+          ) : historial.length === 0 ? (
+            <Panel className="border-dashed p-6 text-center text-sm text-parchment/50">
+              Todavía nadie ha jugado.
+            </Panel>
+          ) : (
+            <Panel className="overflow-x-auto p-0">
+              <table className="w-full min-w-[640px] text-sm">
+                <thead>
+                  <tr className="border-b border-gold-dark/40 text-left text-[11px] uppercase tracking-wide text-parchment/40">
+                    <th className="px-3 py-2 font-semibold">Fecha</th>
+                    <th className="px-3 py-2 font-semibold">Jugador</th>
+                    <th className="px-3 py-2 font-semibold">Eligió</th>
+                    <th className="px-3 py-2 font-semibold">Salió</th>
+                    <th className="px-3 py-2 text-right font-semibold">Apostó</th>
+                    <th className="px-3 py-2 text-right font-semibold">Pagó la casa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historial.map(({ jugada, nickname }) => (
+                    <tr key={jugada.id} className="border-b border-gold-dark/20 last:border-0">
+                      <td className="px-3 py-2 text-parchment/50">
+                        {new Date(jugada.created_at).toLocaleString("es-PE", {
+                          timeZone: "America/Lima",
+                          day: "2-digit",
+                          month: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </td>
+                      <td className="px-3 py-2 text-parchment/80">{nickname}</td>
+                      <td className="px-3 py-2 text-parchment/60">
+                        {LADO_MONEDA_LABEL[jugada.eleccion]}
+                      </td>
+                      <td
+                        className={clsx(
+                          "px-3 py-2 font-semibold",
+                          jugada.gano ? "text-lose-glow" : "text-win-glow"
+                        )}
+                      >
+                        {LADO_MONEDA_LABEL[jugada.resultado]}
+                      </td>
+                      <td className="px-3 py-2 text-right text-parchment/70">
+                        S/{soles(jugada.monto)}
+                      </td>
+                      <td className="px-3 py-2 text-right text-parchment/70">
+                        {jugada.gano ? `S/${soles(jugada.pago)}` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Panel>
+          )}
+          <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
+            El color de <strong className="text-parchment/60">Salió</strong> está desde la
+            vista de la casa: verde cuando la jugada la ganó la casa, rojo cuando le tocó
+            pagar.
+          </p>
+        </section>
+      </main>
+    </>
+  );
+}
+
+function Metrica({
+  label,
+  valor,
+  detalle,
+  tono = "neutro",
+}: {
+  label: string;
+  valor: string;
+  detalle: string;
+  tono?: "neutro" | "win" | "lose";
+}) {
+  const color = tono === "win" ? "text-win-glow" : tono === "lose" ? "text-lose-glow" : "text-parchment";
+  return (
+    <Panel className="p-4">
+      <p className="text-[11px] uppercase tracking-wide text-parchment/40">{label}</p>
+      <p className={`mt-1 font-display text-2xl font-bold ${color}`}>{valor}</p>
+      <p className="mt-0.5 text-[11px] text-parchment/40">{detalle}</p>
+    </Panel>
+  );
+}
+
+export default function AdminCaraSelloPage() {
+  return (
+    <RequireAdmin>
+      <AdminCaraSelloContent />
+    </RequireAdmin>
+  );
+}

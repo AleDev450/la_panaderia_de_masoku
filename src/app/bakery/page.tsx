@@ -15,6 +15,8 @@ import {
   getUsuarios,
 } from "@/actions/admin";
 import { getSorteos } from "@/actions/sorteos";
+import { getRondas } from "@/actions/ruleta";
+import { getMetricasCaraSello } from "@/actions/caraSello";
 import { AdminMetricas, ResumenDia } from "@/lib/supabase/types";
 import { hoyIsoEnPeru } from "@/lib/eventos";
 import { HojaExcel, descargarXlsx } from "@/lib/xlsx";
@@ -25,6 +27,8 @@ function AdminHomeContent() {
   const [pendientes, setPendientes] = useState<number | null>(null);
   const [resumen, setResumen] = useState<ResumenDia[] | null>(null);
   const [sorteosActivos, setSorteosActivos] = useState<number | null>(null);
+  const [rondasAbiertas, setRondasAbiertas] = useState<number | null>(null);
+  const [jugadasCaraSello, setJugadasCaraSello] = useState<number | null>(null);
 
   // Rango del cuadro y de la descarga. Arranca en el mes en curso
   // (calendario de Perú) y lo mueve el propio panel.
@@ -51,6 +55,20 @@ function AdminHomeContent() {
       // Igual que el resumen: si 0037 todavía no corrió, 0 en vez de "—"
       // colgado para siempre.
       setSorteosActivos(result.ok ? result.data.filter((s) => s.sorteo.activo).length : 0);
+    });
+    getRondas().then((result) => {
+      // Igual que el resto: si 0048 todavía no corrió, 0 en vez de "—"
+      // colgado para siempre.
+      setRondasAbiertas(
+        result.ok
+          ? result.data.filter((r) =>
+              ["abierta", "cerrada", "girando"].includes(r.ronda.estado)
+            ).length
+          : 0
+      );
+    });
+    getMetricasCaraSello().then((result) => {
+      setJugadasCaraSello(result.ok ? result.data.jugadas : 0);
     });
     getResumenDiario(desde, hasta).then((result) => {
       // Si el RPC todavía no existe (migración 0034 sin correr), se muestra
@@ -212,6 +230,20 @@ function AdminHomeContent() {
             descripcion="Publica títulos, abre o cierra apuestas y declara resultados."
             valor={metricas?.eventos_abiertos ?? null}
             unidad="abiertos"
+          />
+          <Tarjeta
+            href="/bakery/ruleta"
+            titulo="🎡 Ruleta CACHUDOBET"
+            descripcion="Crea rondas, mira el pozo y gira la ruleta."
+            valor={rondasAbiertas}
+            unidad="rondas en juego"
+          />
+          <Tarjeta
+            href="/bakery/cara-o-sello"
+            titulo="🪙 Cara o sello"
+            descripcion="Jugadas, volumen y resultado de la casa."
+            valor={jugadasCaraSello}
+            unidad="jugadas"
           />
           <Tarjeta
             href="/bakery/recargas"

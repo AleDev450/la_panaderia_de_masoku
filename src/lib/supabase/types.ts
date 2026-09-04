@@ -353,6 +353,100 @@ export type InscripcionSorteo = {
   updated_at: string;
 };
 
+/** Parámetros de los juegos de CACHUDOBET (0048). Fila única en Postgres:
+ * los porcentajes del pozo se leen de acá y NO viven en el cliente. */
+export type CachudobetConfig = {
+  id: boolean;
+  precio_ticket: number;
+  porcentaje_premio: number;
+  porcentaje_casa: number;
+  cara_sello_multiplicador: number;
+  cara_sello_min: number;
+  cara_sello_max: number;
+  updated_at: string;
+};
+
+/** Ciclo de una ronda de ruleta (0048). Solo pasa a `girando` cuando el
+ * ganador ya está escrito: la tabla lo obliga con un check. */
+export type EstadoRondaRuleta =
+  | "borrador"
+  | "abierta"
+  | "cerrada"
+  | "girando"
+  | "finalizada";
+
+export type RuletaRonda = {
+  id: string;
+  /** El "#124" que se muestra. Corre por su cuenta y no se reusa. */
+  numero: number;
+  admin_id: string;
+  nombre: string;
+  premio_concepto: string | null;
+  estado: EstadoRondaRuleta;
+  /** Copiados de la config al crear la ronda: cambiar la config no reescribe
+   * la plata de una ronda ya jugada. */
+  precio_ticket: number;
+  porcentaje_premio: number;
+  porcentaje_casa: number;
+  pozo_total: number;
+  ganador_ticket_id: string | null;
+  ganador_usuario_id: string | null;
+  premio_monto: number | null;
+  comision_monto: number | null;
+  /** Instante del SERVIDOR en que arranca la animación. Todos los clientes
+   * anclan el giro acá, así ven el mismo ganador en el mismo momento. */
+  giro_inicia_en: string | null;
+  abierta_at: string | null;
+  cerrada_at: string | null;
+  girada_at: string | null;
+  finalizada_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RuletaTicket = {
+  id: string;
+  ronda_id: string;
+  usuario_id: string;
+  /** Correlativo dentro de la ronda: también es la posición en la rueda. */
+  numero: number;
+  codigo: string;
+  monto: number;
+  /** Lo agregó el admin por una compra pagada por fuera, sin tocar saldo. */
+  manual: boolean;
+  created_at: string;
+};
+
+export type LadoMoneda = "cara" | "sello";
+
+/** Una jugada de cara o sello (0049), ya resuelta por Postgres. */
+export type CaraSelloJugada = {
+  id: string;
+  usuario_id: string;
+  eleccion: LadoMoneda;
+  resultado: LadoMoneda;
+  monto: number;
+  gano: boolean;
+  pago: number;
+  /** Snapshot del multiplicador con el que se pagó esta jugada. */
+  multiplicador: number;
+  created_at: string;
+};
+
+/** Lo que devuelve `admin_metricas_cara_sello` (0049). `resultado_casa` puede
+ * ser negativo: en este juego la casa sí es contraparte. */
+export type MetricasCaraSello = {
+  jugadas: number;
+  jugadores: number;
+  monto_apostado: number;
+  monto_pagado: number;
+  resultado_casa: number;
+  jugadas_ganadas: number;
+  jugadas_perdidas: number;
+  salio_cara: number;
+  salio_sello: number;
+};
+
 // Shape required by @supabase/postgrest-js's `GenericSchema` — every
 // table needs `Relationships` even if empty, and `Views` must exist even
 // unused, or the RPC/`.from()` generics silently collapse to `never`.
@@ -445,6 +539,26 @@ export interface Database {
         Row: InscripcionSorteo;
         Insert: Partial<InscripcionSorteo>;
         Update: Partial<InscripcionSorteo>;
+      } & NoRelationships;
+      cachudobet_config: {
+        Row: CachudobetConfig;
+        Insert: Partial<CachudobetConfig>;
+        Update: Partial<CachudobetConfig>;
+      } & NoRelationships;
+      ruleta_rondas: {
+        Row: RuletaRonda;
+        Insert: Partial<RuletaRonda>;
+        Update: Partial<RuletaRonda>;
+      } & NoRelationships;
+      ruleta_tickets: {
+        Row: RuletaTicket;
+        Insert: Partial<RuletaTicket>;
+        Update: Partial<RuletaTicket>;
+      } & NoRelationships;
+      cara_sello_jugadas: {
+        Row: CaraSelloJugada;
+        Insert: Partial<CaraSelloJugada>;
+        Update: Partial<CaraSelloJugada>;
       } & NoRelationships;
     };
     Views: Record<string, never>;
@@ -684,6 +798,63 @@ export interface Database {
       admin_sortear_ganador: {
         Args: { p_admin_id: string; p_sorteo_id: string };
         Returns: InscripcionSorteo;
+      };
+      ahora_servidor: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
+      admin_guardar_config: {
+        Args: {
+          p_admin_id: string;
+          p_precio_ticket: number;
+          p_porcentaje_premio: number;
+          p_cara_sello_multiplicador: number;
+          p_cara_sello_min: number;
+          p_cara_sello_max: number;
+        };
+        Returns: CachudobetConfig;
+      };
+      admin_guardar_ronda: {
+        Args: {
+          p_admin_id: string;
+          p_ronda_id: string | null;
+          p_nombre: string;
+          p_premio_concepto: string | null;
+        };
+        Returns: RuletaRonda;
+      };
+      admin_cambiar_estado_ronda: {
+        Args: { p_admin_id: string; p_ronda_id: string; p_estado: string };
+        Returns: RuletaRonda;
+      };
+      comprar_tickets_ruleta: {
+        Args: { p_usuario_id: string; p_ronda_id: string; p_monto: number };
+        Returns: RuletaTicket[];
+      };
+      admin_agregar_tickets: {
+        Args: {
+          p_admin_id: string;
+          p_ronda_id: string;
+          p_usuario_id: string;
+          p_cantidad: number;
+        };
+        Returns: RuletaTicket[];
+      };
+      admin_girar_ruleta: {
+        Args: { p_admin_id: string; p_ronda_id: string };
+        Returns: RuletaRonda;
+      };
+      admin_finalizar_ronda: {
+        Args: { p_admin_id: string; p_ronda_id: string };
+        Returns: RuletaRonda;
+      };
+      jugar_cara_sello: {
+        Args: { p_usuario_id: string; p_eleccion: LadoMoneda; p_monto: number };
+        Returns: CaraSelloJugada;
+      };
+      admin_metricas_cara_sello: {
+        Args: { p_admin_id: string };
+        Returns: MetricasCaraSello[];
       };
     };
   };

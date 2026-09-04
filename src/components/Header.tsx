@@ -18,6 +18,8 @@ import { useState } from "react";
  */
 const NAV_JUGADOR = [
   { href: "/partidas", label: "En vivo" },
+  { href: "/ruleta", label: "Ruleta" },
+  { href: "/cara-o-sello", label: "Cara o sello" },
   { href: "/mis-apuestas", label: "Mis apuestas" },
   { href: "/historial", label: "Historial" },
   { href: "/ranking", label: "Ranking" },
@@ -32,6 +34,8 @@ const NAV_JUGADOR = [
 const NAV_ADMIN = [
   { href: "/bakery", label: "Panel" },
   { href: "/bakery/titulos", label: "Eventos" },
+  { href: "/bakery/ruleta", label: "Ruleta" },
+  { href: "/bakery/cara-o-sello", label: "Cara o sello" },
   { href: "/bakery/recargas", label: "Depósitos" },
   { href: "/bakery/retiros", label: "Retiros" },
   { href: "/bakery/usuarios", label: "Usuarios" },

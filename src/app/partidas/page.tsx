@@ -10,6 +10,7 @@ import { PartidaCard } from "@/components/partidas/PartidaCard";
 import { CrearSalaModal } from "@/components/partidas/CrearSalaModal";
 import { CATEGORIA_OPTIONS } from "@/components/partidas/CategoriaBadge";
 import { HistorialReciente } from "@/components/partidas/HistorialReciente";
+import { HeroRonda } from "@/components/ruleta/HeroRonda";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
 import {
@@ -187,6 +188,11 @@ function PartidasContent() {
     <>
       <Header />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+        {/* La ronda de la ruleta va arriba de todo: es el juego con pozo
+            común y hay que enterarse de que existe sin ir a buscarlo. Se
+            carga sola, así que el motor de partidas de abajo no cambia. */}
+        <HeroRonda />
+
         {/* El panel de resultados va a la derecha en pantallas anchas y se
             apila debajo en el resto — con menos de ~1280px la columna de
             salas ya queda muy angosta para las dos cosas al costado. */}
