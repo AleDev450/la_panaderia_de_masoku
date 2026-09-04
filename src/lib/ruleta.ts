@@ -23,9 +23,15 @@ export const DURACION_GIRO_MS = 5000;
  */
 export const CUENTA_REGRESIVA_MS = 3000;
 
-/** Vueltas completas antes de frenar. Fijo a propósito: si fuera aleatorio,
- * cada navegador giraría distinto y dejarían de verse lo mismo. */
-export const VUELTAS = 6;
+/**
+ * Vueltas completas antes de frenar. Fijo a propósito: si fuera aleatorio,
+ * cada navegador giraría distinto y dejarían de verse lo mismo.
+ *
+ * 16 y no 6: en los primeros segundos la rueda tiene que ser un BORRÓN. Que
+ * no se lean los nombres ahí no es un problema —se leen solos cuando frena—,
+ * y es lo que hace que el sorteo se sienta rápido.
+ */
+export const VUELTAS = 16;
 
 export const ESTADO_RONDA_LABEL: Record<EstadoRondaRuleta, string> = {
   borrador: "En preparación",
@@ -166,32 +172,40 @@ export function rotacionFinal(anguloGanador: number): number {
 }
 
 /** Qué parte del giro se usa para tomar impulso antes de soltar la rueda. */
-const ARRANQUE = 0.12;
+const ARRANQUE = 0.06;
 
 /**
- * Aceleración del giro: empujón corto y frenada larga, como cuando alguien
- * tira una ruleta de verdad.
+ * Aceleración del giro: latigazo corto y frenada larga.
  *
- * ANTES ERA SMOOTHERSTEP (6t⁵−15t⁴+10t³) y se veía pesada: esa curva pasa el
- * primer 10% del tiempo prácticamente quieta (avanzaba 0.9%) y llegaba a un
- * pico de apenas 1.25 vueltas/s. Se leía como una rueda que cuesta mover, no
- * como un sorteo.
+ * DE DÓNDE VIENE ESTA CURVA. La primera versión usaba smootherstep
+ * (6t⁵−15t⁴+10t³) y se veía pesada: pasaba el primer 10% del tiempo casi
+ * quieta y llegaba a un pico de 1.25 vueltas/s. Se leía como una rueda que
+ * cuesta mover, no como un sorteo.
  *
- * Ahora el 88% del tiempo la rueda está FRENANDO, que es lo que genera la
- * tensión: a los 5 segundos ya recorrió el 75% en la mitad del tiempo y el
- * final se arrastra despacio hasta el ganador. Pico: 3.78 vueltas/s.
+ * Ahora la rueda sale a 15 vueltas por segundo —a propósito ilegible— y se
+ * pasa el resto del tiempo frenando:
  *
- * El arranque no se elimina del todo —una rueda que salta de 0 a máxima
- * velocidad en un frame se ve como un corte— pero dura 12% en vez de la
- * mitad del giro.
+ *   0.25s · 14.0 vueltas/s · borrón
+ *   1.25s ·  5.4 vueltas/s · borrón
+ *   2.50s ·  2.4 vueltas/s · empiezan a distinguirse los colores
+ *   3.50s ·  0.9 vueltas/s · ya se leen los nombres
+ *   4.50s ·  0.1 vueltas/s · se arrastra hasta el ganador
+ *
+ * Que no se lean los nombres al principio no importa: el dato aparece solo
+ * cuando frena, y ese contraste entre el borrón y la frenada es justamente lo
+ * que hace que el sorteo se sienta rápido y tenga suspenso. Quedan ~1.6s con
+ * la rueda lo bastante lenta como para leerla.
  */
 export function curvaDeGiro(progreso: number): number {
   const t = Math.min(1, Math.max(0, progreso));
-  // Frenada cuadrática: rápida al soltar, cada vez más lenta.
-  const salida = 1 - (1 - t) * (1 - t);
+  // Frenada cúbica: sale disparada y se va deteniendo cada vez más despacio.
+  const restante = 1 - t;
+  const salida = 1 - restante * restante * restante;
   if (t >= ARRANQUE) return salida;
 
-  // Impulso inicial, suavizado para que no se note el empujón.
+  // Impulso inicial. No se elimina del todo porque una rueda que salta de 0 a
+  // máxima velocidad en un frame se ve como un corte de video, no como un
+  // giro — pero dura apenas el 6%.
   const r = t / ARRANQUE;
   return salida * (r * r * (3 - 2 * r));
 }

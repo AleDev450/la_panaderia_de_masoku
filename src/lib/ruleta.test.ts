@@ -276,6 +276,16 @@ describe("curvaDeGiro", () => {
     }
   });
 
+  it("arranca como un borrón y llega lenta: el contraste es el efecto", () => {
+    // La gracia es que al principio NO se lean los nombres y sí se lean
+    // cuando frena. Si alguien vuelve a suavizar la curva, esto lo atrapa.
+    const alPrincipio = tramo(0, 0.1);
+    const alFinal = tramo(0.9, 1);
+    expect(alPrincipio).toBeGreaterThan(alFinal * 20);
+    // Y tiene que quedar una cola lenta de verdad, no un frenazo seco.
+    expect(alFinal).toBeLessThan(0.01);
+  });
+
   it("a mitad de tiempo ya recorrió la mayor parte", () => {
     // Esto es lo que la hace ver rápida: el grueso del giro pasa temprano y
     // el final se arrastra despacio hasta el ganador.
