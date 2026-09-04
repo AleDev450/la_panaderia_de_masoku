@@ -20,6 +20,9 @@ const NAV_JUGADOR = [
   { href: "/partidas", label: "En vivo" },
   { href: "/ruleta", label: "Ruleta" },
   { href: "/cara-o-sello", label: "Cara o sello" },
+  // "Stream" y no "En vivo": ese rótulo ya lo usa el listado de salas, y dos
+  // entradas con el mismo nombre no se distinguen.
+  { href: "/en-vivo", label: "Stream" },
   { href: "/mis-apuestas", label: "Mis apuestas" },
   { href: "/historial", label: "Historial" },
   { href: "/ranking", label: "Ranking" },
