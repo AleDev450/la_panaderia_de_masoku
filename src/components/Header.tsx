@@ -16,11 +16,14 @@ import { useState } from "react";
  * existen en la app y un link a una ruta inexistente es un 404 con cara de
  * funcionalidad.
  *
- * LO QUE SE JUEGA VA PRIMERO Y SIEMPRE VISIBLE. Antes eran once entradas en
- * una sola fila: a 1280px no entraban, y la ruleta, cara o sello y el stream
- * quedaban apretados contra el saldo o directamente fuera de la pantalla —
- * estaban en el menú pero no se veían, que para el caso es lo mismo que no
- * estar.
+ * EL ORDEN SIGUE AL VIVO. La transmisión va primero porque es de donde sale
+ * todo lo demás: cuando hay stream, las mesas y las rondas se juegan ahí.
+ * Detrás van las cuatro formas de jugar, en el orden en que se ofrecen.
+ *
+ * ANTES ERAN ONCE ENTRADAS en una sola fila: a 1280px no entraban, y la
+ * ruleta, cara o sello y el stream quedaban apretados contra el saldo o
+ * directamente fuera de la pantalla — estaban en el menú pero no se veían,
+ * que para el caso es lo mismo que no estar.
  *
  * Quedan siete, y todo lo de la cuenta —mis apuestas, historial, retirar,
  * ayuda— se mudó a /perfil, que es donde uno va a buscar lo suyo.
@@ -31,10 +34,10 @@ import { useState } from "react";
  * todas sin recortar nada.
  */
 const NAV_JUGADOR = [
+  { href: "/en-vivo", label: "En vivo" },
   { href: "/partidas", label: "Partidas de hoy" },
   { href: "/ruleta", label: "Ruleta" },
   { href: "/cara-o-sello", label: "Cara o sello" },
-  { href: "/en-vivo", label: "En vivo" },
   { href: "/sorteos", label: "Sorteos" },
   { href: "/ranking", label: "Ranking" },
   { href: "/recargar", label: "Depositar" },
