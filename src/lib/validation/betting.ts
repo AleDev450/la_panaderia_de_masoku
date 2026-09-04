@@ -34,7 +34,10 @@ export const crearEventoSchema = z.object({
   nombre: z.string().trim().min(5, "El título debe tener al menos 5 caracteres."),
   ladoA: z.string().trim().min(1, "Indica el lado A (p.ej. GANA)."),
   ladoB: z.string().trim().min(1, "Indica el lado B (p.ej. PIERDE)."),
-  categoria: z.enum(["dota2", "csgo", "lol", "valorant", "otros", "blackjack"]),
+  // Tiene que coincidir con el enum `categoria_evento` de Postgres: lo que
+  // falte acá se rechaza como "datos inválidos" antes de llegar a la base,
+  // aunque la base sí lo acepte. 'baccarat' entró en 0054.
+  categoria: z.enum(["dota2", "csgo", "lol", "valorant", "otros", "blackjack", "baccarat"]),
   /** Se ignora en blackjack: esas mesas se abren sin reloj (ver 0039). */
   duracionMin: z.number().int().min(1, "La duración debe ser de al menos 1 minuto."),
 });

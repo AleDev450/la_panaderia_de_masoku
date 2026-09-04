@@ -6,8 +6,13 @@ const CATEGORIA_LABEL: Record<CategoriaEvento, string> = {
   lol: "League of Legends",
   valorant: "Valorant",
   blackjack: "Blackjack",
+  baccarat: "Baccarat",
   otros: "Otros",
 };
+
+/** Las que se juegan en la mesa del stream: van debajo de la transmisión en
+ * /en-vivo para poder mirar y jugar sin cambiar de pantalla. */
+export const CATEGORIAS_DE_MESA: CategoriaEvento[] = ["blackjack", "baccarat"];
 
 export function CategoriaBadge({ categoria }: { categoria: CategoriaEvento }) {
   return (

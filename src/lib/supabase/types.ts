@@ -13,7 +13,10 @@ export type CategoriaEvento =
   | "valorant"
   | "otros"
   /** Mesa 1v1 sin reloj (0039). La app no reparte cartas: solo señaliza el turno. */
-  | "blackjack";
+  | "blackjack"
+  /** Categoría común y corriente (0054): sin turno ni asiento único, porque
+   * en baccarat el jugador no decide nada — las cartas salen por regla fija. */
+  | "baccarat";
 
 /** Lo que devuelve `unirse_blackjack` (0041): en qué mesa y lado quedaste,
  * y si hubo que abrir una mesa nueva porque el lado que pediste estaba

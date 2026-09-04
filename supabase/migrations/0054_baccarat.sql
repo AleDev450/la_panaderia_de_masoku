@@ -1,0 +1,24 @@
+-- =============================================================================
+-- CACHUDOBET — Baccarat como categoría
+-- 0054_baccarat.sql
+--
+-- ES SOLO UNA CATEGORÍA MÁS. No trae reglas propias: una mesa de baccarat es
+-- un título del motor de siempre (0001), con su libro de órdenes, su
+-- emparejamiento FIFO parcial y su resolución en dos fases. El staff reparte
+-- por fuera y declara el resultado, igual que con dota2 o valorant.
+--
+-- LO QUE **NO** HACE, A PROPÓSITO: no copia nada de blackjack (0039/0041). El
+-- blackjack tiene un asiento por lado, mesas que se clonan solas y señal de
+-- turno porque el jugador decide si pide carta. En baccarat el jugador no
+-- decide nada —las cartas salen por regla fija— así que no hay turno que
+-- señalizar ni razón para limitar cuánta gente apuesta a cada lado.
+--
+-- Por eso acá no se toca `crear_apuesta` ni ninguna otra función: agregar el
+-- valor al enum es literalmente todo lo que hace falta.
+--
+-- `alter type ... add value` no permite USAR el valor nuevo en la misma
+-- transacción en que se agrega. Acá no se usa en ningún lado, así que corre
+-- de una.
+-- =============================================================================
+
+alter type categoria_evento add value if not exists 'baccarat';

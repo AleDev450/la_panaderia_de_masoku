@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
+import { MesasEnVivo } from "@/components/partidas/MesasEnVivo";
 import { getEstadoStream } from "@/actions/stream";
 import {
   CANAL_KICK,
@@ -182,6 +183,12 @@ function EnVivoContent() {
           El video arranca sin sonido porque los navegadores no permiten que una página
           empiece a sonar sola. Súbele el volumen desde el reproductor.
         </p>
+
+        {/* Las mesas van DEBAJO del video a propósito: en el celular no se
+            puede estar en dos pantallas a la vez, así que el que juega
+            blackjack tenía que elegir entre mirar la mano o llegar a marcar
+            "pedir". Acá tiene el video arriba y sus botones abajo. */}
+        <MesasEnVivo />
       </main>
     </>
   );
