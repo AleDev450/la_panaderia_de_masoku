@@ -15,11 +15,16 @@ import { LADO_MONEDA_LABEL } from "@/lib/caraSello";
 
 /**
  * CACHUDOBET → Cara o sello. Solo lectura: no hay nada que declarar ni
- * aprobar, porque cada jugada nace y se paga sola en Postgres.
+ * aprobar, porque cada duelo se resuelve y se paga solo en Postgres.
  *
- * `Resultado casa` puede ser NEGATIVO y eso no es un error: acá la casa es
- * contraparte de verdad (ver 0049). Con volumen tiende al margen del
- * multiplicador; en un día flojo puede perder.
+ * Desde 0050 el juego es 1v1: los dos jugadores ponen el mismo monto y la
+ * casa se queda la diferencia entre el pozo y el premio — 0.20 por sol con
+ * multiplicador 1.8, salga cara o sello. `Resultado casa` es esa comisión y
+ * no depende del resultado: la casa no corre riesgo, igual que en el motor
+ * de apuestas.
+ *
+ * Cada duelo escribe DOS filas en `cara_sello_jugadas`, una por jugador, así
+ * que "Jugadas" cuenta manos por persona y no duelos.
  */
 
 const soles = (n: number) => n.toFixed(2);
@@ -68,7 +73,7 @@ function AdminCaraSelloContent() {
             detalle="Volumen total"
           />
           <Metrica
-            label="Resultado casa"
+            label="Comisión casa"
             valor={metricas ? `S/${soles(metricas.resultado_casa)}` : "—"}
             detalle="Apostado − pagado"
             tono={metricas && metricas.resultado_casa < 0 ? "lose" : "win"}
@@ -83,14 +88,14 @@ function AdminCaraSelloContent() {
             tono="lose"
           />
           <Metrica
-            label="Ganadas"
+            label="Manos ganadas"
             valor={metricas ? String(metricas.jugadas_ganadas) : "—"}
-            detalle="Las ganó el jugador"
+            detalle="Cobraron premio"
           />
           <Metrica
-            label="Perdidas"
+            label="Manos perdidas"
             valor={metricas ? String(metricas.jugadas_perdidas) : "—"}
-            detalle="Las ganó la casa"
+            detalle="Perdieron su monto"
           />
           <Metrica
             label="Cara / Sello"
@@ -146,7 +151,7 @@ function AdminCaraSelloContent() {
                       <td
                         className={clsx(
                           "px-3 py-2 font-semibold",
-                          jugada.gano ? "text-lose-glow" : "text-win-glow"
+                          jugada.gano ? "text-win-glow" : "text-lose-glow"
                         )}
                       >
                         {LADO_MONEDA_LABEL[jugada.resultado]}
@@ -164,9 +169,9 @@ function AdminCaraSelloContent() {
             </Panel>
           )}
           <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
-            El color de <strong className="text-parchment/60">Salió</strong> está desde la
-            vista de la casa: verde cuando la jugada la ganó la casa, rojo cuando le tocó
-            pagar.
+            Cada duelo aparece como <strong className="text-parchment/60">dos filas</strong>,
+            una por jugador: una en verde (cobró el premio) y otra en rojo (perdió su monto).
+            La casa se queda la diferencia, gane quien gane.
           </p>
         </section>
       </main>

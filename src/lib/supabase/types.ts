@@ -419,7 +419,8 @@ export type RuletaTicket = {
 
 export type LadoMoneda = "cara" | "sello";
 
-/** Una jugada de cara o sello (0049), ya resuelta por Postgres. */
+/** Una jugada de cara o sello, ya resuelta por Postgres. Desde 0050 cada
+ * duelo escribe DOS filas, una por jugador. */
 export type CaraSelloJugada = {
   id: string;
   usuario_id: string;
@@ -430,7 +431,30 @@ export type CaraSelloJugada = {
   pago: number;
   /** Snapshot del multiplicador con el que se pagó esta jugada. */
   multiplicador: number;
+  /** Duelo del que salió (0050). Null en las jugadas viejas contra la casa. */
+  sala_id: string | null;
   created_at: string;
+};
+
+export type EstadoSalaCaraSello = "esperando" | "resuelta" | "cancelada";
+
+/** Un duelo 1v1 de cara o sello (0050). Los dos ponen el mismo monto; el
+ * ganador cobra `premio` y la casa se queda `comision`. */
+export type CaraSelloSala = {
+  id: string;
+  creador_id: string;
+  lado_creador: LadoMoneda;
+  monto: number;
+  estado: EstadoSalaCaraSello;
+  rival_id: string | null;
+  resultado: LadoMoneda | null;
+  ganador_id: string | null;
+  premio: number | null;
+  comision: number | null;
+  multiplicador: number;
+  created_at: string;
+  resuelta_at: string | null;
+  updated_at: string;
 };
 
 /** Lo que devuelve `admin_metricas_cara_sello` (0049). `resultado_casa` puede
@@ -559,6 +583,11 @@ export interface Database {
         Row: CaraSelloJugada;
         Insert: Partial<CaraSelloJugada>;
         Update: Partial<CaraSelloJugada>;
+      } & NoRelationships;
+      cara_sello_salas: {
+        Row: CaraSelloSala;
+        Insert: Partial<CaraSelloSala>;
+        Update: Partial<CaraSelloSala>;
       } & NoRelationships;
     };
     Views: Record<string, never>;
@@ -848,9 +877,17 @@ export interface Database {
         Args: { p_admin_id: string; p_ronda_id: string };
         Returns: RuletaRonda;
       };
-      jugar_cara_sello: {
-        Args: { p_usuario_id: string; p_eleccion: LadoMoneda; p_monto: number };
-        Returns: CaraSelloJugada;
+      crear_sala_cara_sello: {
+        Args: { p_usuario_id: string; p_lado: LadoMoneda; p_monto: number };
+        Returns: CaraSelloSala;
+      };
+      unirse_cara_sello: {
+        Args: { p_usuario_id: string; p_sala_id: string };
+        Returns: CaraSelloSala;
+      };
+      cancelar_sala_cara_sello: {
+        Args: { p_usuario_id: string; p_sala_id: string };
+        Returns: CaraSelloSala;
       };
       admin_metricas_cara_sello: {
         Args: { p_admin_id: string };

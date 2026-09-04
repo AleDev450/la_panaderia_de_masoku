@@ -66,10 +66,13 @@ quien eligió el lado contrario.
    `order by random() limit 1` uniforme: tener diez tickets es tener diez
    filas, y ahí está toda la ponderación. **Solo el staff gira**; el jugador
    no tiene botón.
-10. **Cara o sello** (0049) es lo único donde la casa es contraparte de
-    verdad. El resultado sale de `random()` en Postgres, dentro de la misma
-    transacción que descuenta y paga; el navegador solo anima hacia el lado
-    que ya decidió la base. Paga 1.80x, igual que la cuota del motor.
+10. **Cara o sello** es un duelo 1v1 (0050; nació contra la casa en 0049 y se
+    cambió). Uno abre una sala con su lado y su monto —que queda retenido
+    esperando—, otro se sienta enfrente con el **mismo monto**, y ahí cae la
+    moneda: `random()` en Postgres, en la misma transacción que mueve el
+    saldo de los dos. El ganador cobra 1.80x y la casa se queda 0.20 por sol,
+    la misma comisión fija del motor: gane quien gane, la casa gana lo mismo.
+    El navegador solo anima hacia el lado que la base ya decidió.
 
 ### Cómo se ve el mismo sorteo en todas las pantallas
 
@@ -205,7 +208,7 @@ src/
     recargar/               Yapear al QR y subir el comprobante
     retirar/                 Solicitar retiro del saldo disponible
     ruleta/                   Ronda con pozo: comprar tickets y ver el giro
-    cara-o-sello/             Lanzar la moneda contra la casa
+    cara-o-sello/             Lobby de duelos 1v1 a la moneda
     sorteos/                  Inscribirse a un sorteo con Steam + Discord
     perfil/                   Nickname, correo, solicitud de cambio de teléfono
     como-jugar/               Reglas del motor

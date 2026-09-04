@@ -111,7 +111,7 @@ export function HeroRonda() {
               🪙 Cara o sello
             </p>
             <p className="mt-2 text-sm text-parchment/60">
-              Elige un lado, lanza la moneda y cobra al instante.
+              Uno contra uno: mismo monto, un lado cada quien.
             </p>
           </div>
           <p className="mt-4 font-display text-2xl font-bold text-parchment">

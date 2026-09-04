@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   VUELTAS_MONEDA,
+  comisionDelDuelo,
   gananciaNeta,
+  ladoDe,
   pagoCaraSello,
   rotacionFinalMoneda,
 } from "@/lib/caraSello";
+
+const sala = {
+  creador_id: "creador",
+  rival_id: "rival",
+  lado_creador: "cara" as const,
+};
 
 describe("pagoCaraSello", () => {
   it("paga el multiplicador sobre lo apostado", () => {
@@ -28,6 +36,44 @@ describe("gananciaNeta", () => {
 
   it("perder es perder lo apostado", () => {
     expect(gananciaNeta(10, 0)).toBe(-10);
+  });
+});
+
+describe("ladoDe", () => {
+  it("el creador juega con el lado que eligió", () => {
+    expect(ladoDe(sala, "creador")).toBe("cara");
+  });
+
+  it("al que se sienta enfrente le toca el contrario, siempre", () => {
+    expect(ladoDe(sala, "rival")).toBe("sello");
+    expect(ladoDe({ ...sala, lado_creador: "sello" }, "rival")).toBe("cara");
+  });
+
+  it("quien no juega en esa sala no tiene lado", () => {
+    expect(ladoDe(sala, "mirón")).toBeNull();
+    expect(ladoDe({ ...sala, rival_id: null }, "mirón")).toBeNull();
+  });
+});
+
+describe("comisionDelDuelo", () => {
+  it("con 1.8x la casa se queda 0.20 por sol apostado", () => {
+    // Los dos ponen 10 → pozo 20, premio 18, casa 2 = 0.20 * 10.
+    expect(comisionDelDuelo(10, 1.8)).toBe(2);
+    expect(comisionDelDuelo(50, 1.8)).toBe(10);
+  });
+
+  it("el premio y la comisión siempre suman el pozo entero", () => {
+    for (const monto of [5, 12.35, 33.33, 99.99]) {
+      const pozo = Math.round(monto * 2 * 100) / 100;
+      const reparto = pagoCaraSello(monto, 1.8) + comisionDelDuelo(monto, 1.8);
+      expect(Math.round(reparto * 100) / 100).toBe(pozo);
+    }
+  });
+
+  it("la casa gana lo mismo salga cara o sello: no corre riesgo", () => {
+    // El premio no depende del resultado, así que la comisión tampoco.
+    expect(comisionDelDuelo(20, 1.8)).toBe(comisionDelDuelo(20, 1.8));
+    expect(comisionDelDuelo(20, 1.8)).toBeGreaterThan(0);
   });
 });
 
