@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import clsx from "clsx";
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { Header } from "@/components/Header";
@@ -308,9 +309,15 @@ function AdminUsuariosContent() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="flex flex-wrap items-center gap-2">
-                        <span className="font-display text-lg font-bold text-gold-light">
+                        {/* El nickname es el acceso a su ficha: dónde más
+                            buscarías el historial de alguien que no sea
+                            haciendo clic en su nombre. */}
+                        <Link
+                          href={`/bakery/usuarios/${u.id}`}
+                          className="font-display text-lg font-bold text-gold-light underline decoration-gold-dark underline-offset-4 transition hover:decoration-gold"
+                        >
                           {u.nickname}
-                        </span>
+                        </Link>
                         {u.baneado ? (
                           <span className="rounded-md border border-lose px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-lose-glow">
                             Suspendido

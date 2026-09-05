@@ -464,6 +464,19 @@ export type CaraSelloJugada = {
 
 /** Ciclo de una mesa (0053): `lista` es "los dos sentados, esperando a que el
  * staff lance". La moneda no cae sola. */
+/** Un mensaje del hilo de soporte (0055). `usuario_id` es SIEMPRE el jugador
+ * dueño del hilo; `de_staff` dice de qué lado vino. */
+export type MensajeSoporte = {
+  id: string;
+  usuario_id: string;
+  autor_id: string;
+  de_staff: boolean;
+  cuerpo: string;
+  /** Lo marcó leído el destinatario, no el autor. */
+  leido: boolean;
+  created_at: string;
+};
+
 export type EstadoSalaCaraSello = "esperando" | "lista" | "resuelta" | "cancelada";
 
 /** Un duelo 1v1 de cara o sello (0050). Los dos ponen el mismo monto; el
@@ -620,6 +633,11 @@ export interface Database {
         Row: CaraSelloSala;
         Insert: Partial<CaraSelloSala>;
         Update: Partial<CaraSelloSala>;
+      } & NoRelationships;
+      mensajes_soporte: {
+        Row: MensajeSoporte;
+        Insert: Partial<MensajeSoporte>;
+        Update: Partial<MensajeSoporte>;
       } & NoRelationships;
     };
     Views: Record<string, never>;
@@ -924,6 +942,14 @@ export interface Database {
       admin_lanzar_moneda: {
         Args: { p_admin_id: string; p_sala_id: string };
         Returns: CaraSelloSala;
+      };
+      enviar_mensaje_soporte: {
+        Args: { p_autor_id: string; p_usuario_id: string; p_cuerpo: string };
+        Returns: MensajeSoporte;
+      };
+      marcar_mensajes_leidos: {
+        Args: { p_lector_id: string; p_usuario_id: string };
+        Returns: number;
       };
       admin_metricas_cara_sello: {
         Args: { p_admin_id: string };

@@ -1068,6 +1068,8 @@ export interface ConteosPendientes {
   recargas: number;
   retiros: number;
   telefonos: number;
+  /** Mensajes de jugadores que el staff todavía no abrió (0055). */
+  mensajes: number;
 }
 
 /**
@@ -1089,13 +1091,20 @@ export async function getConteosPendientes(): Promise<ActionResult<ConteosPendie
   if (!session.ok) return session;
 
   const admin = createSupabaseAdminClient();
-  const [recargas, retiros, telefonos] = await Promise.all([
+  const [recargas, retiros, telefonos, mensajes] = await Promise.all([
     admin.from("recargas").select("id", { count: "exact", head: true }).eq("estado", "pendiente"),
     admin.from("retiros").select("id", { count: "exact", head: true }).eq("estado", "pendiente"),
     admin
       .from("solicitudes_telefono")
       .select("id", { count: "exact", head: true })
       .eq("estado", "pendiente"),
+    // Lo que escribió un jugador y nadie abrió todavía. `de_staff = false`
+    // es la dirección: las respuestas propias no cuentan como pendientes.
+    admin
+      .from("mensajes_soporte")
+      .select("id", { count: "exact", head: true })
+      .eq("de_staff", false)
+      .eq("leido", false),
   ]);
 
   return {
@@ -1104,6 +1113,7 @@ export async function getConteosPendientes(): Promise<ActionResult<ConteosPendie
       recargas: recargas.count ?? 0,
       retiros: retiros.count ?? 0,
       telefonos: telefonos.count ?? 0,
+      mensajes: mensajes.count ?? 0,
     },
   };
 }

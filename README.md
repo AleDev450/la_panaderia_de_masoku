@@ -261,6 +261,7 @@ src/
     retirar/                 Solicitar retiro del saldo disponible
     ruleta/                   Ronda con pozo: comprar tickets y ver el giro
     cara-o-sello/             Mesas 1v1 a la moneda, en vivo
+    mensajes/                  Chat del jugador con el staff (0055)
     sorteos/                  Inscribirse a un sorteo con Steam + Discord
     perfil/                   Nickname, correo, solicitud de cambio de teléfono
     como-jugar/               Reglas del motor
@@ -355,6 +356,18 @@ Lo que puede hacer:
   con el total pendiente. El saldo del jugador ya está apartado desde que
   lo solicitó; marcarlo pagado lo saca definitivamente del sistema, y
   rechazarlo se lo devuelve con un motivo que el jugador ve.
+- **Responder mensajes** (0055). Un hilo por jugador, no tickets sueltos. La
+  dirección del mensaje sale del **rol del autor**, no de un parámetro: si el
+  cliente pudiera elegirla, cualquiera se mandaría un mensaje "del staff" a sí
+  mismo y después mostraría la captura. Un jugador solo escribe en su propio
+  hilo aunque mande otro id. **Un suspendido sí puede escribir** — es el que
+  más necesita reclamar; lo que no puede es apostar.
+- **Ver la ficha de un jugador** en `/bakery/usuarios/<id>`: qué apostó, ganó
+  y perdió en los cuatro juegos, en una sola lista. Dos cuidados en los
+  números: `apostado` cuenta solo lo **emparejado** (lo que nadie cubrió vuelve
+  al saldo y no es una apuesta perdida), y el resultado se muestra dos veces
+  —total y **solo con plata real**— porque una racha ganadora hecha con saldo
+  fake no es plata que el negocio deba.
 - **Ver usuarios y el movimiento del día**: depositado, retirado, pagado en
   premios, y ganancia del día y acumulada.
 - **Suspender cuentas** por incumplimiento. No borra nada: el usuario

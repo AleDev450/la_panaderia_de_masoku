@@ -49,6 +49,7 @@ const NAV_JUGADOR: NavItem[] = [
   { href: "/sorteos", label: "Sorteos" },
   { href: "/ranking", label: "Ranking" },
   { href: "/recargar", label: "Depositar" },
+  { href: "/mensajes", label: "Mensajes" },
 ];
 
 /** El admin no juega: nada de apuestas, ranking, depositar ni historial —
@@ -58,6 +59,7 @@ const NAV_JUGADOR: NavItem[] = [
 const NAV_ADMIN: NavItem[] = [
   { href: "/bakery", label: "Panel" },
   { href: "/bakery/titulos", label: "Eventos" },
+  { href: "/bakery/mensajes", label: "Mensajes", clave: "mensajes" },
   { href: "/bakery/ruleta", label: "Ruleta" },
   { href: "/bakery/cara-o-sello", label: "Cara o sello" },
   { href: "/bakery/recargas", label: "Depósitos", clave: "recargas" },
