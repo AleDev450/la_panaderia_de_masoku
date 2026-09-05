@@ -14,6 +14,12 @@ import { Panel } from "@/components/ui/Panel";
  */
 const ACCESOS = [
   {
+    href: "/mensajes",
+    icono: "💬",
+    titulo: "Mensajes",
+    detalle: "Escríbele al staff por tu cuenta, un depósito o una apuesta.",
+  },
+  {
     href: "/mis-apuestas",
     icono: "🎯",
     titulo: "Mis apuestas",

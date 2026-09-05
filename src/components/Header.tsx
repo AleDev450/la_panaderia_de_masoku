@@ -49,7 +49,6 @@ const NAV_JUGADOR: NavItem[] = [
   { href: "/sorteos", label: "Sorteos" },
   { href: "/ranking", label: "Ranking" },
   { href: "/recargar", label: "Depositar" },
-  { href: "/mensajes", label: "Mensajes" },
 ];
 
 /** El admin no juega: nada de apuestas, ranking, depositar ni historial —

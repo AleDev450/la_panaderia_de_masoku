@@ -69,7 +69,7 @@ function FichaContent({ id }: { id: string }) {
     );
   }
 
-  const { usuario: u, totales: t, jugadas, retiradoTotal } = datos;
+  const { usuario: u, totales: t, jugadas, retiradoTotal, leQueda, dejoEnLaCasa } = datos;
 
   return (
     <>
@@ -103,11 +103,49 @@ function FichaContent({ id }: { id: string }) {
         </div>
 
         {/* ------------------------------------------------------ dinero */}
-        <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Dato label="Saldo disponible" valor={`S/${soles(u.saldoDisponible)}`} />
-          <Dato label="En juego" valor={`S/${soles(u.saldoRetenido)}`} />
-          <Dato label="Depositó" valor={`S/${soles(u.depositadoTotal)}`} tono="win" />
-          <Dato label="Retiró" valor={`S/${soles(retiradoTotal)}`} tono="lose" />
+        <section className="mt-6">
+          <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
+            Su plata, de punta a punta
+          </h2>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+            <Dato label="Depositó" valor={`S/${soles(u.depositadoTotal)}`} detalle="Recargas aprobadas" />
+            <Dato
+              label="Ganó"
+              valor={`+S/${soles(t.ganado)}`}
+              detalle={`${t.ganadas} jugadas`}
+              tono="win"
+            />
+            <Dato
+              label="Perdió"
+              valor={`−S/${soles(t.perdido)}`}
+              detalle={`${t.perdidas} jugadas`}
+              tono="lose"
+            />
+            <Dato label="Retiró" valor={`S/${soles(retiradoTotal)}`} detalle="Ya se lo yapeaste" />
+            <Dato
+              label="Le queda"
+              valor={`S/${soles(leQueda)}`}
+              detalle={u.saldoRetenido > 0 ? `S/${soles(u.saldoRetenido)} en juego` : "Disponible"}
+            />
+            <Dato
+              label="Generó"
+              valor={`S/${soles(dejoEnLaCasa)}`}
+              detalle="Depositó − retiró − le queda"
+              tono={dejoEnLaCasa >= 0 ? "win" : "lose"}
+            />
+          </div>
+
+          <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
+            <strong className="text-parchment/60">Generó</strong> es la plata real que entró y
+            ya no está ni en su bolsillo ni en su saldo.{" "}
+            <strong className="text-parchment/60">No lo leas como ganancia tuya</strong>: buena
+            parte se la llevaron otros jugadores al ganarle —el motor empareja entre pares— y
+            solo una fracción es comisión de la casa. Si además le ajustaste el saldo a mano, el
+            número se corre, porque ese movimiento mete plata que nunca entró por una recarga.
+            {dejoEnLaCasa < 0
+              ? " Acá está en negativo: se llevó más de lo que depositó."
+              : ""}
+          </p>
         </section>
 
         {u.saldoFake + u.saldoFakeRetenido > 0 ? (
@@ -131,9 +169,12 @@ function FichaContent({ id }: { id: string }) {
             <Dato
               label="Resultado"
               valor={`${t.neto >= 0 ? "+" : ""}S/${soles(t.neto)}`}
-              detalle={`${t.ganadas} ganadas · ${t.perdidas} perdidas`}
+              detalle="Ganó menos perdió"
               tono={t.neto >= 0 ? "win" : "lose"}
             />
+            {/* El único que no se puede deducir de los otros: si jugó con
+                saldo fake, el resultado de arriba promete plata que no
+                existe. */}
             <Dato
               label="Resultado real"
               valor={`${t.netoReal >= 0 ? "+" : ""}S/${soles(t.netoReal)}`}

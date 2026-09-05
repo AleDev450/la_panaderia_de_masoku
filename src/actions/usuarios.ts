@@ -65,7 +65,23 @@ export interface ResumenUsuario {
     enJuego: number;
     /** El neto contando SOLO lo jugado con plata real. */
     netoReal: number;
+    /** Lo que sumó en las jugadas que ganó (neto: apostar 10 y cobrar 18 son 8). */
+    ganado: number;
+    /** Lo que se le fue en las jugadas que perdió. Positivo. */
+    perdido: number;
   };
+  /** Saldo real de ahora: disponible + lo que tiene en juego. */
+  leQueda: number;
+  /**
+   * Plata real que entró y ya no está ni en su bolsillo ni en su saldo:
+   * `depositó − retiró − le queda`.
+   *
+   * OJO CON LEERLO COMO GANANCIA TUYA. Parte de eso se lo llevaron OTROS
+   * jugadores al ganarle —el motor es entre pares— y solo una fracción es
+   * comisión de la casa. Y si le ajustaste el saldo a mano, el número se
+   * corre: ese movimiento mete plata que nunca entró por una recarga.
+   */
+  dejoEnLaCasa: number;
   jugadas: JugadaUsuario[];
 }
 
@@ -211,7 +227,20 @@ export async function getResumenUsuario(
     perdidas: resueltas.filter((j) => j.estado === "perdida").length,
     enJuego: jugadas.filter((j) => j.estado === "en juego").length,
     netoReal: r2(resueltas.filter((j) => !j.esFake).reduce((s, j) => s + j.resultado, 0)),
+    ganado: r2(
+      resueltas.filter((j) => j.estado === "ganada").reduce((s, j) => s + j.resultado, 0)
+    ),
+    // En positivo: "perdió S/40" se lee mejor que "perdió S/−40".
+    perdido: r2(
+      Math.abs(resueltas.filter((j) => j.estado === "perdida").reduce((s, j) => s + j.resultado, 0))
+    ),
   };
+
+  const depositado = r2(
+    (recargasRes.data ?? []).reduce((s, x) => s + Number(x.monto_acreditado), 0)
+  );
+  const retirado = r2((retirosRes.data ?? []).reduce((s, x) => s + Number(x.monto), 0));
+  const leQueda = r2(Number(perfil.saldo_disponible) + Number(perfil.saldo_retenido));
 
   return {
     ok: true,
@@ -230,11 +259,11 @@ export async function getResumenUsuario(
         baneadoMotivo: perfil.baneado_motivo,
         createdAt: perfil.created_at,
         ipRegistro: perfil.ip_registro,
-        depositadoTotal: r2(
-          (recargasRes.data ?? []).reduce((s, x) => s + Number(x.monto_acreditado), 0)
-        ),
+        depositadoTotal: depositado,
       },
-      retiradoTotal: r2((retirosRes.data ?? []).reduce((s, x) => s + Number(x.monto), 0)),
+      retiradoTotal: retirado,
+      leQueda,
+      dejoEnLaCasa: r2(depositado - retirado - leQueda),
       totales,
       jugadas,
     },
