@@ -229,7 +229,7 @@ function RuletaContent() {
   return (
     <>
       <Header />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="title-cachudo text-4xl text-parchment sm:text-5xl">
@@ -485,51 +485,58 @@ function RuletaContent() {
                   }}
                 />
 
-                <Panel className="p-5">
-                  <h2 className="font-display text-sm font-bold uppercase tracking-wide text-gold-light">
-                    Participantes
-                  </h2>
-                  {segmentos.length === 0 ? (
-                    <p className="mt-3 text-sm text-parchment/45">
-                      Nadie ha comprado tickets todavía.
-                    </p>
-                  ) : (
-                    <ul className="mt-3 space-y-2">
-                      {segmentos.map((s) => (
-                        <li
-                          key={s.usuarioId}
-                          className={clsx(
-                            "flex items-center gap-2.5 rounded-md px-2 py-1.5",
-                            s.usuarioId === user?.id && "bg-gold/10"
-                          )}
-                        >
-                          <span
-                            aria-hidden
-                            className="h-3 w-3 shrink-0 rounded-full"
-                            style={{ backgroundColor: s.color }}
-                          />
-                          <span className="min-w-0 flex-1 truncate text-sm text-parchment/80">
-                            {s.nickname}
-                            {s.usuarioId === user?.id ? (
-                              <span className="ml-1 text-xs text-gold">(tú)</span>
-                            ) : null}
-                          </span>
-                          <span className="shrink-0 text-xs text-parchment/45">
-                            {s.tickets} · {s.porcentaje}%
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </Panel>
               </div>
             </section>
           </>
         )}
+
+            {/* Los ganadores van ABAJO y a lo ancho: en la columna angosta el
+                nombre y el premio se apretaban contra el borde. Acá respiran y
+                el costado queda para la lista de participantes, que es corta
+                por naturaleza. */}
+            <Historial rondas={historial} miUsuarioId={user?.id} />
           </div>
 
           <aside className="xl:sticky xl:top-6 xl:self-start">
-            <Historial rondas={historial} miUsuarioId={user?.id} />
+            {ronda ? (
+              <Panel className="p-5">
+                <h2 className="font-display text-sm font-bold uppercase tracking-wide text-gold-light">
+                  Participantes
+                </h2>
+                {segmentos.length === 0 ? (
+                  <p className="mt-3 text-sm text-parchment/45">
+                    Nadie ha comprado tickets todavía.
+                  </p>
+                ) : (
+                  <ul className="mt-3 space-y-2">
+                    {segmentos.map((s) => (
+                      <li
+                        key={s.usuarioId}
+                        className={clsx(
+                          "flex items-center gap-2.5 rounded-md px-2 py-1.5",
+                          s.usuarioId === user?.id && "bg-gold/10"
+                        )}
+                      >
+                        <span
+                          aria-hidden
+                          className="h-3 w-3 shrink-0 rounded-full"
+                          style={{ backgroundColor: s.color }}
+                        />
+                        <span className="min-w-0 flex-1 truncate text-sm text-parchment/80">
+                          {s.nickname}
+                          {s.usuarioId === user?.id ? (
+                            <span className="ml-1 text-xs text-gold">(tú)</span>
+                          ) : null}
+                        </span>
+                        <span className="shrink-0 text-xs text-parchment/45">
+                          {s.tickets} · {s.porcentaje}%
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Panel>
+            ) : null}
           </aside>
         </div>
       </main>
@@ -901,41 +908,45 @@ function Historial({
   if (rondas === null || rondas.length === 0) return null;
 
   return (
-    <section>
+    <section className="mt-8">
       <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
         Últimos ganadores
       </h2>
-      <Panel className="p-0">
-        <ul>
-          {rondas.slice(0, 10).map(({ ronda, ganadorNickname }) => {
-            const mio = ronda.ganador_usuario_id === miUsuarioId;
-            return (
-              <li
-                key={ronda.id}
-                className="flex items-center justify-between gap-3 border-b border-gold-dark/20 px-4 py-2.5 last:border-0"
-              >
-                <div className="min-w-0">
-                  <p
-                    className={clsx(
-                      "truncate font-display text-sm font-bold",
-                      mio ? "text-win-glow" : "text-parchment/85"
-                    )}
-                  >
-                    {ganadorNickname ?? "—"}
-                    {mio ? " (tú)" : ""}
-                  </p>
-                  <p className="truncate text-[11px] text-parchment/40">
-                    #{String(ronda.numero).padStart(4, "0")} · {ronda.nombre}
-                  </p>
-                </div>
-                <span className="shrink-0 font-display text-sm font-bold text-gold-light">
-                  S/{soles(ronda.premio_monto ?? 0)}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      </Panel>
+      {/* En rejilla y no en lista: a lo ancho, una fila por ronda dejaría el
+          nombre pegado a la izquierda y el premio al otro extremo, con medio
+          metro de nada en medio. */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {rondas.slice(0, 10).map(({ ronda, ganadorNickname }) => {
+          const mio = ronda.ganador_usuario_id === miUsuarioId;
+          return (
+            <Panel
+              key={ronda.id}
+              className={clsx(
+                "flex items-center justify-between gap-3 p-4",
+                mio && "border-win-glow/40 bg-win/5"
+              )}
+            >
+              <div className="min-w-0">
+                <p
+                  className={clsx(
+                    "truncate font-display text-sm font-bold",
+                    mio ? "text-win-glow" : "text-parchment/85"
+                  )}
+                >
+                  {ganadorNickname ?? "—"}
+                  {mio ? " (tú)" : ""}
+                </p>
+                <p className="truncate text-[11px] text-parchment/40">
+                  #{String(ronda.numero).padStart(4, "0")} · {ronda.nombre}
+                </p>
+              </div>
+              <span className="shrink-0 font-display text-base font-bold text-gold-light">
+                S/{soles(ronda.premio_monto ?? 0)}
+              </span>
+            </Panel>
+          );
+        })}
+      </div>
     </section>
   );
 }
