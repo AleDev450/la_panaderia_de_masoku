@@ -78,24 +78,34 @@ function SorteosContent() {
                 </h2>
                 <div className="space-y-2">
                   {cerrados.map(({ sorteo, miInscripcion, inscritos }) => (
-                    <Panel key={sorteo.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-                      <div>
-                        <p className="font-display font-semibold text-parchment/80">{sorteo.nombre}</p>
-                        <p className="text-xs text-parchment/50">
-                          {sorteo.premio} · {inscritos} inscritos
-                        </p>
-                      </div>
-                      {miInscripcion ? (
-                        <span
-                          className={clsx(
-                            "text-xs font-semibold",
-                            miInscripcion.ganador ? "text-win-glow" : "text-parchment/40"
-                          )}
-                        >
-                          {miInscripcion.ganador ? "¡Ganaste!" : "Participaste"}
-                        </span>
-                      ) : null}
-                    </Panel>
+                    <div key={sorteo.id}>
+                      <Panel className="flex flex-wrap items-center justify-between gap-3 p-4">
+                        <div>
+                          <p className="font-display font-semibold text-parchment/80">
+                            {sorteo.nombre}
+                          </p>
+                          <p className="text-xs text-parchment/50">
+                            {sorteo.premio} · {inscritos} inscritos
+                          </p>
+                        </div>
+                        {miInscripcion ? (
+                          <span
+                            className={clsx(
+                              "text-xs font-semibold",
+                              miInscripcion.ganador ? "text-win-glow" : "text-parchment/40"
+                            )}
+                          >
+                            {miInscripcion.ganador ? "¡Ganaste!" : "Participaste"}
+                          </span>
+                        ) : null}
+                      </Panel>
+
+                      {/* Un sorteo cerrado es JUSTO cuando más se miran los
+                          ganadores. Antes esta lista los escondía: al marcar
+                          "culminado" el sorteo salía de la lista de abiertos y
+                          el podio desaparecía con él. */}
+                      <CarreraSorteoPanel sorteoId={sorteo.id} />
+                    </div>
                   ))}
                 </div>
               </section>

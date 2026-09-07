@@ -809,14 +809,19 @@ export interface RondaHistorial {
 }
 
 /** Historial público de rondas ya sorteadas. */
-export async function getHistorialRondas(): Promise<ActionResult<RondaHistorial[]>> {
+export async function getHistorialRondas(
+  modos: ModoRonda[] = ["ruleta", "libre", "carrera"]
+): Promise<ActionResult<RondaHistorial[]>> {
   const session = await requireSessionUserId();
   if (!session.ok) return session;
 
   const admin = createSupabaseAdminClient();
+  // El filtro por modo faltaba: sin él, el historial de la ruleta mostraba
+  // carreras de caballitos y viceversa, porque comparten tabla (0058).
   const { data: rondas, error } = await admin
     .from("ruleta_rondas")
     .select("*")
+    .in("modo", modos)
     .in("estado", ["girando", "finalizada"])
     .order("girada_at", { ascending: false })
     .limit(50);

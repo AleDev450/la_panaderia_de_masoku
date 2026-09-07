@@ -121,7 +121,8 @@ function RuletaContent() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time bootstrap on mount
     refresh();
-    getHistorialRondas().then((r) => setHistorial(r.ok ? r.data : []));
+    // Solo ruletas: sin el filtro, acá aparecían carreras de caballitos.
+    getHistorialRondas(["ruleta", "libre"]).then((r) => setHistorial(r.ok ? r.data : []));
     // 2s: es el margen que tienen que cubrir los 3 segundos de cuenta
     // regresiva para que todos lleguen a tiempo al giro.
     const id = setInterval(refresh, 2_000);
@@ -228,7 +229,7 @@ function RuletaContent() {
   return (
     <>
       <Header />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="title-cachudo text-4xl text-parchment sm:text-5xl">
@@ -261,6 +262,25 @@ function RuletaContent() {
           ) : null}
         </div>
 
+        {/* Abrir una ruleta va ARRIBA: estaba al final de la página, después
+            de la rueda y del historial, así que había que scrollear hasta el
+            fondo para encontrar la única acción que uno puede iniciar solo. */}
+        <FormularioLibre
+          config={vista?.config ?? null}
+          saldo={user?.balance ?? 0}
+          yaTengo={rondas.some(
+            (r) => r.ronda.modo === "libre" && r.ronda.admin_id === user?.id
+          )}
+          onCreada={async () => {
+            await Promise.all([refresh(), refreshUser()]);
+          }}
+          showToast={showToast}
+        />
+
+        {/* En pantalla ancha el historial va al costado; debajo de xl se apila
+            al final, que es donde estorba menos en un teléfono. */}
+        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+          <div className="min-w-0">
         {vista === null ? (
           errorCarga ? (
             <Panel className="mt-8 border-dashed p-6 text-center">
@@ -506,20 +526,12 @@ function RuletaContent() {
             </section>
           </>
         )}
+          </div>
 
-        <FormularioLibre
-          config={vista?.config ?? null}
-          saldo={user?.balance ?? 0}
-          yaTengo={rondas.some(
-            (r) => r.ronda.modo === "libre" && r.ronda.admin_id === user?.id
-          )}
-          onCreada={async () => {
-            await Promise.all([refresh(), refreshUser()]);
-          }}
-          showToast={showToast}
-        />
-
-        <Historial rondas={historial} />
+          <aside className="xl:sticky xl:top-6 xl:self-start">
+            <Historial rondas={historial} miUsuarioId={user?.id} />
+          </aside>
+        </div>
       </main>
 
       {mostrarModal && ronda?.ganador ? (
@@ -871,46 +883,58 @@ function FormularioLibre({
   );
 }
 
-function Historial({ rondas }: { rondas: RondaHistorial[] | null }) {
+/**
+ * Las últimas 10 rondas, al costado.
+ *
+ * Solo ganador y premio: era una tabla de seis columnas —pozo, tickets,
+ * jugadores…— que en una columna angosta obligaba a scrollear de lado para
+ * leer justamente los dos datos que importan. El resto de las cifras las
+ * tiene el panel del staff, que es quien las necesita.
+ */
+function Historial({
+  rondas,
+  miUsuarioId,
+}: {
+  rondas: RondaHistorial[] | null;
+  miUsuarioId?: string;
+}) {
   if (rondas === null || rondas.length === 0) return null;
 
   return (
-    <section className="mt-10">
+    <section>
       <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
-        Rondas anteriores
+        Últimos ganadores
       </h2>
-      <Panel className="overflow-x-auto p-0">
-        <table className="w-full min-w-[620px] text-sm">
-          <thead>
-            <tr className="border-b border-gold-dark/40 text-left text-[11px] uppercase tracking-wide text-parchment/40">
-              <th className="px-3 py-2 font-semibold">Ronda</th>
-              <th className="px-3 py-2 text-right font-semibold">Pozo</th>
-              <th className="px-3 py-2 text-right font-semibold">Tickets</th>
-              <th className="px-3 py-2 text-right font-semibold">Jugadores</th>
-              <th className="px-3 py-2 font-semibold">Ganador</th>
-              <th className="px-3 py-2 text-right font-semibold">Premio</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rondas.map(({ ronda, ganadorNickname, totalTickets, participantes }) => (
-              <tr key={ronda.id} className="border-b border-gold-dark/20 last:border-0">
-                <td className="px-3 py-2 text-parchment/80">
-                  #{String(ronda.numero).padStart(4, "0")}
-                  <span className="ml-2 text-xs text-parchment/40">{ronda.nombre}</span>
-                </td>
-                <td className="px-3 py-2 text-right text-parchment/70">
-                  S/{soles(ronda.pozo_total)}
-                </td>
-                <td className="px-3 py-2 text-right text-parchment/60">{totalTickets}</td>
-                <td className="px-3 py-2 text-right text-parchment/60">{participantes}</td>
-                <td className="px-3 py-2 text-parchment/80">{ganadorNickname ?? "—"}</td>
-                <td className="px-3 py-2 text-right font-semibold text-gold-light">
+      <Panel className="p-0">
+        <ul>
+          {rondas.slice(0, 10).map(({ ronda, ganadorNickname }) => {
+            const mio = ronda.ganador_usuario_id === miUsuarioId;
+            return (
+              <li
+                key={ronda.id}
+                className="flex items-center justify-between gap-3 border-b border-gold-dark/20 px-4 py-2.5 last:border-0"
+              >
+                <div className="min-w-0">
+                  <p
+                    className={clsx(
+                      "truncate font-display text-sm font-bold",
+                      mio ? "text-win-glow" : "text-parchment/85"
+                    )}
+                  >
+                    {ganadorNickname ?? "—"}
+                    {mio ? " (tú)" : ""}
+                  </p>
+                  <p className="truncate text-[11px] text-parchment/40">
+                    #{String(ronda.numero).padStart(4, "0")} · {ronda.nombre}
+                  </p>
+                </div>
+                <span className="shrink-0 font-display text-sm font-bold text-gold-light">
                   S/{soles(ronda.premio_monto ?? 0)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       </Panel>
     </section>
   );

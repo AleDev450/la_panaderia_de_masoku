@@ -10,7 +10,13 @@ import { Button } from "@/components/ui/Button";
 import { PistaCarrera } from "@/components/sorteos/PistaCarrera";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
-import { VistaCaballitos, comprarTickets, getCaballitos } from "@/actions/ruleta";
+import {
+  RondaHistorial,
+  VistaCaballitos,
+  comprarTickets,
+  getCaballitos,
+  getHistorialRondas,
+} from "@/actions/ruleta";
 import { armarCaballosDeTickets } from "@/lib/carrera";
 import { premioMinimo, repartoParaGanador } from "@/lib/ruleta";
 
@@ -31,6 +37,7 @@ function CaballitosContent() {
   const { user, refreshUser } = useSession();
   const { showToast } = useToast();
   const [vista, setVista] = useState<VistaCaballitos | null>(null);
+  const [historial, setHistorial] = useState<RondaHistorial[] | null>(null);
   const [desfase, setDesfase] = useState(0);
   const [reducirMovimiento, setReducirMovimiento] = useState(false);
 
@@ -44,6 +51,9 @@ function CaballitosContent() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time bootstrap on mount
     refresh();
+    // Solo carreras: la tabla es compartida con la ruleta (0058), así que sin
+    // el filtro acá aparecerían rondas de rueda.
+    getHistorialRondas(["carrera"]).then((r) => setHistorial(r.ok ? r.data : []));
     // 2s, para caber dentro de los 3 de cuenta regresiva y no perderse la
     // largada.
     const id = setInterval(refresh, 2_000);
@@ -183,6 +193,48 @@ function CaballitosContent() {
             </div>
           </>
         )}
+
+        {/* Las últimas 10 carreras. Solo ganador y premio: el resto de las
+            cifras las tiene el panel del staff, que es quien las necesita. */}
+        {historial && historial.length > 0 ? (
+          <section className="mt-10">
+            <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
+              Últimos ganadores
+            </h2>
+            <Panel className="p-0">
+              <ul>
+                {historial.slice(0, 10).map(({ ronda: r, ganadorNickname, participantes }) => {
+                  const mio = r.ganador_usuario_id === user?.id;
+                  return (
+                    <li
+                      key={r.id}
+                      className="flex items-center justify-between gap-3 border-b border-gold-dark/20 px-4 py-2.5 last:border-0"
+                    >
+                      <div className="min-w-0">
+                        <p
+                          className={clsx(
+                            "truncate font-display text-sm font-bold",
+                            mio ? "text-win-glow" : "text-parchment/85"
+                          )}
+                        >
+                          {ganadorNickname ?? "—"}
+                          {mio ? " (tú)" : ""}
+                        </p>
+                        <p className="truncate text-[11px] text-parchment/40">
+                          #{String(r.numero).padStart(4, "0")} · {r.nombre} ·{" "}
+                          {participantes} {participantes === 1 ? "jugador" : "jugadores"}
+                        </p>
+                      </div>
+                      <span className="shrink-0 font-display text-sm font-bold text-gold-light">
+                        S/{soles(r.premio_monto ?? 0)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Panel>
+          </section>
+        ) : null}
       </main>
     </>
   );
