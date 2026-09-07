@@ -43,9 +43,11 @@ type NavItem = {
 
 const NAV_JUGADOR: NavItem[] = [
   { href: "/en-vivo", label: "En vivo" },
-  { href: "/partidas", label: "Partidas de hoy" },
-  { href: "/ruleta", label: "Ruleta" },
-  { href: "/cara-o-sello", label: "Cara o sello" },
+  { href: "/partidas", label: "Casino en vivo" },
+  // Ruleta, cara o sello y caballitos ya no van sueltos acá: viven dentro de
+  // /juegos. Son tres entradas menos compitiendo en la fila, y el día que se
+  // agregue un juego más no hay que volver a pelear por el espacio.
+  { href: "/juegos", label: "Juegos" },
   { href: "/sorteos", label: "Sorteos" },
   { href: "/ranking", label: "Ranking" },
   { href: "/recargar", label: "Depositar" },

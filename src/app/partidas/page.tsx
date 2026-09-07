@@ -100,7 +100,7 @@ function PartidasContent() {
           <div className="min-w-0">
           <div className="text-center">
             <h1 className="font-display text-3xl font-bold tracking-wide text-parchment sm:text-4xl">
-              Partidas de hoy
+              Casino en vivo
             </h1>
             <p className="mt-2 font-display text-sm font-semibold uppercase tracking-[0.25em] text-gold-light">
               Cuota 1.80x · emparejamiento entre jugadores
