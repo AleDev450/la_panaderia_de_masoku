@@ -479,6 +479,35 @@ export async function guardarRonda(
   return { ok: true, data: data as RuletaRonda };
 }
 
+/**
+ * Cancela la ronda y le devuelve a todos lo que compraron (0061). Sirve igual
+ * para ruleta y para caballitos: son la misma ronda con otro `modo`.
+ *
+ * Solo se devuelve lo COMPRADO — los tickets que el staff regaló nunca
+ * salieron del saldo de nadie, y devolverlos sería crear plata. Eso lo decide
+ * Postgres, acá no se calcula nada.
+ */
+export async function cancelarRonda(
+  rondaId: string,
+  motivo?: string
+): Promise<ActionResult<RuletaRonda>> {
+  const parsed = z.string().uuid("Ronda inválida.").safeParse(rondaId);
+  if (!parsed.success) return { ok: false, error: "Ronda inválida." };
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_cancelar_ronda", {
+    p_admin_id: session.userId,
+    p_ronda_id: parsed.data,
+    p_motivo: motivo?.trim() || null,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as RuletaRonda };
+}
+
 export async function cambiarEstadoRonda(
   input: CambiarEstadoRondaInput
 ): Promise<ActionResult<RuletaRonda>> {

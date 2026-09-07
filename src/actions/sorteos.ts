@@ -196,6 +196,30 @@ export async function guardarSorteo(input: GuardarSorteoInput): Promise<ActionRe
   return { ok: true, data: data as Sorteo };
 }
 
+/**
+ * Admin-only: borra el sorteo entero.
+ *
+ * Acá NO hay plata que devolver, a diferencia de una ronda de ruleta: los
+ * tickets del sorteo los escribe el staff a mano y nunca salieron del saldo de
+ * nadie. Las inscripciones y las carreras se van solas por `on delete cascade`.
+ */
+export async function eliminarSorteo(sorteoId: string): Promise<ActionResult<null>> {
+  const parsed = z.string().uuid("Sorteo inválido.").safeParse(sorteoId);
+  if (!parsed.success) return { ok: false, error: "Sorteo inválido." };
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.rpc("admin_eliminar_sorteo", {
+    p_admin_id: session.userId,
+    p_sorteo_id: parsed.data,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: null };
+}
+
 export interface InscripcionConUsuario {
   inscripcion: InscripcionSorteo;
   usuario: { nickname: string; fullName: string | null; phone: string | null };

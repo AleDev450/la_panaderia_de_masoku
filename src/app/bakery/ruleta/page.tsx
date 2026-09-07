@@ -12,6 +12,7 @@ import {
   RondaResumen,
   agregarTickets,
   cambiarEstadoRonda,
+  cancelarRonda,
   finalizarRonda,
   getConfig,
   getDetalleRonda,
@@ -21,7 +22,7 @@ import {
   guardarRonda,
 } from "@/actions/ruleta";
 import { UsuarioAdmin, getUsuarios } from "@/actions/admin";
-import { CachudobetConfig } from "@/lib/supabase/types";
+import { CachudobetConfig, RuletaRonda } from "@/lib/supabase/types";
 import { ESTADO_RONDA_LABEL, comisionMaxima, premioMinimo } from "@/lib/ruleta";
 
 /**
@@ -42,6 +43,9 @@ function AdminRuletaContent() {
   const [abierto, setAbierto] = useState<string | null>(null);
   const [detalle, setDetalle] = useState<RondaResumen | null>(null);
   const [procesando, setProcesando] = useState<string | null>(null);
+  // Cancelar devuelve plata: no se ejecuta de un clic suelto.
+  const [cancelandoRonda, setCancelandoRonda] = useState<RuletaRonda | null>(null);
+  const [motivoCancelar, setMotivoCancelar] = useState("");
 
   const refresh = useCallback(async () => {
     const result = await getRondas();
@@ -239,6 +243,21 @@ function AdminRuletaContent() {
                         </Button>
                       ) : null}
 
+                      {/* Cancelar devuelve el pozo. Solo antes de girar:
+                          después el premio ya está acreditado y quitárselo a
+                          quien ya cobró no es "devolver", es otra cosa. */}
+                      {ronda.ganador_ticket_id === null && ronda.estado !== "cancelada" ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          disabled={enCurso}
+                          onClick={() => setCancelandoRonda(ronda)}
+                          className="min-h-9 px-3 py-1 text-xs text-lose-glow"
+                        >
+                          Cancelar
+                        </Button>
+                      ) : null}
+
                       <Button
                         type="button"
                         variant="ghost"
@@ -274,6 +293,75 @@ function AdminRuletaContent() {
           )}
         </section>
       </main>
+
+      {/* ------------------------------------------- confirmar cancelación */}
+      {cancelandoRonda ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Cancelar la ronda ${cancelandoRonda.nombre}`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-obsidian/80 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCancelandoRonda(null);
+          }}
+        >
+          <div className="panel-stone w-full max-w-md rounded-xl p-5">
+            <h2 className="font-display text-lg font-bold text-lose-glow">
+              Cancelar #{String(cancelandoRonda.numero).padStart(4, "0")} ·{" "}
+              {cancelandoRonda.nombre}
+            </h2>
+            <p className="mt-2 text-sm text-parchment/70">
+              Se le devuelve a cada jugador lo que pagó por sus tickets y la ronda no se
+              sortea. El pozo de S/{cancelandoRonda.pozo_total} vuelve a sus dueños.
+            </p>
+            <p className="mt-2 text-[11px] leading-relaxed text-parchment/45">
+              Los tickets que regalaste a mano no se devuelven: nunca salieron del saldo de
+              nadie. Los tickets quedan guardados como registro, por si alguien reclama.
+            </p>
+
+            <label
+              htmlFor="motivo-cancelar-ronda"
+              className="mt-4 mb-1.5 block text-sm text-parchment/80"
+            >
+              Motivo (opcional, queda registrado)
+            </label>
+            <input
+              id="motivo-cancelar-ronda"
+              value={motivoCancelar}
+              onChange={(e) => setMotivoCancelar(e.target.value)}
+              placeholder="Se armó mal"
+              className="min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            />
+
+            <div className="mt-4 flex gap-2">
+              <Button
+                type="button"
+                disabled={procesando === cancelandoRonda.id}
+                onClick={async () => {
+                  const r = cancelandoRonda;
+                  await accion(r.id, () => cancelarRonda(r.id, motivoCancelar), {
+                    title: "Ronda cancelada",
+                    description: "Se devolvió el pozo a los jugadores.",
+                  });
+                  setCancelandoRonda(null);
+                  setMotivoCancelar("");
+                }}
+                className="flex-1"
+              >
+                {procesando === cancelandoRonda.id ? "Devolviendo…" : "Cancelar y devolver"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setCancelandoRonda(null)}
+                className="flex-1"
+              >
+                Volver
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

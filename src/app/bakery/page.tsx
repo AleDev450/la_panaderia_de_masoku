@@ -336,8 +336,9 @@ async function descargarLibro(
       par: acc.par + d.comision_partidas,
       rul: acc.rul + d.comision_ruleta,
       mon: acc.mon + d.comision_cara_sello,
+      cab: acc.cab + d.comision_caballitos,
     }),
-    { dep: 0, apo: 0, pag: 0, ret: 0, gan: 0, par: 0, rul: 0, mon: 0 }
+    { dep: 0, apo: 0, pag: 0, ret: 0, gan: 0, par: 0, rul: 0, mon: 0, cab: 0 }
   );
   // El "acumulado en Yape" ya es un running total: el total del mes es el del
   // día más reciente (filas viene ordenado del más nuevo al más viejo).
@@ -357,6 +358,7 @@ async function descargarLibro(
       // la pantalla haría la tabla impasable de ancha.
       "De partidas (S/)",
       "De ruleta (S/)",
+      "De caballitos (S/)",
       "De cara o sello (S/)",
       "Acumulado en Yape (S/)",
     ],
@@ -371,6 +373,7 @@ async function descargarLibro(
         d.ganancia_real,
         d.comision_partidas,
         d.comision_ruleta,
+        d.comision_caballitos,
         d.comision_cara_sello,
         d.yape_acumulado,
       ]),
@@ -384,6 +387,7 @@ async function descargarLibro(
         redondear(t.gan),
         redondear(t.par),
         redondear(t.rul),
+        redondear(t.cab),
         redondear(t.mon),
         yapeActual,
       ],
@@ -543,6 +547,12 @@ function GananciaPorJuego({ metricas }: { metricas: AdminMetricas | null }) {
           detalle: "Lo que no se llevó el ganador",
           hoy: metricas.ganancia_ruleta_hoy,
           total: metricas.ganancia_ruleta_total,
+        },
+        {
+          nombre: "Caballitos",
+          detalle: "Misma cuenta que la ruleta",
+          hoy: metricas.ganancia_caballitos_hoy,
+          total: metricas.ganancia_caballitos_total,
         },
         {
           nombre: "Cara o sello",

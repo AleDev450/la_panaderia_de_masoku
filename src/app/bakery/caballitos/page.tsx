@@ -12,6 +12,7 @@ import {
   RondaAdmin,
   VistaCaballitos,
   cambiarEstadoRonda,
+  cancelarRonda,
   finalizarRonda,
   getCaballitos,
   getConfig,
@@ -60,6 +61,10 @@ function AdminCaballitosContent() {
   const [form, setForm] = useState<Borrador>(NUEVA);
   const [guardando, setGuardando] = useState(false);
   const [errorForm, setErrorForm] = useState<string | null>(null);
+
+  // Cancelar devuelve plata: no se ejecuta de un clic suelto.
+  const [cancelando, setCancelando] = useState<RuletaRonda | null>(null);
+  const [motivoCancelar, setMotivoCancelar] = useState("");
 
   const refresh = useCallback(async () => {
     const [lista, actual] = await Promise.all([getRondas("carrera"), getCaballitos()]);
@@ -395,6 +400,20 @@ function AdminCaballitosContent() {
                             Finalizar
                           </Button>
                         ) : null}
+
+                        {/* Cancelar devuelve el pozo. Solo antes de largar:
+                            después el premio ya está acreditado. */}
+                        {!sorteada && r.estado !== "cancelada" ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={enCurso}
+                            onClick={() => setCancelando(r)}
+                            className="min-h-9 px-3 py-1 text-xs text-lose-glow"
+                          >
+                            Cancelar
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
                   </Panel>
@@ -404,6 +423,74 @@ function AdminCaballitosContent() {
           )}
         </section>
       </main>
+
+      {/* ------------------------------------------- confirmar cancelación */}
+      {cancelando ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Cancelar la carrera ${cancelando.nombre}`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-obsidian/80 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCancelando(null);
+          }}
+        >
+          <div className="panel-stone w-full max-w-md rounded-xl p-5">
+            <h2 className="font-display text-lg font-bold text-lose-glow">
+              Cancelar #{String(cancelando.numero).padStart(4, "0")} · {cancelando.nombre}
+            </h2>
+            <p className="mt-2 text-sm text-parchment/70">
+              Se le devuelve a cada jugador lo que pagó por sus caballos y la carrera no se
+              corre. El pozo de S/{soles(cancelando.pozo_total)} vuelve a sus dueños.
+            </p>
+            <p className="mt-2 text-[11px] leading-relaxed text-parchment/45">
+              Los caballos que regalaste a mano no se devuelven: nunca salieron del saldo de
+              nadie. Los tickets quedan guardados como registro, por si alguien reclama.
+            </p>
+
+            <label
+              htmlFor="motivo-cancelar"
+              className="mt-4 mb-1.5 block text-sm text-parchment/80"
+            >
+              Motivo (opcional, queda registrado)
+            </label>
+            <input
+              id="motivo-cancelar"
+              value={motivoCancelar}
+              onChange={(e) => setMotivoCancelar(e.target.value)}
+              placeholder="Se cayó el stream"
+              className="min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            />
+
+            <div className="mt-4 flex gap-2">
+              <Button
+                type="button"
+                disabled={procesando === cancelando.id}
+                onClick={async () => {
+                  const r = cancelando;
+                  await accion(r.id, () => cancelarRonda(r.id, motivoCancelar), {
+                    title: "Carrera cancelada",
+                    description: "Se devolvió el pozo a los jugadores.",
+                  });
+                  setCancelando(null);
+                  setMotivoCancelar("");
+                }}
+                className="flex-1"
+              >
+                {procesando === cancelando.id ? "Devolviendo…" : "Cancelar y devolver"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setCancelando(null)}
+                className="flex-1"
+              >
+                Volver
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

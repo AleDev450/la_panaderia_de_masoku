@@ -721,6 +721,35 @@ function AdminUsuariosContent() {
               </p>
             </div>
 
+            {/* El atajo para dejarlo en cero. No ejecuta: rellena el formulario
+                y deja el clic final en el botón de siempre, que ya está
+                validado. Vaciarle el saldo a alguien de un solo clic accidental
+                es el tipo de error que no se nota hasta que reclama. */}
+            {dandoFake.saldoFake > 0 ? (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-gold-dark bg-obsidian/40 p-3">
+                <p className="text-xs text-parchment/60">
+                  ¿Quitarle todo el saldo fake?
+                  {dandoFake.saldoFakeRetenido > 0 ? (
+                    <span className="block text-[11px] text-parchment/40">
+                      Los S/{dandoFake.saldoFakeRetenido} que tiene en juego NO se tocan:
+                      están comprometidos en apuestas vivas.
+                    </span>
+                  ) : null}
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setMontoFake(String(-dandoFake.saldoFake));
+                    setMotivoFake("Retiro de saldo fake");
+                  }}
+                  className="min-h-9 shrink-0 px-3 py-1 text-xs"
+                >
+                  Dejar en 0 (−S/{dandoFake.saldoFake})
+                </Button>
+              </div>
+            ) : null}
+
             <label htmlFor="monto-fake" className="mt-4 mb-1.5 block text-sm text-parchment/80">
               Cuánto sumarle (S/)
             </label>
@@ -759,7 +788,13 @@ function AdminUsuariosContent() {
                 onClick={() => aplicarSaldoFake(dandoFake)}
                 className="flex-1"
               >
-                {procesando === dandoFake.id ? "Guardando…" : "Dar saldo fake"}
+                {/* El rótulo sigue al signo: con un monto negativo, "Dar saldo
+                    fake" dice justo lo contrario de lo que va a pasar. */}
+                {procesando === dandoFake.id
+                  ? "Guardando…"
+                  : Number(montoFake) < 0
+                    ? `Quitarle S/${Math.abs(Number(montoFake))}`
+                    : "Dar saldo fake"}
               </Button>
               <Button
                 type="button"

@@ -13,6 +13,7 @@ import {
   asignarTickets,
   getInscripciones,
   getSorteos,
+  eliminarSorteo,
   guardarSorteo,
   marcarGanador,
   sortearGanador,
@@ -75,6 +76,8 @@ function AdminSorteosContent() {
   const [abierto, setAbierto] = useState<string | null>(null);
   const [inscritos, setInscritos] = useState<InscripcionConUsuario[] | null>(null);
   const [procesando, setProcesando] = useState<string | null>(null);
+  // Borrar un sorteo se lleva inscripciones y carreras: se confirma aparte.
+  const [eliminando, setEliminando] = useState<Sorteo | null>(null);
   // Los tickets se escriben en un input por fila; esto guarda lo tipeado
   // antes de mandarlo, por inscripción.
   const [ticketsEditados, setTicketsEditados] = useState<Record<string, string>>({});
@@ -399,6 +402,18 @@ function AdminSorteosContent() {
                       >
                         {abierto === sorteo.id ? "Ocultar inscritos" : "Ver inscritos"}
                       </Button>
+                      {/* Borrar el sorteo se lleva sus inscripciones y sus
+                          carreras. Acá no hay plata que devolver: los tickets
+                          del sorteo los escribe el staff y nunca salieron del
+                          saldo de nadie. */}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setEliminando(sorteo)}
+                        className="min-h-9 px-3 py-1 text-xs text-lose-glow"
+                      >
+                        Eliminar
+                      </Button>
                     </div>
                   </div>
 
@@ -535,6 +550,76 @@ function AdminSorteosContent() {
           )}
         </section>
       </main>
+
+      {/* ------------------------------------------- confirmar eliminación */}
+      {eliminando ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Eliminar el sorteo ${eliminando.nombre}`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-obsidian/80 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEliminando(null);
+          }}
+        >
+          <div className="panel-stone w-full max-w-md rounded-xl p-5">
+            <h2 className="font-display text-lg font-bold text-lose-glow">
+              Eliminar {eliminando.nombre}
+            </h2>
+            <p className="mt-2 text-sm text-parchment/70">
+              Se borra el sorteo con <strong>todas sus inscripciones</strong>, sus tickets y
+              las carreras que se hayan corrido. No se puede deshacer.
+            </p>
+            <p className="mt-2 text-[11px] leading-relaxed text-parchment/45">
+              No hay plata de por medio: los tickets de un sorteo los escribes tú a mano y
+              nunca salieron del saldo de nadie. Si lo que quieres es solo dejar de recibir
+              inscritos, ciérralo con &quot;Editar&quot; en vez de borrarlo — así conservas
+              el registro de quién participó.
+            </p>
+
+            <div className="mt-4 flex gap-2">
+              <Button
+                type="button"
+                disabled={procesando === eliminando.id}
+                onClick={async () => {
+                  setProcesando(eliminando.id);
+                  try {
+                    const result = await eliminarSorteo(eliminando.id);
+                    if (!result.ok) {
+                      showToast({
+                        variant: "warning",
+                        title: "No se pudo eliminar",
+                        description: result.error,
+                      });
+                      return;
+                    }
+                    showToast({
+                      variant: "info",
+                      title: "Sorteo eliminado",
+                      description: `${eliminando.nombre} ya no existe.`,
+                    });
+                    setEliminando(null);
+                    await refresh();
+                  } finally {
+                    setProcesando(null);
+                  }
+                }}
+                className="flex-1"
+              >
+                {procesando === eliminando.id ? "Eliminando…" : "Eliminar"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setEliminando(null)}
+                className="flex-1"
+              >
+                Volver
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

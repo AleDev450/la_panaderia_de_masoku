@@ -241,6 +241,10 @@ export type AdminMetricas = {
   /** Pagos a personal que se restan de la ganancia (0022). */
   pagos_personal_hoy: number;
   pagos_personal_total: number;
+  /** Caballitos (0062). Antes venía sumado dentro de `ganancia_ruleta_*`:
+   * son la misma tabla, separados por `modo`. */
+  ganancia_caballitos_hoy: number;
+  ganancia_caballitos_total: number;
 };
 
 /** Una fila del resumen día a día (0034/0035). Fecha en calendario de Perú;
@@ -261,6 +265,8 @@ export type ResumenDia = {
   comision_partidas: number;
   comision_ruleta: number;
   comision_cara_sello: number;
+  /** Caballitos (0062): la otra mitad de `ruleta_rondas`, por `modo`. */
+  comision_caballitos: number;
 };
 
 export type PagoManual = {
@@ -399,7 +405,9 @@ export type EstadoRondaRuleta =
   | "abierta"
   | "cerrada"
   | "girando"
-  | "finalizada";
+  | "finalizada"
+  /** Se devolvió el pozo y la ronda no se corre (0061). */
+  | "cancelada";
 
 /** Cómo se muestra el sorteo de una ronda (0058). La mecánica y el dinero son
  * idénticos: lo único que cambia es si gira una rueda o corren caballos. */
@@ -929,6 +937,14 @@ export interface Database {
           p_precio_ticket: number | null;
         };
         Returns: RuletaRonda;
+      };
+      admin_cancelar_ronda: {
+        Args: { p_admin_id: string; p_ronda_id: string; p_motivo: string | null };
+        Returns: RuletaRonda;
+      };
+      admin_eliminar_sorteo: {
+        Args: { p_admin_id: string; p_sorteo_id: string };
+        Returns: null;
       };
       admin_cambiar_estado_ronda: {
         Args: { p_admin_id: string; p_ronda_id: string; p_estado: string };

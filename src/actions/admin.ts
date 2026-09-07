@@ -134,6 +134,11 @@ export async function getMetricas(): Promise<ActionResult<AdminMetricas>> {
       ganancia_cara_sello_total: num(fila.ganancia_cara_sello_total),
       pagos_personal_hoy: num(fila.pagos_personal_hoy),
       pagos_personal_total: num(fila.pagos_personal_total),
+      // Caballitos (0062). Si esa migración no corrió, llegan undefined y
+      // quedan en 0: su comisión sigue contada dentro de la de ruleta, que es
+      // donde estaba antes.
+      ganancia_caballitos_hoy: num(fila.ganancia_caballitos_hoy),
+      ganancia_caballitos_total: num(fila.ganancia_caballitos_total),
     },
   };
 }
@@ -173,6 +178,7 @@ export async function getResumenDiario(
       comision_partidas: Number(d.comision_partidas ?? 0),
       comision_ruleta: Number(d.comision_ruleta ?? 0),
       comision_cara_sello: Number(d.comision_cara_sello ?? 0),
+      comision_caballitos: Number(d.comision_caballitos ?? 0),
     })),
   };
 }

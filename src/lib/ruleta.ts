@@ -39,6 +39,7 @@ export const ESTADO_RONDA_LABEL: Record<EstadoRondaRuleta, string> = {
   cerrada: "Cerrada — por girar",
   girando: "¡Girando!",
   finalizada: "Finalizada",
+  cancelada: "Cancelada — se devolvió",
 };
 
 /**
