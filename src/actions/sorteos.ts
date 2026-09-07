@@ -3,8 +3,9 @@
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { InscripcionSorteo, Sorteo } from "@/lib/supabase/types";
+import { CarreraSorteo, InscripcionSorteo, Sorteo } from "@/lib/supabase/types";
 import { ActionResult } from "@/actions/betting";
+import { InscripcionCarrera } from "@/lib/carrera";
 
 async function requireSessionUserId(): Promise<
   { ok: true; userId: string } | { ok: false; error: string }
@@ -287,6 +288,91 @@ export async function asignarTickets(
 
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: data as InscripcionSorteo };
+}
+
+export interface VistaCarrera {
+  /** Todos los inscritos, con o sin tickets: los de 0 no corren pero se ven. */
+  inscripciones: (InscripcionCarrera & { ganador: boolean })[];
+  /** La última carrera corrida, o null si todavía no se largó ninguna. */
+  carrera: CarreraSorteo | null;
+  /** `now()` de Postgres: el reloj contra el que se mide la animación. */
+  servidorAhora: string;
+}
+
+/**
+ * Lo que hace falta para dibujar la pista.
+ *
+ * Devuelve las inscripciones SIEMPRE, haya carrera o no: así la pantalla
+ * puede mostrar a los caballos en el cajón de partida antes de que el staff
+ * dé la largada.
+ */
+export async function getCarrera(sorteoId: string): Promise<ActionResult<VistaCarrera>> {
+  const parsed = z.string().uuid("Sorteo inválido.").safeParse(sorteoId);
+  if (!parsed.success) return { ok: false, error: "Sorteo inválido." };
+
+  const session = await requireSessionUserId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const [{ data: inscripciones }, { data: carreras }, { data: ahora }] = await Promise.all([
+    admin
+      .from("inscripciones_sorteo")
+      .select("id, usuario_id, tickets, ganador")
+      .eq("sorteo_id", parsed.data)
+      .order("created_at", { ascending: true }),
+    admin
+      .from("carreras_sorteo")
+      .select("*")
+      .eq("sorteo_id", parsed.data)
+      .order("created_at", { ascending: false })
+      .limit(1),
+    admin.rpc("ahora_servidor"),
+  ]);
+
+  const ids = [...new Set((inscripciones ?? []).map((i) => i.usuario_id))];
+  const { data: perfiles } = ids.length
+    ? await admin.from("perfiles").select("id, nickname").in("id", ids)
+    : { data: [] };
+  const nick = new Map((perfiles ?? []).map((p) => [p.id, p.nickname]));
+
+  return {
+    ok: true,
+    data: {
+      inscripciones: (inscripciones ?? []).map((i) => ({
+        inscripcionId: i.id,
+        usuarioId: i.usuario_id,
+        nickname: nick.get(i.usuario_id) ?? "—",
+        tickets: i.tickets,
+        ganador: i.ganador,
+      })),
+      carrera: ((carreras ?? [])[0] as CarreraSorteo | undefined) ?? null,
+      servidorAhora: typeof ahora === "string" ? ahora : new Date().toISOString(),
+    },
+  };
+}
+
+/**
+ * Admin-only: la largada.
+ *
+ * El ganador se elige, se marca y se guarda DENTRO del RPC; recién al final
+ * se fija `inicia_en`. Para cuando la primera pantalla se entera de que hay
+ * carrera, el resultado ya está escrito en la base.
+ */
+export async function correrCarrera(sorteoId: string): Promise<ActionResult<CarreraSorteo>> {
+  const parsed = z.string().uuid("Sorteo inválido.").safeParse(sorteoId);
+  if (!parsed.success) return { ok: false, error: "Sorteo inválido." };
+
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("admin_correr_carrera", {
+    p_admin_id: session.userId,
+    p_sorteo_id: parsed.data,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as CarreraSorteo };
 }
 
 /**

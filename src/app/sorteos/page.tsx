@@ -7,6 +7,7 @@ import { Header } from "@/components/Header";
 import { Panel } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/context/ToastContext";
+import { CarreraSorteoPanel } from "@/components/sorteos/CarreraSorteoPanel";
 import { SorteoConInscripcion, getSorteos, inscribirseSorteo } from "@/actions/sorteos";
 import { PasosNumerados, parsearBloques } from "@/lib/markdown";
 
@@ -243,6 +244,10 @@ function TarjetaSorteo({
           </div>
         </div>
       </Panel>
+
+      {/* La pista va debajo de la tarjeta y se carga sola: si el staff no ha
+          largado ninguna carrera, muestra a los caballos en el cajón. */}
+      <CarreraSorteoPanel sorteoId={sorteo.id} />
     </section>
   );
 }

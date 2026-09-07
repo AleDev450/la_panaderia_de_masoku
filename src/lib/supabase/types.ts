@@ -464,6 +464,20 @@ export type CaraSelloJugada = {
 
 /** Ciclo de una mesa (0053): `lista` es "los dos sentados, esperando a que el
  * staff lance". La moneda no cae sola. */
+/** Una carrera de caballitos ya sorteada (0056). El ganador está decidido
+ * antes de que se mueva un pixel; la semilla hace que todos vean lo mismo. */
+export type CarreraSorteo = {
+  id: string;
+  sorteo_id: string;
+  inscripcion_ganadora_id: string;
+  /** Cuál de los caballos del ganador cruzó primero: 1..sus tickets. */
+  caballo_numero: number;
+  semilla: string;
+  /** Marca del reloj del SERVIDOR en que se abre la puerta de partida. */
+  inicia_en: string;
+  created_at: string;
+};
+
 /** Un mensaje del hilo de soporte (0055). `usuario_id` es SIEMPRE el jugador
  * dueño del hilo; `de_staff` dice de qué lado vino. */
 export type MensajeSoporte = {
@@ -638,6 +652,11 @@ export interface Database {
         Row: MensajeSoporte;
         Insert: Partial<MensajeSoporte>;
         Update: Partial<MensajeSoporte>;
+      } & NoRelationships;
+      carreras_sorteo: {
+        Row: CarreraSorteo;
+        Insert: Partial<CarreraSorteo>;
+        Update: Partial<CarreraSorteo>;
       } & NoRelationships;
     };
     Views: Record<string, never>;
@@ -942,6 +961,10 @@ export interface Database {
       admin_lanzar_moneda: {
         Args: { p_admin_id: string; p_sala_id: string };
         Returns: CaraSelloSala;
+      };
+      admin_correr_carrera: {
+        Args: { p_admin_id: string; p_sorteo_id: string };
+        Returns: CarreraSorteo;
       };
       enviar_mensaje_soporte: {
         Args: { p_autor_id: string; p_usuario_id: string; p_cuerpo: string };

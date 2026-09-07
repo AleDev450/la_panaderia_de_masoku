@@ -1,0 +1,226 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import clsx from "clsx";
+import { Panel } from "@/components/ui/Panel";
+import { CarreraSorteo } from "@/lib/supabase/types";
+import {
+  DURACION_CARRERA_MS,
+  InscripcionCarrera,
+  armarCaballos,
+  colorDePersona,
+  faseDeCarrera,
+  idDeCaballo,
+  perfilesDeCarrera,
+  posicionCaballo,
+} from "@/lib/carrera";
+
+/**
+ * La pista: un caballo por ticket, corriendo hacia un ganador que Postgres ya
+ * eligió y guardó (0056).
+ *
+ * LA POSICIÓN SE ESCRIBE DIRECTO EN EL DOM, sin pasar por el estado de React.
+ * Con 32 carriles a 60fps, un `setState` por frame haría re-renderizar 32
+ * filas sesenta veces por segundo y la carrera iría a tirones — que es
+ * justamente lo que no puede pasar en lo único que la gente va a mirar.
+ * Solo el rótulo de estado usa estado, y cambia un puñado de veces.
+ */
+
+export function PistaCarrera({
+  inscripciones,
+  carrera,
+  desfaseMs,
+  miUsuarioId,
+  reducirMovimiento,
+}: {
+  inscripciones: (InscripcionCarrera & { ganador: boolean })[];
+  carrera: CarreraSorteo | null;
+  /** Reloj del servidor menos el de este navegador. */
+  desfaseMs: number;
+  miUsuarioId?: string;
+  reducirMovimiento: boolean;
+}) {
+  const [fase, setFase] = useState<"cajon" | "cuenta" | "corriendo" | "terminada">("cajon");
+  const [cuenta, setCuenta] = useState(0);
+  const marcasRef = useRef(new Map<string, HTMLDivElement | null>());
+
+  const caballos = useMemo(() => armarCaballos(inscripciones), [inscripciones]);
+  const sinTickets = inscripciones.filter((i) => i.tickets === 0);
+
+  const ganadorId = carrera
+    ? idDeCaballo(carrera.inscripcion_ganadora_id, carrera.caballo_numero)
+    : null;
+
+  const perfiles = useMemo(() => {
+    if (!carrera || !ganadorId) return null;
+    return perfilesDeCarrera(carrera.semilla, caballos, ganadorId);
+  }, [carrera, ganadorId, caballos]);
+
+  // Los carriles se fijan una vez y no se reordenan durante la carrera: con 32
+  // filas saltando de lugar, seguir a un caballo con la vista es imposible.
+  const enOrden = useMemo(() => {
+    if (!perfiles) return caballos.map((caballo, i) => ({ caballo, carril: i }));
+    return [...perfiles].sort((a, b) => a.carril - b.carril);
+  }, [perfiles, caballos]);
+
+  useEffect(() => {
+    // Sin carrera no hay nada que animar. No hace falta tocar el estado acá:
+    // `faseVisible` ya devuelve "cajón" mientras `carrera` sea null.
+    if (!carrera || !perfiles) return;
+
+    const inicio = new Date(carrera.inicia_en).getTime();
+
+    // Con movimiento reducido no se anima: los caballos aparecen ya en la
+    // meta. El rótulo lo resuelve `faseVisible`, así que acá solo se colocan.
+    if (reducirMovimiento) {
+      for (const p of perfiles) {
+        const el = marcasRef.current.get(p.caballo.id);
+        if (el) el.style.left = `${posicionCaballo(p, 1) * 100}%`;
+      }
+      return;
+    }
+
+    let frame = 0;
+    const tick = () => {
+      const f = faseDeCarrera(Date.now() + desfaseMs - inicio);
+      for (const p of perfiles) {
+        const el = marcasRef.current.get(p.caballo.id);
+        if (el) el.style.left = `${posicionCaballo(p, f.t) * 100}%`;
+      }
+
+      setFase(f.fase === "cuenta" ? "cuenta" : f.fase === "corriendo" ? "corriendo" : "terminada");
+      if (f.fase === "cuenta") setCuenta(f.segundos);
+
+      if (f.fase !== "terminada") frame = requestAnimationFrame(tick);
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [carrera, perfiles, desfaseMs, reducirMovimiento]);
+
+  const ganador = caballos.find((c) => c.id === ganadorId);
+  // Sin carrera, los caballos están en el cajón sin importar en qué quedó una
+  // carrera anterior; con movimiento reducido nunca se anima, así que la
+  // carrera se muestra siempre como ya corrida.
+  const faseVisible = !carrera ? "cajon" : reducirMovimiento ? "terminada" : fase;
+
+  return (
+    <div>
+      {/* ------------------------------------------------------- estado */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-display text-lg font-semibold text-gold-light">
+            🐎 Carrera de caballitos
+          </h2>
+          <p className="mt-0.5 text-xs text-parchment/45">
+            {caballos.length} caballos · un caballo por ticket, todos con la misma chance
+          </p>
+        </div>
+
+        <span
+          aria-live="polite"
+          className={clsx(
+            "rounded-full border px-3 py-1 font-display text-xs font-black uppercase tracking-wide",
+            faseVisible === "corriendo"
+              ? "border-gold bg-gold/15 text-gold"
+              : faseVisible === "terminada"
+                ? "border-win-glow/60 bg-win/10 text-win-glow"
+                : "border-gold-dark text-parchment/50"
+          )}
+        >
+          {faseVisible === "cajon"
+            ? "En el cajón"
+            : faseVisible === "cuenta"
+              ? `Largan en ${cuenta}…`
+              : faseVisible === "corriendo"
+                ? "¡Corriendo!"
+                : "Llegaron"}
+        </span>
+      </div>
+
+      {/* ------------------------------------------------------ ganador */}
+      {faseVisible === "terminada" && ganador ? (
+        <Panel className="mb-3 border-win-glow/50 bg-win/5 p-4 text-center">
+          <p className="font-display text-[11px] font-bold uppercase tracking-[0.25em] text-win-glow">
+            🏆 Tenemos ganador
+          </p>
+          <p className="mt-1 font-display text-2xl font-black text-parchment">
+            {ganador.etiqueta}
+          </p>
+          <p className="mt-0.5 text-xs text-parchment/50">
+            Ganó {ganador.nickname}
+            {miUsuarioId === ganador.usuarioId ? " — ¡eres tú!" : ""}
+          </p>
+        </Panel>
+      ) : null}
+
+      {/* -------------------------------------------------------- pista */}
+      <Panel className="overflow-hidden p-0">
+        <div className="max-h-[30rem] overflow-y-auto">
+          {enOrden.map((fila) => {
+            const c = fila.caballo;
+            const mio = c.usuarioId === miUsuarioId;
+            const esGanador = faseVisible === "terminada" && c.id === ganadorId;
+            const color = colorDePersona(c.usuarioId);
+
+            return (
+              <div
+                key={c.id}
+                className={clsx(
+                  "flex items-center gap-2 border-b border-gold-dark/20 px-2 py-1 last:border-0",
+                  esGanador && "bg-win/10",
+                  mio && !esGanador && "bg-gold/5"
+                )}
+              >
+                <span
+                  className={clsx(
+                    "w-28 shrink-0 truncate text-[11px] font-semibold sm:w-36",
+                    esGanador ? "text-win-glow" : mio ? "text-gold" : "text-parchment/60"
+                  )}
+                  style={!esGanador && !mio ? { color } : undefined}
+                >
+                  {c.etiqueta}
+                </span>
+
+                {/* El carril. La meta es el borde derecho. */}
+                <div className="relative h-5 flex-1 rounded-full bg-obsidian/70 ring-1 ring-gold-dark/40">
+                  <div
+                    ref={(el) => {
+                      marcasRef.current.set(c.id, el);
+                    }}
+                    className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 text-sm leading-none"
+                    style={{ left: "0%" }}
+                  >
+                    <span aria-hidden>🐎</span>
+                  </div>
+                  <span
+                    aria-hidden
+                    className="absolute right-0 top-0 h-full w-0.5 rounded-full bg-gold/50"
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Panel>
+
+      {/* --------------------------------------------- los que no corren */}
+      {sinTickets.length > 0 ? (
+        <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
+          <strong className="text-parchment/60">Inscritos sin tickets</strong> (no corren):{" "}
+          {sinTickets.map((i) => i.nickname).join(", ")}. Para participar hace falta al menos
+          un ticket.
+        </p>
+      ) : null}
+
+      <p className="mt-1 text-[11px] leading-relaxed text-parchment/40">
+        Cada ticket es un caballo, así que tener 4 tickets es correr con 4 caballos — y cada
+        caballo de la pista tiene exactamente la misma chance que cualquier otro. El ganador
+        lo decide el servidor antes de la largada: todos ven la misma carrera.
+      </p>
+    </div>
+  );
+}
+
+/** Cuánto dura, para que la pantalla que la usa sepa cuándo refrescar. */
+export const DURACION_TOTAL_CARRERA_MS = DURACION_CARRERA_MS;

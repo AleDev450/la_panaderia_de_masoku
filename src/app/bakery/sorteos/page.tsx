@@ -17,6 +17,7 @@ import {
   marcarGanador,
   sortearGanador,
 } from "@/actions/sorteos";
+import { CarreraSorteoPanel } from "@/components/sorteos/CarreraSorteoPanel";
 import { Sorteo } from "@/lib/supabase/types";
 import { COLORES, PasosNumerados, parsearBloques } from "@/lib/markdown";
 
@@ -411,7 +412,13 @@ function AdminSorteosContent() {
                         </p>
                       ) : (
                         <>
-                          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                          {/* La carrera es OTRA forma de sortear lo mismo: usa
+                              el mismo azar ponderado, solo que se ve correr.
+                              El botón de abajo sigue estando para cuando no
+                              se quiere show. */}
+                          <CarreraSorteoPanel sorteoId={sorteo.id} esAdmin />
+
+                          <div className="mb-3 mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-gold-dark/30 pt-4">
                             <p className="text-xs text-parchment/50">
                               {inscritos.reduce((n, f) => n + f.inscripcion.tickets, 0)} tickets
                               en total · el sorteo es al azar ponderado, con 6 tickets tienes seis
