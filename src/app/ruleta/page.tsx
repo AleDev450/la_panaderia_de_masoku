@@ -11,6 +11,7 @@ import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
 import {
   RondaHistorial,
+  RondaResumen,
   VistaRuleta,
   comprarTickets,
   crearRondaLibre,
@@ -50,6 +51,55 @@ import {
  */
 
 const soles = (n: number) => n.toFixed(2);
+
+/**
+ * Insignia OFICIAL / COMUNIDAD.
+ *
+ * Es la pieza central de la diferenciación visual: dorado + corona para lo
+ * que organiza el staff, verde + gente para lo que abre un jugador. No se
+ * apoya solo en el color -icono y texto dicen lo mismo por si alguien no
+ * distingue bien los tonos.
+ */
+function TipoBadge({ modo, compacto = false }: { modo: string; compacto?: boolean }) {
+  const oficial = modo !== "libre";
+  return (
+    <span
+      className={clsx(
+        "inline-flex shrink-0 items-center gap-1 rounded-full border font-display font-black tracking-wider uppercase",
+        compacto ? "px-2 py-0.5 text-[9px]" : "px-2.5 py-1 text-[10px]",
+        oficial
+          ? "border-gold/60 bg-gold/10 text-gold"
+          : "border-win-glow/50 bg-win/10 text-win-glow"
+      )}
+    >
+      {oficial ? "👑 Oficial" : "👥 Comunidad"}
+    </span>
+  );
+}
+
+/** "Organizada por CachudoBet" o "Creada por @quien-sea", según el tipo. */
+function OrganizadorLinea({
+  modo,
+  creador,
+  className,
+}: {
+  modo: string;
+  creador?: string;
+  className?: string;
+}) {
+  const oficial = modo !== "libre";
+  return (
+    <p
+      className={clsx(
+        "text-[11px] font-semibold",
+        oficial ? "text-gold/60" : "text-win-glow/70",
+        className
+      )}
+    >
+      {oficial ? "Organizada por CachudoBet" : `Creada por @${creador ?? "—"}`}
+    </p>
+  );
+}
 
 function RuletaContent() {
   const { user, refreshUser } = useSession();
@@ -233,9 +283,12 @@ function RuletaContent() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="title-cachudo text-4xl text-parchment sm:text-5xl">
-              La ruleta
+              Ruletas
             </h1>
-            <p className="mt-2 text-sm text-parchment/60">
+            <p className="mt-1 font-display text-sm font-bold text-gold-light">
+              Gira, participa y llévate el premio.
+            </p>
+            <p className="mt-2 max-w-2xl text-sm text-parchment/60">
               Cada S/{soles(vista?.config.precio_ticket ?? 3)} es un ticket. Mientras más
               tickets tengas, más pedazo de la rueda ocupas. Si ganas,{" "}
               <span className="text-parchment/85">
@@ -304,100 +357,32 @@ function RuletaContent() {
         ) : (
           <>
             {/* Solo aparece si de verdad hay varias: con una sola, una fila de
-                pestañas de un elemento es ruido. */}
+                pestañas de un elemento es ruido. Se agrupan por tipo -oficial
+                primero, comunidad debajo- para que la diferencia se entienda
+                de un vistazo antes incluso de leer cada tarjeta. */}
             {rondas.length > 1 ? (
-              <section className="mt-6">
-                <p className="mb-2 text-[11px] uppercase tracking-wide text-parchment/40">
-                  {rondas.length} ruletas activas — elige una
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {rondas.map((r) => {
-                    const activa = r.ronda.id === ronda.ronda.id;
-                    const mios =
-                      r.participantes.find((p) => p.usuarioId === user?.id)?.tickets ?? 0;
-                    const abierta = r.ronda.estado === "abierta";
-                    return (
-                      <button
-                        key={r.ronda.id}
-                        type="button"
-                        aria-pressed={activa}
-                        onClick={() => setSeleccionada(r.ronda.id)}
-                        className={clsx(
-                          "rounded-xl border p-4 text-left transition",
-                          activa
-                            ? "border-gold bg-gold/10 shadow-[0_0_24px_-10px_rgba(245,197,24,0.8)]"
-                            : "border-gold-dark bg-charcoal/60 hover:border-gold/60"
-                        )}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          {/* Qué clase de ruleta es: la semanal la gira el
-                              staff, la libre gira sola. */}
-                          <span
-                            className={clsx(
-                              "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase",
-                              r.ronda.modo === "libre"
-                                ? "border-win-glow/50 text-win-glow"
-                                : "border-gold/50 text-gold"
-                            )}
-                          >
-                            {r.ronda.modo === "libre" ? "Libre" : "Semanal"}
-                          </span>
-                          <span className="shrink-0 font-display text-[10px] font-bold uppercase tracking-wider text-parchment/40">
-                            #{String(r.ronda.numero).padStart(4, "0")}
-                          </span>
-                        </div>
-
-                        {/* El nombre es lo que la identifica: por eso va grande
-                            y no como un pie de foto. */}
-                        <p
-                          className={clsx(
-                            "mt-1.5 font-display text-lg leading-tight font-bold break-words",
-                            activa ? "text-gold" : "text-parchment"
-                          )}
-                        >
-                          {r.ronda.nombre}
-                        </p>
-
-                        <p className="mt-2 font-display text-2xl font-black text-gold-light">
-                          S/{soles(r.ronda.pozo_total)}
-                          <span className="ml-1 text-[11px] font-normal text-parchment/40">
-                            de pozo
-                          </span>
-                        </p>
-
-                        {/* Saber si ya estás dentro es la pregunta que uno se
-                            hace mirando varias ruletas a la vez. */}
-                        <p
-                          className={clsx(
-                            "mt-2 text-xs font-semibold",
-                            mios > 0 ? "text-win-glow" : "text-parchment/45"
-                          )}
-                        >
-                          {mios > 0
-                            ? `✓ Participas con ${mios} ${mios === 1 ? "ticket" : "tickets"}`
-                            : abierta
-                              ? "Todavía no participas"
-                              : "No alcanzaste a entrar"}
-                        </p>
-
-                        {/* El reloj de la libre. Sin segundo jugador todavía no
-                            corre, y decirlo evita que parezca colgada. */}
-                        {r.ronda.modo === "libre" ? (
-                          <p className="mt-1.5 font-display text-xs font-bold text-gold-light">
-                            {tiempoRestante(r.ronda.gira_en, ahora + desfase)
-                              ? `⏱ Gira en ${tiempoRestante(r.ronda.gira_en, ahora + desfase)}`
-                              : `Esperando un jugador más para arrancar el reloj`}
-                          </p>
-                        ) : (
-                          <p className="mt-1.5 text-[11px] text-parchment/40">
-                            La gira el staff
-                          </p>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
+              <>
+                <GrupoDeTarjetas
+                  titulo="🏆 Ruletas oficiales"
+                  subtitulo="Organizadas por CachudoBet"
+                  rondas={rondas.filter((r) => r.ronda.modo !== "libre")}
+                  activaId={ronda.ronda.id}
+                  usuarioId={user?.id}
+                  ahora={ahora}
+                  desfase={desfase}
+                  onElegir={setSeleccionada}
+                />
+                <GrupoDeTarjetas
+                  titulo="👥 Ruletas de la comunidad"
+                  subtitulo="Creadas por otros jugadores"
+                  rondas={rondas.filter((r) => r.ronda.modo === "libre")}
+                  activaId={ronda.ronda.id}
+                  usuarioId={user?.id}
+                  ahora={ahora}
+                  desfase={desfase}
+                  onElegir={setSeleccionada}
+                />
+              </>
             ) : null}
 
             <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -438,28 +423,24 @@ function RuletaContent() {
                     saber de qué tipo es: una libre puede llamarse "Ruleta
                     semanal" y una del staff, cualquier cosa. */}
                 <div className="mb-2 flex flex-wrap items-center justify-center gap-2">
-                  <span
-                    className={clsx(
-                      "rounded-full border px-2.5 py-1 font-display text-[10px] font-black uppercase tracking-wider",
-                      ronda.ronda.modo === "libre"
-                        ? "border-win-glow/50 bg-win/10 text-win-glow"
-                        : "border-gold/50 bg-gold/10 text-gold"
-                    )}
-                  >
-                    {ronda.ronda.modo === "libre" ? "🎲 Ruleta libre" : "⭐ Ruleta semanal"}
-                  </span>
+                  <TipoBadge modo={ronda.ronda.modo} />
 
-                  <span
-                    className={clsx(
-                      "rounded-full border px-2.5 py-1 font-display text-[10px] font-black uppercase tracking-wider",
-                      ronda.ronda.estado === "abierta"
-                        ? "border-win-glow/50 text-win-glow"
-                        : "border-gold-dark text-parchment/50"
-                    )}
-                  >
-                    {ronda.ronda.estado === "abierta"
-                      ? "🟢 Abierta"
-                      : ESTADO_RONDA_LABEL[ronda.ronda.estado]}
+                  {/* El estado se distingue por un punto de color, no por un
+                      badge sólido: así no compite visualmente con la
+                      insignia OFICIAL / COMUNIDAD de al lado. */}
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-parchment/15 bg-obsidian/40 px-2.5 py-1 font-display text-[10px] font-black uppercase tracking-wider text-parchment/70">
+                    <span
+                      aria-hidden
+                      className={clsx(
+                        "h-1.5 w-1.5 shrink-0 rounded-full",
+                        ronda.ronda.estado === "abierta"
+                          ? "bg-win-glow"
+                          : ronda.ronda.estado === "girando"
+                            ? "bg-gold"
+                            : "bg-parchment/30"
+                      )}
+                    />
+                    {ESTADO_RONDA_LABEL[ronda.ronda.estado]}
                   </span>
 
                   {/* La libre además dice cuánto le queda: es lo que decide si
@@ -476,6 +457,14 @@ function RuletaContent() {
                 <p className="text-center font-display text-sm font-bold uppercase tracking-[0.2em] text-gold-light">
                   {ronda.ronda.nombre}
                 </p>
+                <OrganizadorLinea
+                  modo={ronda.ronda.modo}
+                  creador={
+                    ronda.participantes.find((p) => p.usuarioId === ronda.ronda.admin_id)
+                      ?.nickname
+                  }
+                  className="mt-0.5 text-center"
+                />
                 {ronda.ronda.premio_concepto ? (
                   <p className="mt-1 text-center text-xs text-parchment/50">
                     {ronda.ronda.premio_concepto}
@@ -592,6 +581,141 @@ function RuletaContent() {
         />
       ) : null}
     </>
+  );
+}
+
+/** Una fila de tarjetas de un mismo tipo -oficial o comunidad-, con su propio
+ * encabezado. Si el grupo viene vacío no se dibuja nada: no tiene sentido
+ * mostrar "Ruletas oficiales" con un hueco debajo cuando el staff no tiene
+ * ninguna abierta ahora mismo. */
+function GrupoDeTarjetas({
+  titulo,
+  subtitulo,
+  rondas,
+  activaId,
+  usuarioId,
+  ahora,
+  desfase,
+  onElegir,
+}: {
+  titulo: string;
+  subtitulo: string;
+  rondas: RondaResumen[];
+  activaId: string;
+  usuarioId?: string;
+  ahora: number;
+  desfase: number;
+  onElegir: (id: string) => void;
+}) {
+  if (rondas.length === 0) return null;
+
+  return (
+    <section className="mt-6">
+      <p className="font-display text-sm font-bold text-parchment/80">{titulo}</p>
+      <p className="mb-2 text-[11px] text-parchment/40">{subtitulo}</p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {rondas.map((r) => (
+          <TarjetaRonda
+            key={r.ronda.id}
+            r={r}
+            activa={r.ronda.id === activaId}
+            usuarioId={usuarioId}
+            ahora={ahora}
+            desfase={desfase}
+            onClick={() => onElegir(r.ronda.id)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Una tarjeta de la selección de ruletas cuando hay varias activas. */
+function TarjetaRonda({
+  r,
+  activa,
+  usuarioId,
+  ahora,
+  desfase,
+  onClick,
+}: {
+  r: RondaResumen;
+  activa: boolean;
+  usuarioId?: string;
+  ahora: number;
+  desfase: number;
+  onClick: () => void;
+}) {
+  const oficial = r.ronda.modo !== "libre";
+  const mios = r.participantes.find((p) => p.usuarioId === usuarioId)?.tickets ?? 0;
+  const abierta = r.ronda.estado === "abierta";
+  const creador = r.participantes.find((p) => p.usuarioId === r.ronda.admin_id)?.nickname;
+
+  return (
+    <button
+      type="button"
+      aria-pressed={activa}
+      onClick={onClick}
+      className={clsx(
+        "rounded-xl border p-4 text-left transition",
+        activa
+          ? oficial
+            ? "border-gold bg-gold/10 shadow-[0_0_24px_-10px_rgba(245,197,24,0.8)]"
+            : "border-win-glow bg-win/10 shadow-[0_0_24px_-10px_rgba(74,222,128,0.7)]"
+          : "border-gold-dark bg-charcoal/60 hover:border-gold/60"
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <TipoBadge modo={r.ronda.modo} compacto />
+        <span className="shrink-0 font-display text-[10px] font-bold uppercase tracking-wider text-parchment/40">
+          #{String(r.ronda.numero).padStart(4, "0")}
+        </span>
+      </div>
+
+      {/* El nombre es lo que la identifica: por eso va grande y no como un
+          pie de foto. */}
+      <p
+        className={clsx(
+          "mt-1.5 font-display text-lg leading-tight font-bold break-words",
+          activa ? (oficial ? "text-gold" : "text-win-glow") : "text-parchment"
+        )}
+      >
+        {r.ronda.nombre}
+      </p>
+      <OrganizadorLinea modo={r.ronda.modo} creador={creador} className="mt-0.5" />
+
+      <p className="mt-2 font-display text-2xl font-black text-gold-light">
+        S/{soles(r.ronda.pozo_total)}
+        <span className="ml-1 text-[11px] font-normal text-parchment/40">de pozo</span>
+      </p>
+
+      {/* Saber si ya estás dentro es la pregunta que uno se hace mirando
+          varias ruletas a la vez. */}
+      <p
+        className={clsx(
+          "mt-2 text-xs font-semibold",
+          mios > 0 ? "text-win-glow" : "text-parchment/45"
+        )}
+      >
+        {mios > 0
+          ? `✓ Participas con ${mios} ${mios === 1 ? "ticket" : "tickets"}`
+          : abierta
+            ? "Todavía no participas"
+            : "No alcanzaste a entrar"}
+      </p>
+
+      {/* El reloj de la libre. Sin segundo jugador todavía no corre, y
+          decirlo evita que parezca colgada. */}
+      {r.ronda.modo === "libre" ? (
+        <p className="mt-1.5 font-display text-xs font-bold text-gold-light">
+          {tiempoRestante(r.ronda.gira_en, ahora + desfase)
+            ? `⏱ Gira en ${tiempoRestante(r.ronda.gira_en, ahora + desfase)}`
+            : `Esperando un jugador más para arrancar el reloj`}
+        </p>
+      ) : (
+        <p className="mt-1.5 text-[11px] text-parchment/40">La gira el staff</p>
+      )}
+    </button>
   );
 }
 
@@ -860,16 +984,24 @@ function FormularioLibre({
 
   return (
     <section className="mt-10">
-      <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
-        Abre tu propia ruleta
-      </h2>
+      <div className="mb-3 flex items-center gap-2">
+        <TipoBadge modo="libre" />
+        <h2 className="font-display text-lg font-semibold text-win-glow">
+          🎡 Crea tu propia ruleta
+        </h2>
+      </div>
+      <p className="mb-3 -mt-2 text-xs text-parchment/45">
+        Crea una ruleta y permite que otros jugadores participen. Se suma a{" "}
+        <span className="text-win-glow/80">Ruletas de la comunidad</span>, separada de las
+        oficiales que organiza el staff.
+      </p>
 
       {yaTengo ? (
-        <Panel className="border-dashed p-6 text-center text-sm text-parchment/50">
+        <Panel className="border-dashed border-win-glow/30 p-6 text-center text-sm text-parchment/50">
           Ya tienes una ruleta libre abierta. Cuando termine podrás abrir otra.
         </Panel>
       ) : (
-        <Panel className="p-5">
+        <Panel className="border-win-glow/20 p-5">
           <form onSubmit={handleCrear} className="grid gap-3 sm:grid-cols-2">
             <label className="block sm:col-span-2">
               <span className="text-[11px] uppercase tracking-wide text-parchment/40">
@@ -906,8 +1038,12 @@ function FormularioLibre({
             </label>
 
             <div className="flex items-end">
-              <Button type="submit" disabled={creando || nombre.trim().length < 3}>
-                {creando ? "Abriendo…" : `Abrir por S/${soles(cuesta)}`}
+              <Button
+                type="submit"
+                variant="win"
+                disabled={creando || nombre.trim().length < 3}
+              >
+                {creando ? "Abriendo…" : `+ Crear mi ruleta · S/${soles(cuesta)}`}
               </Button>
             </div>
 
