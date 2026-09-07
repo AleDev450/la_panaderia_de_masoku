@@ -90,6 +90,14 @@ describe("faseDeLanzamiento", () => {
     expect(faseDeLanzamiento(-400, "sello")).toMatchObject({ fase: "cuenta", segundos: 1 });
   });
 
+  it("arranca en 5, que es lo que espera la mesa antes de girar", () => {
+    // 0059: la moneda cae sola 5 segundos después de llenarse la mesa. Si esta
+    // constante y el `interval` de la migración se separan, la pantalla
+    // contaría hasta un número que la base no respeta.
+    expect(faseDeLanzamiento(-4800, "cara")).toMatchObject({ fase: "cuenta", segundos: 5 });
+    expect(CUENTA_REGRESIVA_MONEDA_MS).toBe(5000);
+  });
+
   it("la cuenta nunca pasa de los segundos que fija el backend", () => {
     const fase = faseDeLanzamiento(-45_000, "cara");
     expect(fase.fase).toBe("cuenta");

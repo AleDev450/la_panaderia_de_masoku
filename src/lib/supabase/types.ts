@@ -925,6 +925,8 @@ export interface Database {
           p_premio_concepto: string | null;
           /** 'ruleta' o 'carrera' (0058). */
           p_modo: ModoRonda;
+          /** Precio por ticket de ESTA ronda (0060). Null = el de la config. */
+          p_precio_ticket: number | null;
         };
         Returns: RuletaRonda;
       };

@@ -69,6 +69,13 @@ const guardarRondaSchema = z.object({
   /** Con qué animación se sortea (0058). Sin esto, el panel de caballitos
    * crearía rondas de ruleta sin darse cuenta. */
   modo: z.enum(["ruleta", "carrera"]).optional(),
+  /** Precio del ticket de ESTA ronda (0060). Sin valor, manda la config.
+   * Postgres lo rechaza si ya se vendió alguno. */
+  precioTicket: z
+    .number()
+    .positive("El precio del ticket debe ser mayor a 0.")
+    .max(1000, "Un ticket no puede costar más de S/1000.")
+    .optional(),
 });
 export type GuardarRondaInput = z.infer<typeof guardarRondaSchema>;
 
@@ -465,6 +472,7 @@ export async function guardarRonda(
     p_nombre: parsed.data.nombre,
     p_premio_concepto: parsed.data.premioConcepto || null,
     p_modo: parsed.data.modo ?? "ruleta",
+    p_precio_ticket: parsed.data.precioTicket ?? null,
   });
 
   if (error) return { ok: false, error: error.message };

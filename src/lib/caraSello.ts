@@ -16,10 +16,15 @@ export const LADO_MONEDA_LABEL: Record<LadoMoneda, string> = {
 /** Duración del giro de la moneda, sin contar la cuenta regresiva. */
 export const DURACION_MONEDA_MS = 3200;
 
-/** Los 3 segundos que `admin_lanzar_moneda` deja fijados en
- * `lanza_inicia_en = now() + 3s`: parte del show, y a la vez el colchón que
- * absorbe la latencia del polling para que todos lleguen al lanzamiento. */
-export const CUENTA_REGRESIVA_MONEDA_MS = 3000;
+/**
+ * Los 5 segundos que `unirse_cara_sello` deja fijados en
+ * `lanza_inicia_en = now() + 5s` (0059): la mesa se ve completa, los dos ven
+ * contra quién les tocó, y recién ahí gira.
+ *
+ * TIENE QUE COINCIDIR CON EL `interval` DE LA MIGRACIÓN. Si cambia allá y no
+ * acá, la pantalla contaría hasta un número que la base no respeta.
+ */
+export const CUENTA_REGRESIVA_MONEDA_MS = 5000;
 
 /**
  * Vueltas completas antes de mostrar el resultado.
