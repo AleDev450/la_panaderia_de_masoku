@@ -262,25 +262,27 @@ function RuletaContent() {
           ) : null}
         </div>
 
-        {/* Abrir una ruleta va ARRIBA: estaba al final de la página, después
-            de la rueda y del historial, así que había que scrollear hasta el
-            fondo para encontrar la única acción que uno puede iniciar solo. */}
-        <FormularioLibre
-          config={vista?.config ?? null}
-          saldo={user?.balance ?? 0}
-          yaTengo={rondas.some(
-            (r) => r.ronda.modo === "libre" && r.ronda.admin_id === user?.id
-          )}
-          onCreada={async () => {
-            await Promise.all([refresh(), refreshUser()]);
-          }}
-          showToast={showToast}
-        />
-
-        {/* En pantalla ancha el historial va al costado; debajo de xl se apila
-            al final, que es donde estorba menos en un teléfono. */}
-        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        {/* 80 / 20. La izquierda lleva todo el juego —abrir ruleta, la rueda,
+            comprar—; la derecha solo la lista de ganadores, que arranca a la
+            misma altura que el formulario. Debajo de xl se apila, que es lo
+            único que funciona en un teléfono. */}
+        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,4fr)_minmax(0,1fr)]">
           <div className="min-w-0">
+            {/* Abrir una ruleta va ARRIBA: estaba al final de la página, así
+                que había que scrollear hasta el fondo para encontrar la única
+                acción que un jugador puede iniciar solo. */}
+            <FormularioLibre
+              config={vista?.config ?? null}
+              saldo={user?.balance ?? 0}
+              yaTengo={rondas.some(
+                (r) => r.ronda.modo === "libre" && r.ronda.admin_id === user?.id
+              )}
+              onCreada={async () => {
+                await Promise.all([refresh(), refreshUser()]);
+              }}
+              showToast={showToast}
+            />
+
         {vista === null ? (
           errorCarga ? (
             <Panel className="mt-8 border-dashed p-6 text-center">
@@ -485,58 +487,51 @@ function RuletaContent() {
                   }}
                 />
 
+                <Panel className="p-5">
+                  <h2 className="font-display text-sm font-bold uppercase tracking-wide text-gold-light">
+                    Participantes
+                  </h2>
+                  {segmentos.length === 0 ? (
+                    <p className="mt-3 text-sm text-parchment/45">
+                      Nadie ha comprado tickets todavía.
+                    </p>
+                  ) : (
+                    <ul className="mt-3 space-y-2">
+                      {segmentos.map((s) => (
+                        <li
+                          key={s.usuarioId}
+                          className={clsx(
+                            "flex items-center gap-2.5 rounded-md px-2 py-1.5",
+                            s.usuarioId === user?.id && "bg-gold/10"
+                          )}
+                        >
+                          <span
+                            aria-hidden
+                            className="h-3 w-3 shrink-0 rounded-full"
+                            style={{ backgroundColor: s.color }}
+                          />
+                          <span className="min-w-0 flex-1 truncate text-sm text-parchment/80">
+                            {s.nickname}
+                            {s.usuarioId === user?.id ? (
+                              <span className="ml-1 text-xs text-gold">(tú)</span>
+                            ) : null}
+                          </span>
+                          <span className="shrink-0 text-xs text-parchment/45">
+                            {s.tickets} · {s.porcentaje}%
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </Panel>
               </div>
             </section>
           </>
         )}
-
-            {/* Los ganadores van ABAJO y a lo ancho: en la columna angosta el
-                nombre y el premio se apretaban contra el borde. Acá respiran y
-                el costado queda para la lista de participantes, que es corta
-                por naturaleza. */}
-            <Historial rondas={historial} miUsuarioId={user?.id} />
           </div>
 
           <aside className="xl:sticky xl:top-6 xl:self-start">
-            {ronda ? (
-              <Panel className="p-5">
-                <h2 className="font-display text-sm font-bold uppercase tracking-wide text-gold-light">
-                  Participantes
-                </h2>
-                {segmentos.length === 0 ? (
-                  <p className="mt-3 text-sm text-parchment/45">
-                    Nadie ha comprado tickets todavía.
-                  </p>
-                ) : (
-                  <ul className="mt-3 space-y-2">
-                    {segmentos.map((s) => (
-                      <li
-                        key={s.usuarioId}
-                        className={clsx(
-                          "flex items-center gap-2.5 rounded-md px-2 py-1.5",
-                          s.usuarioId === user?.id && "bg-gold/10"
-                        )}
-                      >
-                        <span
-                          aria-hidden
-                          className="h-3 w-3 shrink-0 rounded-full"
-                          style={{ backgroundColor: s.color }}
-                        />
-                        <span className="min-w-0 flex-1 truncate text-sm text-parchment/80">
-                          {s.nickname}
-                          {s.usuarioId === user?.id ? (
-                            <span className="ml-1 text-xs text-gold">(tú)</span>
-                          ) : null}
-                        </span>
-                        <span className="shrink-0 text-xs text-parchment/45">
-                          {s.tickets} · {s.porcentaje}%
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Panel>
-            ) : null}
+            <Historial rondas={historial} miUsuarioId={user?.id} />
           </aside>
         </div>
       </main>
@@ -908,45 +903,47 @@ function Historial({
   if (rondas === null || rondas.length === 0) return null;
 
   return (
-    <section className="mt-8">
+    <section>
       <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
         Últimos ganadores
       </h2>
-      {/* En rejilla y no en lista: a lo ancho, una fila por ronda dejaría el
-          nombre pegado a la izquierda y el premio al otro extremo, con medio
-          metro de nada en medio. */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {rondas.slice(0, 10).map(({ ronda, ganadorNickname }) => {
-          const mio = ronda.ganador_usuario_id === miUsuarioId;
-          return (
-            <Panel
-              key={ronda.id}
-              className={clsx(
-                "flex items-center justify-between gap-3 p-4",
-                mio && "border-win-glow/40 bg-win/5"
-              )}
-            >
-              <div className="min-w-0">
-                <p
-                  className={clsx(
-                    "truncate font-display text-sm font-bold",
-                    mio ? "text-win-glow" : "text-parchment/85"
-                  )}
-                >
-                  {ganadorNickname ?? "—"}
-                  {mio ? " (tú)" : ""}
-                </p>
+      {/* Lista vertical: la columna es angosta (20%), así que cada ronda va en
+          dos renglones —nombre arriba, ronda debajo— con el premio al costado.
+          Una tabla acá obligaría a scrollear de lado. */}
+      <Panel className="p-0">
+        <ul>
+          {rondas.slice(0, 10).map(({ ronda, ganadorNickname }) => {
+            const mio = ronda.ganador_usuario_id === miUsuarioId;
+            return (
+              <li
+                key={ronda.id}
+                className={clsx(
+                  "border-b border-gold-dark/20 px-3 py-2.5 last:border-0",
+                  mio && "bg-win/5"
+                )}
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <p
+                    className={clsx(
+                      "min-w-0 truncate font-display text-sm font-bold",
+                      mio ? "text-win-glow" : "text-parchment/85"
+                    )}
+                  >
+                    {ganadorNickname ?? "—"}
+                    {mio ? " (tú)" : ""}
+                  </p>
+                  <span className="shrink-0 font-display text-sm font-bold text-gold-light">
+                    S/{soles(ronda.premio_monto ?? 0)}
+                  </span>
+                </div>
                 <p className="truncate text-[11px] text-parchment/40">
                   #{String(ronda.numero).padStart(4, "0")} · {ronda.nombre}
                 </p>
-              </div>
-              <span className="shrink-0 font-display text-base font-bold text-gold-light">
-                S/{soles(ronda.premio_monto ?? 0)}
-              </span>
-            </Panel>
-          );
-        })}
-      </div>
+              </li>
+            );
+          })}
+        </ul>
+      </Panel>
     </section>
   );
 }
