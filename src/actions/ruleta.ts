@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   CachudobetConfig,
+  ModoRonda,
   RuletaRonda,
   RuletaTicket,
 } from "@/lib/supabase/types";
@@ -65,6 +66,9 @@ const guardarRondaSchema = z.object({
   rondaId: z.string().uuid().nullable().optional(),
   nombre: z.string().trim().min(3, "Ponle un nombre a la ronda.").max(120, "Máximo 120 caracteres."),
   premioConcepto: z.string().trim().max(200, "Máximo 200 caracteres.").optional(),
+  /** Con qué animación se sortea (0058). Sin esto, el panel de caballitos
+   * crearía rondas de ruleta sin darse cuenta. */
+  modo: z.enum(["ruleta", "carrera"]).optional(),
 });
 export type GuardarRondaInput = z.infer<typeof guardarRondaSchema>;
 
@@ -213,9 +217,12 @@ export async function getRuleta(): Promise<ActionResult<VistaRuleta>> {
     return { ok: false, error: errorConfig?.message ?? "Falta la configuración de CACHUDOBET." };
   }
 
+  // El filtro por modo es lo que mantiene separados los dos juegos: sin él,
+  // la ruleta mostraría una ronda de caballitos y viceversa (0058).
   const { data: enJuego, error } = await admin
     .from("ruleta_rondas")
     .select("*")
+    .eq("modo", "ruleta")
     .in("estado", ["abierta", "cerrada", "girando"])
     .order("created_at", { ascending: false })
     .limit(1);
@@ -226,6 +233,7 @@ export async function getRuleta(): Promise<ActionResult<VistaRuleta>> {
     const { data: ultima } = await admin
       .from("ruleta_rondas")
       .select("*")
+      .eq("modo", "ruleta")
       .eq("estado", "finalizada")
       .order("finalizada_at", { ascending: false })
       .limit(1);
@@ -246,6 +254,102 @@ export async function getRuleta(): Promise<ActionResult<VistaRuleta>> {
   return {
     ok: true,
     data: { ronda: resumen, config: config as CachudobetConfig, misTickets, servidorAhora: ahora },
+  };
+}
+
+export interface VistaCaballitos {
+  ronda: RondaResumen | null;
+  config: CachudobetConfig;
+  misTickets: number;
+  servidorAhora: string;
+  /**
+   * Los tickets sueltos de la ronda: CADA UNO ES UN CABALLO.
+   *
+   * Van aparte del resumen —que agrupa por persona para la rueda— porque la
+   * carrera necesita las filas una por una: el `id` de cada ticket es el
+   * caballo, y `ganador_ticket_id` apunta justo a ese id.
+   */
+  tickets: { id: string; usuarioId: string; nickname: string }[];
+}
+
+/**
+ * La ronda de caballitos en curso (0058).
+ *
+ * Es la MISMA mecánica que la ruleta: mismas rondas, mismos tickets, mismo
+ * pozo y mismo sorteo. Lo único que cambia es el `modo`, que decide si el
+ * resultado se muestra girando una rueda o corriendo una carrera.
+ */
+export async function getCaballitos(): Promise<ActionResult<VistaCaballitos>> {
+  const session = await requireSessionUserId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+
+  const [{ data: config, error: errorConfig }, ahora] = await Promise.all([
+    admin.from("cachudobet_config").select("*").single(),
+    servidorAhora(admin),
+  ]);
+  if (errorConfig || !config) {
+    return { ok: false, error: errorConfig?.message ?? "Falta la configuración de CACHUDOBET." };
+  }
+
+  const { data: enJuego, error } = await admin
+    .from("ruleta_rondas")
+    .select("*")
+    .eq("modo", "carrera")
+    .in("estado", ["abierta", "cerrada", "girando"])
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) return { ok: false, error: error.message };
+
+  let ronda = (enJuego ?? [])[0] as RuletaRonda | undefined;
+  if (!ronda) {
+    const { data: ultima } = await admin
+      .from("ruleta_rondas")
+      .select("*")
+      .eq("modo", "carrera")
+      .eq("estado", "finalizada")
+      .order("finalizada_at", { ascending: false })
+      .limit(1);
+    ronda = (ultima ?? [])[0] as RuletaRonda | undefined;
+  }
+
+  const vacia = {
+    ronda: null,
+    config: config as CachudobetConfig,
+    misTickets: 0,
+    servidorAhora: ahora,
+    tickets: [],
+  };
+  if (!ronda) return { ok: true, data: vacia };
+
+  const resumen = await resumenDeRonda(admin, ronda);
+  const misTickets =
+    resumen.participantes.find((p) => p.usuarioId === session.userId)?.tickets ?? 0;
+
+  // `created_at` y no el id: el orden de los caballos tiene que ser el mismo
+  // en todas las pantallas, y el de compra es el único estable.
+  const { data: filas } = await admin
+    .from("ruleta_tickets")
+    .select("id, usuario_id")
+    .eq("ronda_id", ronda.id)
+    .order("created_at", { ascending: true });
+
+  const nick = new Map(resumen.participantes.map((p) => [p.usuarioId, p.nickname]));
+
+  return {
+    ok: true,
+    data: {
+      ronda: resumen,
+      config: config as CachudobetConfig,
+      misTickets,
+      servidorAhora: ahora,
+      tickets: (filas ?? []).map((t) => ({
+        id: t.id,
+        usuarioId: t.usuario_id,
+        nickname: nick.get(t.usuario_id) ?? "—",
+      })),
+    },
   };
 }
 
@@ -281,15 +385,17 @@ export interface RondaAdmin {
 }
 
 /** Admin-only: todas las rondas, con lo que se necesita para la lista. */
-export async function getRondas(): Promise<ActionResult<RondaAdmin[]>> {
+export async function getRondas(modo?: ModoRonda): Promise<ActionResult<RondaAdmin[]>> {
   const session = await requireAdminId();
   if (!session.ok) return session;
 
   const admin = createSupabaseAdminClient();
-  const { data: rondas, error } = await admin
-    .from("ruleta_rondas")
-    .select("*")
-    .order("created_at", { ascending: false });
+  // Sin `modo` devuelve todas, para no romper a quien ya la llamaba así.
+  const consulta = admin.from("ruleta_rondas").select("*");
+  const { data: rondas, error } = await (modo ? consulta.eq("modo", modo) : consulta).order(
+    "created_at",
+    { ascending: false }
+  );
   if (error) return { ok: false, error: error.message };
   if (!rondas || rondas.length === 0) return { ok: true, data: [] };
 
@@ -358,6 +464,7 @@ export async function guardarRonda(
     p_ronda_id: parsed.data.rondaId ?? null,
     p_nombre: parsed.data.nombre,
     p_premio_concepto: parsed.data.premioConcepto || null,
+    p_modo: parsed.data.modo ?? "ruleta",
   });
 
   if (error) return { ok: false, error: error.message };

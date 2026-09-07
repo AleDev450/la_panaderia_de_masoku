@@ -62,6 +62,7 @@ const NAV_ADMIN: NavItem[] = [
   { href: "/bakery/titulos", label: "Eventos" },
   { href: "/bakery/mensajes", label: "Mensajes", clave: "mensajes" },
   { href: "/bakery/ruleta", label: "Ruleta" },
+  { href: "/bakery/caballitos", label: "Caballitos" },
   { href: "/bakery/cara-o-sello", label: "Cara o sello" },
   { href: "/bakery/recargas", label: "Depósitos", clave: "recargas" },
   { href: "/bakery/retiros", label: "Retiros", clave: "retiros" },

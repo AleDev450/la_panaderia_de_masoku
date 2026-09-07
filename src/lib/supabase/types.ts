@@ -401,6 +401,10 @@ export type EstadoRondaRuleta =
   | "girando"
   | "finalizada";
 
+/** Cómo se muestra el sorteo de una ronda (0058). La mecánica y el dinero son
+ * idénticos: lo único que cambia es si gira una rueda o corren caballos. */
+export type ModoRonda = "ruleta" | "carrera";
+
 export type RuletaRonda = {
   id: string;
   /** El "#124" que se muestra. Corre por su cuenta y no se reusa. */
@@ -409,6 +413,7 @@ export type RuletaRonda = {
   nombre: string;
   premio_concepto: string | null;
   estado: EstadoRondaRuleta;
+  modo: ModoRonda;
   /** Copiados de la config al crear la ronda: cambiar la config no reescribe
    * la plata de una ronda ya jugada. */
   precio_ticket: number;
@@ -918,6 +923,8 @@ export interface Database {
           p_ronda_id: string | null;
           p_nombre: string;
           p_premio_concepto: string | null;
+          /** 'ruleta' o 'carrera' (0058). */
+          p_modo: ModoRonda;
         };
         Returns: RuletaRonda;
       };

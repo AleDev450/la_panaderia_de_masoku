@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DURACION_CARRERA_MS,
   armarCaballos,
+  armarCaballosDeTickets,
   caballosEnPista,
   colorDePersona,
   faseDeCarrera,
@@ -161,6 +162,48 @@ describe("faseDeCarrera", () => {
 
   it("una carrera vieja se muestra terminada, sin animar", () => {
     expect(faseDeCarrera(60 * 60_000)).toEqual({ fase: "terminada", t: 1 });
+  });
+});
+
+describe("armarCaballosDeTickets", () => {
+  // Como llegan de la ronda: una fila por ticket comprado, en orden de compra.
+  const TICKETS = [
+    { id: "tk-a", usuarioId: "u1", nickname: "Ana" },
+    { id: "tk-b", usuarioId: "u2", nickname: "Beto" },
+    { id: "tk-c", usuarioId: "u1", nickname: "Ana" },
+    { id: "tk-d", usuarioId: "u1", nickname: "Ana" },
+  ];
+
+  it("EL ID DEL CABALLO ES EL DEL TICKET", () => {
+    // De esto depende encontrar al ganador: `ganador_ticket_id` apunta acá.
+    expect(armarCaballosDeTickets(TICKETS).map((c) => c.id)).toEqual([
+      "tk-a",
+      "tk-b",
+      "tk-c",
+      "tk-d",
+    ]);
+  });
+
+  it("numera por persona, no por orden global", () => {
+    const etiquetas = armarCaballosDeTickets(TICKETS).map((c) => c.etiqueta);
+    expect(etiquetas).toEqual(["Ana_01", "Beto_01", "Ana_02", "Ana_03"]);
+  });
+
+  it("saca un caballo por ticket, sin agrupar", () => {
+    expect(armarCaballosDeTickets(TICKETS)).toHaveLength(4);
+  });
+
+  it("una ronda sin tickets no tiene pista", () => {
+    expect(armarCaballosDeTickets([])).toEqual([]);
+  });
+
+  it("el ganador se encuentra por el id del ticket", () => {
+    const caballos = armarCaballosDeTickets(TICKETS);
+    const perfiles = perfilesDeCarrera("s", caballos, "tk-c");
+    const primero = perfiles.reduce((a, b) =>
+      posicionCaballo(b, 1) > posicionCaballo(a, 1) ? b : a
+    );
+    expect(primero.caballo.etiqueta).toBe("Ana_02");
   });
 });
 

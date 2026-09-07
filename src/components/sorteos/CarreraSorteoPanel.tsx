@@ -7,6 +7,7 @@ import { PistaCarrera } from "@/components/sorteos/PistaCarrera";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
 import { VistaCarrera, correrCarrera, getCarrera } from "@/actions/sorteos";
+import { caballosEnPista, idDeCaballo } from "@/lib/carrera";
 
 /**
  * La carrera de un sorteo, lista para meter en cualquier pantalla.
@@ -82,6 +83,27 @@ export function CarreraSorteoPanel({
   const conTickets = vista.inscripciones.filter((i) => i.tickets > 0);
   const quedanPorCorrer = conTickets.filter((i) => !i.ganador).length;
 
+  // El sorteo trae personas con N tickets; acá se expanden a caballos y se
+  // traduce la carrera al formato que la pista entiende, sin que ella tenga
+  // que saber que existe `carreras_sorteo`.
+  const ganadorActual = vista.carrera?.inscripcion_ganadora_id ?? null;
+  const caballos = caballosEnPista(vista.inscripciones, ganadorActual);
+  const evento = vista.carrera
+    ? {
+        ganadorCaballoId: idDeCaballo(
+          vista.carrera.inscripcion_ganadora_id,
+          vista.carrera.caballo_numero
+        ),
+        semilla: vista.carrera.semilla,
+        iniciaEn: vista.carrera.inicia_en,
+      }
+    : null;
+
+  const sinTickets = vista.inscripciones.filter((i) => i.tickets === 0);
+  const yaGanaron = vista.inscripciones.filter(
+    (i) => i.ganador && i.inscripcionId !== ganadorActual
+  );
+
   if (conTickets.length === 0) {
     return esAdmin ? (
       <Panel className="mt-4 border-dashed p-5 text-center text-sm text-parchment/50">
@@ -93,11 +115,28 @@ export function CarreraSorteoPanel({
   return (
     <div className="mt-6">
       <PistaCarrera
-        inscripciones={vista.inscripciones}
-        carrera={vista.carrera}
+        caballos={caballos}
+        evento={evento}
         desfaseMs={desfase}
         miUsuarioId={user?.id}
         reducirMovimiento={reducirMovimiento}
+        notas={
+          <>
+            {yaGanaron.length > 0 ? (
+              <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
+                <strong className="text-win-glow/80">Ya ganaron</strong> y salieron de la
+                pista: {yaGanaron.map((i) => i.nickname).join(", ")}. Un premio por persona.
+              </p>
+            ) : null}
+            {sinTickets.length > 0 ? (
+              <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
+                <strong className="text-parchment/60">Inscritos sin tickets</strong> (no
+                corren): {sinTickets.map((i) => i.nickname).join(", ")}. Para participar hace
+                falta al menos un ticket.
+              </p>
+            ) : null}
+          </>
+        }
       />
 
       {esAdmin ? (

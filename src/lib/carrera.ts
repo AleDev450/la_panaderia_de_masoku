@@ -249,6 +249,41 @@ export function colorDePersona(usuarioId: string): string {
   return `hsl(${hash32(usuarioId) % 360} 70% 58%)`;
 }
 
+/** Un ticket comprado de una ronda en modo carrera (0058). */
+export type TicketCarrera = { id: string; usuarioId: string; nickname: string };
+
+/**
+ * Un caballo por cada ticket COMPRADO.
+ *
+ * Es la variante para el juego de caballitos, donde los tickets se compran con
+ * saldo y ya existen como filas propias en `ruleta_tickets`. Acá no hay nada
+ * que expandir: cada fila ya es un caballo.
+ *
+ * EL ID DEL CABALLO ES EL ID DEL TICKET, y eso importa: `ganador_ticket_id`
+ * apunta exactamente ahí, así que el caballo ganador se encuentra sin
+ * traducir nada ni recalcular numeraciones.
+ *
+ * El número que se ve (`Fulano_03`) se cuenta por persona en el orden en que
+ * compró, para que a alguien con 4 tickets se le lean del 01 al 04.
+ */
+export function armarCaballosDeTickets(tickets: TicketCarrera[]): Caballo[] {
+  const llevados = new Map<string, number>();
+
+  return tickets.map((t) => {
+    const numero = (llevados.get(t.usuarioId) ?? 0) + 1;
+    llevados.set(t.usuarioId, numero);
+
+    return {
+      id: t.id,
+      inscripcionId: t.id,
+      usuarioId: t.usuarioId,
+      nickname: t.nickname,
+      numero,
+      etiqueta: `${t.nickname}_${String(numero).padStart(2, "0")}`,
+    };
+  });
+}
+
 /**
  * Quiénes salen a la pista.
  *

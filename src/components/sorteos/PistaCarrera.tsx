@@ -3,15 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { Panel } from "@/components/ui/Panel";
-import { CarreraSorteo } from "@/lib/supabase/types";
 import {
+  Caballo,
   DURACION_CARRERA_MS,
   DURACION_CORRAN_MS,
-  InscripcionCarrera,
-  caballosEnPista,
   colorDePersona,
   faseDeCarrera,
-  idDeCaballo,
   ordenEnCajon,
   perfilesDeCarrera,
   posicionCaballo,
@@ -29,19 +26,41 @@ import {
  * Solo el rótulo de estado usa estado, y cambia un puñado de veces.
  */
 
+/**
+ * Lo mínimo que la pista necesita saber de un sorteo ya resuelto.
+ *
+ * Se normaliza así para que la pista no sepa de dónde viene: el sorteo de los
+ * cofres arma esto desde `carreras_sorteo`, y los caballitos desde la propia
+ * ronda (0058). Sin esto, la pista tendría una rama por juego adentro y cada
+ * juego nuevo agregaría otra.
+ */
+export type EventoCarrera = {
+  /** El caballo que cruza primero. Ya lo decidió Postgres. */
+  ganadorCaballoId: string;
+  /** De acá salen los perfiles de velocidad: la misma semilla, la misma carrera. */
+  semilla: string;
+  /** Marca del reloj del SERVIDOR en que se abre la puerta. */
+  iniciaEn: string;
+};
+
 export function PistaCarrera({
-  inscripciones,
-  carrera,
+  caballos,
+  evento,
   desfaseMs,
   miUsuarioId,
   reducirMovimiento,
+  notas,
 }: {
-  inscripciones: (InscripcionCarrera & { ganador: boolean })[];
-  carrera: CarreraSorteo | null;
+  /** Los caballos ya armados: uno por ticket, venga de donde venga. */
+  caballos: Caballo[];
+  /** Null mientras nadie haya dado la largada. */
+  evento: EventoCarrera | null;
   /** Reloj del servidor menos el de este navegador. */
   desfaseMs: number;
   miUsuarioId?: string;
   reducirMovimiento: boolean;
+  /** Aclaraciones propias de cada juego, debajo de la pista. */
+  notas?: React.ReactNode;
 }) {
   const [fase, setFase] = useState<"cajon" | "cuenta" | "largando" | "corriendo" | "terminada">(
     "cajon"
@@ -69,35 +88,12 @@ export function PistaCarrera({
     };
   }, [expandido]);
 
-  /**
-   * QUIEN YA GANÓ NO VUELVE A CORRER.
-   *
-   * El sorteo lo excluye en Postgres (`and not ganador`), así que dejar sus
-   * caballos en la pista sería mostrar corredores que no pueden ganar: se
-   * verían punteando a mitad de carrera y perdiendo siempre, sin explicación.
-   *
-   * La excepción es el ganador de LA carrera que se está mostrando: mientras
-   * se ve su llegada todavía tiene que estar en la pista, o desaparecería
-   * justo el caballo que acaba de cruzar primero.
-   */
-  const caballos = useMemo(
-    () => caballosEnPista(inscripciones, carrera?.inscripcion_ganadora_id ?? null),
-    [inscripciones, carrera]
-  );
-
-  const sinTickets = inscripciones.filter((i) => i.tickets === 0);
-  const yaGanaron = inscripciones.filter(
-    (i) => i.ganador && i.inscripcionId !== carrera?.inscripcion_ganadora_id
-  );
-
-  const ganadorId = carrera
-    ? idDeCaballo(carrera.inscripcion_ganadora_id, carrera.caballo_numero)
-    : null;
+  const ganadorId = evento?.ganadorCaballoId ?? null;
 
   const perfiles = useMemo(() => {
-    if (!carrera || !ganadorId) return null;
-    return perfilesDeCarrera(carrera.semilla, caballos, ganadorId);
-  }, [carrera, ganadorId, caballos]);
+    if (!evento || !ganadorId) return null;
+    return perfilesDeCarrera(evento.semilla, caballos, ganadorId);
+  }, [evento, ganadorId, caballos]);
 
   // Los carriles se fijan una vez y no se reordenan durante la carrera: con 32
   // filas saltando de lugar, seguir a un caballo con la vista es imposible.
@@ -111,10 +107,10 @@ export function PistaCarrera({
 
   useEffect(() => {
     // Sin carrera no hay nada que animar. No hace falta tocar el estado acá:
-    // `faseVisible` ya devuelve "cajón" mientras `carrera` sea null.
-    if (!carrera || !perfiles) return;
+    // `faseVisible` ya devuelve "cajón" mientras `evento` sea null.
+    if (!evento || !perfiles) return;
 
-    const inicio = new Date(carrera.inicia_en).getTime();
+    const inicio = new Date(evento.iniciaEn).getTime();
 
     // Con movimiento reducido no se anima: los caballos aparecen ya en la
     // meta. El rótulo lo resuelve `faseVisible`, así que acá solo se colocan.
@@ -163,13 +159,13 @@ export function PistaCarrera({
 
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [carrera, perfiles, desfaseMs, reducirMovimiento]);
+  }, [evento, perfiles, desfaseMs, reducirMovimiento]);
 
   const ganador = caballos.find((c) => c.id === ganadorId);
   // Sin carrera, los caballos están en el cajón sin importar en qué quedó una
   // carrera anterior; con movimiento reducido nunca se anima, así que la
   // carrera se muestra siempre como ya corrida.
-  const faseVisible = !carrera ? "cajon" : reducirMovimiento ? "terminada" : fase;
+  const faseVisible = !evento ? "cajon" : reducirMovimiento ? "terminada" : fase;
 
   return (
     <div
@@ -362,21 +358,7 @@ export function PistaCarrera({
           se le quita a los carriles, que es lo que se vino a ver. */}
       {!expandido ? (
         <>
-          {yaGanaron.length > 0 ? (
-            <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
-              <strong className="text-win-glow/80">Ya ganaron</strong> y salieron de la pista:{" "}
-              {yaGanaron.map((i) => i.nickname).join(", ")}. Un premio por persona.
-            </p>
-          ) : null}
-
-          {sinTickets.length > 0 ? (
-            <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
-              <strong className="text-parchment/60">Inscritos sin tickets</strong> (no corren):{" "}
-              {sinTickets.map((i) => i.nickname).join(", ")}. Para participar hace falta al
-              menos un ticket.
-            </p>
-          ) : null}
-
+          {notas}
           <p className="mt-1 text-[11px] leading-relaxed text-parchment/40">
             Cada ticket es un caballo, así que tener 4 tickets es correr con 4 caballos — y
             cada caballo de la pista tiene exactamente la misma chance que cualquier otro. El
