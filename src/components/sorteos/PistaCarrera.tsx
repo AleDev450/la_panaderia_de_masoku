@@ -8,7 +8,7 @@ import {
   DURACION_CARRERA_MS,
   DURACION_CORRAN_MS,
   InscripcionCarrera,
-  armarCaballos,
+  caballosEnPista,
   colorDePersona,
   faseDeCarrera,
   idDeCaballo,
@@ -49,9 +49,46 @@ export function PistaCarrera({
   const [cuenta, setCuenta] = useState(0);
   const marcasRef = useRef(new Map<string, HTMLDivElement | null>());
   const puestosRef = useRef(new Map<string, HTMLSpanElement | null>());
+  const [expandido, setExpandido] = useState(false);
 
-  const caballos = useMemo(() => armarCaballos(inscripciones), [inscripciones]);
+  // Salir con Escape, y trabar el scroll del fondo mientras la pista ocupa la
+  // pantalla: si no, rueda la página de atrás y al cerrar quedas en otro lado.
+  useEffect(() => {
+    if (!expandido) return;
+
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setExpandido(false);
+    };
+    const overflowPrevio = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", alTeclear);
+
+    return () => {
+      document.body.style.overflow = overflowPrevio;
+      document.removeEventListener("keydown", alTeclear);
+    };
+  }, [expandido]);
+
+  /**
+   * QUIEN YA GANÓ NO VUELVE A CORRER.
+   *
+   * El sorteo lo excluye en Postgres (`and not ganador`), así que dejar sus
+   * caballos en la pista sería mostrar corredores que no pueden ganar: se
+   * verían punteando a mitad de carrera y perdiendo siempre, sin explicación.
+   *
+   * La excepción es el ganador de LA carrera que se está mostrando: mientras
+   * se ve su llegada todavía tiene que estar en la pista, o desaparecería
+   * justo el caballo que acaba de cruzar primero.
+   */
+  const caballos = useMemo(
+    () => caballosEnPista(inscripciones, carrera?.inscripcion_ganadora_id ?? null),
+    [inscripciones, carrera]
+  );
+
   const sinTickets = inscripciones.filter((i) => i.tickets === 0);
+  const yaGanaron = inscripciones.filter(
+    (i) => i.ganador && i.inscripcionId !== carrera?.inscripcion_ganadora_id
+  );
 
   const ganadorId = carrera
     ? idDeCaballo(carrera.inscripcion_ganadora_id, carrera.caballo_numero)
@@ -135,11 +172,21 @@ export function PistaCarrera({
   const faseVisible = !carrera ? "cajon" : reducirMovimiento ? "terminada" : fase;
 
   return (
-    <div>
+    <div
+      className={clsx(
+        expandido &&
+          "fixed inset-0 z-50 flex flex-col overflow-hidden bg-obsidian p-3 sm:p-5"
+      )}
+    >
       {/* ------------------------------------------------------- estado */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-display text-lg font-semibold text-gold-light">
+          <h2
+            className={clsx(
+              "font-display font-semibold text-gold-light",
+              expandido ? "text-2xl" : "text-lg"
+            )}
+          >
             🐎 Carrera de caballitos
           </h2>
           <p className="mt-0.5 text-xs text-parchment/45">
@@ -147,32 +194,47 @@ export function PistaCarrera({
           </p>
         </div>
 
-        <span
-          aria-live="polite"
-          className={clsx(
-            "rounded-full border px-3 py-1 font-display text-xs font-black uppercase tracking-wide",
-            faseVisible === "corriendo"
-              ? "border-gold bg-gold/15 text-gold"
-              : faseVisible === "terminada"
-                ? "border-win-glow/60 bg-win/10 text-win-glow"
-                : "border-gold-dark text-parchment/50"
-          )}
-        >
-          {faseVisible === "cajon"
-            ? "En el cajón"
-            : faseVisible === "cuenta"
-              ? `Largan en ${cuenta}…`
-              : faseVisible === "largando"
-                ? "¡Corran!"
-                : faseVisible === "corriendo"
-                  ? "¡Corriendo!"
-                  : "Llegaron"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            aria-live="polite"
+            className={clsx(
+              "rounded-full border px-3 py-1 font-display font-black uppercase tracking-wide",
+              expandido ? "text-sm" : "text-xs",
+              faseVisible === "corriendo"
+                ? "border-gold bg-gold/15 text-gold"
+                : faseVisible === "terminada"
+                  ? "border-win-glow/60 bg-win/10 text-win-glow"
+                  : "border-gold-dark text-parchment/50"
+            )}
+          >
+            {faseVisible === "cajon"
+              ? "En el cajón"
+              : faseVisible === "cuenta"
+                ? `Largan en ${cuenta}…`
+                : faseVisible === "largando"
+                  ? "¡Corran!"
+                  : faseVisible === "corriendo"
+                    ? "¡Corriendo!"
+                    : "Llegaron"}
+          </span>
+
+          {/* Con 32 carriles la vista normal obliga a scrollear justo cuando
+              hay que mirar. Acá se reparte la altura de la pantalla entre
+              todos para que entren de una. */}
+          <button
+            type="button"
+            onClick={() => setExpandido((v) => !v)}
+            aria-label={expandido ? "Salir de pantalla completa" : "Ver en pantalla completa"}
+            className="min-h-9 shrink-0 rounded-md border border-gold-dark px-3 py-1.5 font-display text-xs font-bold uppercase tracking-wide text-parchment/70 transition hover:border-gold hover:text-gold"
+          >
+            {expandido ? "✕ Salir" : "⛶ Pantalla completa"}
+          </button>
+        </div>
       </div>
 
       {/* ------------------------------------------------------ ganador */}
       {faseVisible === "terminada" && ganador ? (
-        <Panel className="mb-3 border-win-glow/50 bg-win/5 p-4 text-center">
+        <Panel className="mb-3 shrink-0 border-win-glow/50 bg-win/5 p-4 text-center">
           <p className="font-display text-[11px] font-bold uppercase tracking-[0.25em] text-win-glow">
             🏆 Tenemos ganador
           </p>
@@ -187,7 +249,14 @@ export function PistaCarrera({
       ) : null}
 
       {/* -------------------------------------------------------- pista */}
-      <Panel className="relative overflow-hidden p-0">
+      <Panel
+        className={clsx(
+          "relative overflow-hidden p-0",
+          // `min-h-0` es lo que deja que un hijo con scroll se encoja dentro
+          // de un flex; sin eso la pista se pasa del alto de la pantalla.
+          expandido && "min-h-0 flex-1"
+        )}
+      >
         {/* La cuenta va ENCIMA de la pista y no en un rincón: es el momento
             en el que todos miran lo mismo. */}
         {faseVisible === "cuenta" || faseVisible === "largando" ? (
@@ -208,7 +277,12 @@ export function PistaCarrera({
           </div>
         ) : null}
 
-        <div className="max-h-[30rem] overflow-y-auto">
+        <div
+          className={clsx(
+            "overflow-y-auto",
+            expandido ? "flex h-full flex-col" : "max-h-[30rem]"
+          )}
+        >
           {enOrden.map((fila) => {
             const c = fila.caballo;
             const mio = c.usuarioId === miUsuarioId;
@@ -219,7 +293,10 @@ export function PistaCarrera({
               <div
                 key={c.id}
                 className={clsx(
-                  "flex items-center gap-2 border-b border-gold-dark/20 px-2 py-1 last:border-0",
+                  "flex items-center gap-2 border-b border-gold-dark/20 px-2 last:border-0",
+                  // Expandido: los carriles se reparten el alto disponible, con
+                  // un piso para que no se aplasten si la pantalla es chica.
+                  expandido ? "min-h-[22px] flex-1 py-0.5" : "py-1",
                   esGanador && "bg-win/10",
                   mio && !esGanador && "bg-gold/5"
                 )}
@@ -231,7 +308,8 @@ export function PistaCarrera({
                     puestosRef.current.set(c.id, el);
                   }}
                   className={clsx(
-                    "w-7 shrink-0 text-right font-display text-[11px] font-black tabular-nums",
+                    "shrink-0 text-right font-display font-black tabular-nums",
+                    expandido ? "w-9 text-sm" : "w-7 text-[11px]",
                     esGanador ? "text-win-glow" : mio ? "text-gold" : "text-parchment/35"
                   )}
                 >
@@ -240,7 +318,8 @@ export function PistaCarrera({
 
                 <span
                   className={clsx(
-                    "w-24 shrink-0 truncate text-[11px] font-semibold sm:w-32",
+                    "shrink-0 truncate font-semibold",
+                    expandido ? "w-32 text-xs sm:w-44 sm:text-sm" : "w-24 text-[11px] sm:w-32",
                     esGanador ? "text-win-glow" : mio ? "text-gold" : "text-parchment/60"
                   )}
                   style={!esGanador && !mio ? { color } : undefined}
@@ -249,12 +328,20 @@ export function PistaCarrera({
                 </span>
 
                 {/* El carril. La meta es el borde derecho. */}
-                <div className="relative h-5 flex-1 rounded-full bg-obsidian/70 ring-1 ring-gold-dark/40">
+                <div
+                  className={clsx(
+                    "relative flex-1 rounded-full bg-obsidian/70 ring-1 ring-gold-dark/40",
+                    expandido ? "h-full min-h-[18px]" : "h-5"
+                  )}
+                >
                   <div
                     ref={(el) => {
                       marcasRef.current.set(c.id, el);
                     }}
-                    className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 text-sm leading-none"
+                    className={clsx(
+                      "absolute top-1/2 -translate-x-1/2 -translate-y-1/2 leading-none",
+                      expandido ? "text-base sm:text-lg" : "text-sm"
+                    )}
                     style={{ left: "0%" }}
                   >
                     <span aria-hidden>🐎</span>
@@ -270,20 +357,33 @@ export function PistaCarrera({
         </div>
       </Panel>
 
-      {/* --------------------------------------------- los que no corren */}
-      {sinTickets.length > 0 ? (
-        <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
-          <strong className="text-parchment/60">Inscritos sin tickets</strong> (no corren):{" "}
-          {sinTickets.map((i) => i.nickname).join(", ")}. Para participar hace falta al menos
-          un ticket.
-        </p>
-      ) : null}
+      {/* ------------------------------------------------------- las notas */}
+      {/* En pantalla completa no se muestran: cada línea acá abajo es alto que
+          se le quita a los carriles, que es lo que se vino a ver. */}
+      {!expandido ? (
+        <>
+          {yaGanaron.length > 0 ? (
+            <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
+              <strong className="text-win-glow/80">Ya ganaron</strong> y salieron de la pista:{" "}
+              {yaGanaron.map((i) => i.nickname).join(", ")}. Un premio por persona.
+            </p>
+          ) : null}
 
-      <p className="mt-1 text-[11px] leading-relaxed text-parchment/40">
-        Cada ticket es un caballo, así que tener 4 tickets es correr con 4 caballos — y cada
-        caballo de la pista tiene exactamente la misma chance que cualquier otro. El ganador
-        lo decide el servidor antes de la largada: todos ven la misma carrera.
-      </p>
+          {sinTickets.length > 0 ? (
+            <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
+              <strong className="text-parchment/60">Inscritos sin tickets</strong> (no corren):{" "}
+              {sinTickets.map((i) => i.nickname).join(", ")}. Para participar hace falta al
+              menos un ticket.
+            </p>
+          ) : null}
+
+          <p className="mt-1 text-[11px] leading-relaxed text-parchment/40">
+            Cada ticket es un caballo, así que tener 4 tickets es correr con 4 caballos — y
+            cada caballo de la pista tiene exactamente la misma chance que cualquier otro. El
+            ganador lo decide el servidor antes de la largada: todos ven la misma carrera.
+          </p>
+        </>
+      ) : null}
     </div>
   );
 }

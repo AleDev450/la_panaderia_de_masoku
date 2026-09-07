@@ -250,6 +250,29 @@ export function colorDePersona(usuarioId: string): string {
 }
 
 /**
+ * Quiénes salen a la pista.
+ *
+ * QUIEN YA GANÓ NO VUELVE A CORRER: el sorteo lo excluye en Postgres (`and
+ * not ganador`), así que dejar sus caballos sería mostrar corredores que no
+ * pueden ganar — se verían punteando a mitad de carrera y perdiendo siempre,
+ * sin ninguna explicación a la vista.
+ *
+ * La excepción es el ganador de LA carrera que se está mostrando: mientras se
+ * ve su llegada tiene que seguir en la pista, o desaparecería justo el caballo
+ * que acaba de cruzar primero.
+ *
+ * @param ganadorActual  la inscripción ganadora de la carrera en pantalla.
+ */
+export function caballosEnPista(
+  inscripciones: (InscripcionCarrera & { ganador: boolean })[],
+  ganadorActual: string | null
+): Caballo[] {
+  return armarCaballos(
+    inscripciones.filter((i) => !i.ganador || i.inscripcionId === ganadorActual)
+  );
+}
+
+/**
  * El orden de los caballos en el cajón, antes de que haya carrera.
  *
  * Barajado a propósito: `armarCaballos` los devuelve agrupados por persona, y

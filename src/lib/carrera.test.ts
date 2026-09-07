@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DURACION_CARRERA_MS,
   armarCaballos,
+  caballosEnPista,
   colorDePersona,
   faseDeCarrera,
   idDeCaballo,
@@ -160,6 +161,44 @@ describe("faseDeCarrera", () => {
 
   it("una carrera vieja se muestra terminada, sin animar", () => {
     expect(faseDeCarrera(60 * 60_000)).toEqual({ fase: "terminada", t: 1 });
+  });
+});
+
+describe("caballosEnPista", () => {
+  // Frank95 (4 tickets) ya ganó la primera carrera; se van a correr 3 premios.
+  const conGanador = INSCRIPCIONES.map((i) => ({
+    ...i,
+    ganador: i.inscripcionId === "i4-3",
+  }));
+
+  it("EL QUE YA GANÓ SALE DE LA PISTA en la carrera siguiente", () => {
+    // Si se quedara, se vería puntear a mitad de carrera y perder siempre:
+    // Postgres ya no puede elegirlo (`and not ganador`).
+    const pista = caballosEnPista(conGanador, "i4-8");
+    expect(pista.some((c) => c.nickname === "Frank95")).toBe(false);
+    expect(pista).toHaveLength(28); // 32 − sus 4 caballos
+  });
+
+  it("pero SÍ está mientras se muestra la carrera que ganó", () => {
+    // Si no, desaparecería justo el caballo que acaba de cruzar primero.
+    const pista = caballosEnPista(conGanador, "i4-3");
+    expect(pista.filter((c) => c.nickname === "Frank95")).toHaveLength(4);
+    expect(pista).toHaveLength(32);
+  });
+
+  it("sin ganadores todavía, corren los 32", () => {
+    expect(caballosEnPista(INSCRIPCIONES.map((i) => ({ ...i, ganador: false })), null))
+      .toHaveLength(32);
+  });
+
+  it("la pista se achica premio a premio", () => {
+    // Tres premios: cada carrera saca a un ganador más.
+    const dos = INSCRIPCIONES.map((i) => ({
+      ...i,
+      ganador: i.inscripcionId === "i4-3" || i.inscripcionId === "i1-1",
+    }));
+    // 32 − 4 (Frank95) − 1 (TSO) = 27.
+    expect(caballosEnPista(dos, null)).toHaveLength(27);
   });
 });
 
