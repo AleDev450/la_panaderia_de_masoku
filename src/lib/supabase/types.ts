@@ -938,6 +938,9 @@ export interface Database {
           p_cara_sello_multiplicador: number;
           p_cara_sello_min: number;
           p_cara_sello_max: number;
+          /** Reloj de la ruleta libre (0066). Null deja el valor actual. */
+          p_libre_minutos: number | null;
+          p_libre_min_jugadores: number | null;
         };
         Returns: CachudobetConfig;
       };

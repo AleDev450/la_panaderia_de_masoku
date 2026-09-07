@@ -118,6 +118,19 @@ const guardarConfigSchema = z.object({
   caraSelloMultiplicador: z.number().gt(1, "El multiplicador debe ser mayor a 1."),
   caraSelloMin: z.number().positive("El mínimo debe ser mayor a 0."),
   caraSelloMax: z.number().positive("El máximo debe ser mayor a 0."),
+  /** Reloj de la ruleta libre (0066). Opcionales: una llamada que no los
+   * mande deja los valores actuales en vez de pisarlos. */
+  libreMinutos: z
+    .number()
+    .int("Los minutos son un número entero.")
+    .min(1, "El reloj no puede ser menor a 1 minuto.")
+    .max(1440, "El reloj no puede pasar de 24 horas.")
+    .optional(),
+  libreMinJugadores: z
+    .number()
+    .int("Los jugadores son un número entero.")
+    .min(2, "Hacen falta al menos 2 jugadores para que arranque el reloj.")
+    .optional(),
 });
 export type GuardarConfigInput = z.infer<typeof guardarConfigSchema>;
 
@@ -780,6 +793,8 @@ export async function guardarConfig(
     p_cara_sello_multiplicador: parsed.data.caraSelloMultiplicador,
     p_cara_sello_min: parsed.data.caraSelloMin,
     p_cara_sello_max: parsed.data.caraSelloMax,
+    p_libre_minutos: parsed.data.libreMinutos ?? null,
+    p_libre_min_jugadores: parsed.data.libreMinJugadores ?? null,
   });
 
   if (error) return { ok: false, error: error.message };

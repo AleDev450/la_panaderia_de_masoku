@@ -455,6 +455,8 @@ function ConfigPanel({
   const [multiplicador, setMultiplicador] = useState("");
   const [minimo, setMinimo] = useState("");
   const [maximo, setMaximo] = useState("");
+  const [libreMinutos, setLibreMinutos] = useState("");
+  const [libreJugadores, setLibreJugadores] = useState("");
   const [error, setError] = useState<string | undefined>();
   const [guardando, setGuardando] = useState(false);
 
@@ -465,6 +467,10 @@ function ConfigPanel({
     setMultiplicador(String(config.cara_sello_multiplicador));
     setMinimo(String(config.cara_sello_min));
     setMaximo(String(config.cara_sello_max));
+    // `?? 10` y `?? 2` por si 0064 todavía no corrió: el formulario abre con
+    // el default en vez de con "undefined" en el campo.
+    setLibreMinutos(String(config.libre_minutos ?? 10));
+    setLibreJugadores(String(config.libre_min_jugadores ?? 2));
     setAbierto(true);
   }
 
@@ -479,6 +485,8 @@ function ConfigPanel({
         caraSelloMultiplicador: Number(multiplicador),
         caraSelloMin: Number(minimo),
         caraSelloMax: Number(maximo),
+        libreMinutos: Number(libreMinutos),
+        libreMinJugadores: Number(libreJugadores),
       });
       if (!result.ok) {
         setError(result.error);
@@ -533,6 +541,18 @@ function ConfigPanel({
           />
           <CampoNumero label="Mínimo cara/sello" valor={minimo} onChange={setMinimo} step="1" />
           <CampoNumero label="Máximo cara/sello" valor={maximo} onChange={setMaximo} step="1" />
+          <CampoNumero
+            label="Ruleta libre: minutos"
+            valor={libreMinutos}
+            onChange={setLibreMinutos}
+            step="1"
+          />
+          <CampoNumero
+            label="Ruleta libre: jugadores para arrancar"
+            valor={libreJugadores}
+            onChange={setLibreJugadores}
+            step="1"
+          />
           <div className="flex items-end">
             <Button type="submit" disabled={guardando} className="min-h-11 w-full text-xs">
               {guardando ? "Guardando…" : "Guardar"}
