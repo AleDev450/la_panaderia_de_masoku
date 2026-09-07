@@ -266,7 +266,7 @@ function RuletaContent() {
             comprar—; la derecha solo la lista de ganadores, que arranca a la
             misma altura que el formulario. Debajo de xl se apila, que es lo
             único que funciona en un teléfono. */}
-        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,4fr)_minmax(0,1fr)]">
+        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="min-w-0">
             {/* Abrir una ruleta va ARRIBA: estaba al final de la página, así
                 que había que scrollear hasta el fondo para encontrar la única
@@ -433,6 +433,46 @@ function RuletaContent() {
 
             <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
               <Panel className="relative overflow-hidden p-5 sm:p-7">
+                {/* Qué ruleta es y si está abierta, sobre la rueda misma.
+                    El nombre lo escribe quien la crea, así que no sirve para
+                    saber de qué tipo es: una libre puede llamarse "Ruleta
+                    semanal" y una del staff, cualquier cosa. */}
+                <div className="mb-2 flex flex-wrap items-center justify-center gap-2">
+                  <span
+                    className={clsx(
+                      "rounded-full border px-2.5 py-1 font-display text-[10px] font-black uppercase tracking-wider",
+                      ronda.ronda.modo === "libre"
+                        ? "border-win-glow/50 bg-win/10 text-win-glow"
+                        : "border-gold/50 bg-gold/10 text-gold"
+                    )}
+                  >
+                    {ronda.ronda.modo === "libre" ? "🎲 Ruleta libre" : "⭐ Ruleta semanal"}
+                  </span>
+
+                  <span
+                    className={clsx(
+                      "rounded-full border px-2.5 py-1 font-display text-[10px] font-black uppercase tracking-wider",
+                      ronda.ronda.estado === "abierta"
+                        ? "border-win-glow/50 text-win-glow"
+                        : "border-gold-dark text-parchment/50"
+                    )}
+                  >
+                    {ronda.ronda.estado === "abierta"
+                      ? "🟢 Abierta"
+                      : ESTADO_RONDA_LABEL[ronda.ronda.estado]}
+                  </span>
+
+                  {/* La libre además dice cuánto le queda: es lo que decide si
+                      todavía te da tiempo de entrar. */}
+                  {ronda.ronda.modo === "libre" ? (
+                    <span className="rounded-full border border-gold-dark px-2.5 py-1 font-display text-[10px] font-black uppercase tracking-wider text-gold-light">
+                      {tiempoRestante(ronda.ronda.gira_en, ahora + desfase)
+                        ? `⏱ ${tiempoRestante(ronda.ronda.gira_en, ahora + desfase)}`
+                        : "Falta un jugador"}
+                    </span>
+                  ) : null}
+                </div>
+
                 <p className="text-center font-display text-sm font-bold uppercase tracking-[0.2em] text-gold-light">
                   {ronda.ronda.nombre}
                 </p>
@@ -530,7 +570,12 @@ function RuletaContent() {
         )}
           </div>
 
-          <aside className="xl:sticky xl:top-6 xl:self-start">
+          {/* `top-24` y no `top-6`: la barra de arriba está fija y mide unos
+              72px, así que con 24 la caja se metía DEBAJO del header al
+              scrollear y los ganadores desaparecían. `mt-12` la baja para que
+              arranque por debajo del título "Abre tu propia ruleta" en vez de
+              por encima. */}
+          <aside className="xl:sticky xl:top-24 xl:mt-10 xl:self-start">
             <Historial rondas={historial} miUsuarioId={user?.id} />
           </aside>
         </div>
