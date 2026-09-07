@@ -213,6 +213,92 @@ function CaraSelloContent() {
           )}
         </section>
 
+        {vista && vista.historial.length > 0 ? (
+          <section className="mt-10">
+            <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
+              Últimos resultados
+            </h2>
+            <Panel className="overflow-x-auto p-0">
+              <table className="w-full min-w-[600px] text-sm">
+                <thead>
+                  <tr className="border-b border-gold-dark/40 text-left text-[11px] uppercase tracking-wide text-parchment/40">
+                    <th className="px-3 py-2 font-semibold">Duelo</th>
+                    <th className="px-3 py-2 font-semibold">Salió</th>
+                    <th className="px-3 py-2 font-semibold">Ganó</th>
+                    <th className="px-3 py-2 text-right font-semibold">Apostaron</th>
+                    <th className="px-3 py-2 text-right font-semibold">Premio</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vista.historial.map(({ sala, creadorNickname, rivalNickname }) => {
+                    const ladoRival = sala.lado_creador === "cara" ? "sello" : "cara";
+                    const ganoCreador = sala.ganador_id === sala.creador_id;
+                    const nombreGanador = ganoCreador ? creadorNickname : rivalNickname;
+                    const mio = sala.ganador_id === user?.id;
+
+                    return (
+                      <tr key={sala.id} className="border-b border-gold-dark/20 last:border-0">
+                        <td className="px-3 py-2">
+                          {/* Quién eligió qué: sin eso, "salió cara" no explica
+                              por qué ganó ese y no el otro. */}
+                          <span
+                            className={clsx(
+                              ganoCreador ? "text-parchment/85" : "text-parchment/45"
+                            )}
+                          >
+                            {creadorNickname}
+                          </span>
+                          <span className="text-[11px] text-parchment/35">
+                            {" "}
+                            ({LADO_MONEDA_LABEL[sala.lado_creador]})
+                          </span>
+                          <span className="mx-1.5 text-parchment/30">vs</span>
+                          <span
+                            className={clsx(
+                              !ganoCreador ? "text-parchment/85" : "text-parchment/45"
+                            )}
+                          >
+                            {rivalNickname ?? "—"}
+                          </span>
+                          <span className="text-[11px] text-parchment/35">
+                            {" "}
+                            ({LADO_MONEDA_LABEL[ladoRival]})
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="rounded-md border border-gold-dark/60 px-2 py-0.5 font-display text-[11px] font-bold uppercase text-gold-light">
+                            {sala.resultado ? LADO_MONEDA_LABEL[sala.resultado] : "—"}
+                          </span>
+                        </td>
+                        <td
+                          className={clsx(
+                            "px-3 py-2 font-display font-bold",
+                            mio ? "text-win-glow" : "text-parchment/80"
+                          )}
+                        >
+                          {nombreGanador ?? "—"}
+                          {mio ? " (tú)" : ""}
+                        </td>
+                        <td className="px-3 py-2 text-right text-parchment/50">
+                          S/{soles(sala.monto)} c/u
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold text-win-glow">
+                          S/{soles(sala.premio ?? 0)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </Panel>
+            <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
+              Los dos ponen el mismo monto; el que acierta se lleva{" "}
+              {vista.config.cara_sello_multiplicador}x lo suyo y la casa se queda la
+              diferencia — gane quien gane, la casa gana lo mismo.
+            </p>
+          </section>
+        ) : null}
+
         {vista && vista.misDuelos.length > 0 ? (
           <section className="mt-10">
             <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">

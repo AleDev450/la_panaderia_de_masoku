@@ -78,6 +78,15 @@ export interface VistaCaraSello {
   miSala: CaraSelloSala | null;
   /** Mis últimos duelos resueltos, del más nuevo al más viejo. */
   misDuelos: SalaConJugadores[];
+  /**
+   * Los últimos duelos de TODOS, resueltos.
+   *
+   * Va aparte de `misDuelos` porque responde otra pregunta: uno mira el suyo
+   * para saber cómo le fue, y este para ver que la mesa se mueve —que hay
+   * gente jugando y que las monedas caen para los dos lados—. Una pantalla sin
+   * historial ajeno parece vacía aunque esté funcionando.
+   */
+  historial: SalaConJugadores[];
   config: CachudobetConfig;
   /** `now()` de Postgres: el reloj contra el que se mide la animación. */
   servidorAhora: string;
@@ -162,14 +171,31 @@ export async function getLobbyCaraSello(): Promise<ActionResult<VistaCaraSello>>
       (s) => s.creador_id === session.userId && (s.estado === "esperando" || s.estado === "lista")
     ) ?? null;
 
-  const [mesas, misDuelos] = await Promise.all([
+  // Los últimos de todos, para que la pantalla muestre movimiento aunque uno
+  // todavía no haya jugado.
+  const { data: ultimos } = await admin
+    .from("cara_sello_salas")
+    .select("*")
+    .eq("estado", "resuelta")
+    .order("resuelta_at", { ascending: false })
+    .limit(15);
+
+  const [mesas, misDuelos, historial] = await Promise.all([
     conJugadores(admin, todas),
     conJugadores(admin, (duelos ?? []) as CaraSelloSala[]),
+    conJugadores(admin, (ultimos ?? []) as CaraSelloSala[]),
   ]);
 
   return {
     ok: true,
-    data: { mesas, miSala, misDuelos, config: config as CachudobetConfig, servidorAhora: ahora },
+    data: {
+      mesas,
+      miSala,
+      misDuelos,
+      historial,
+      config: config as CachudobetConfig,
+      servidorAhora: ahora,
+    },
   };
 }
 
