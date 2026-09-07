@@ -960,8 +960,8 @@ export interface Database {
         Args: {
           p_usuario_id: string;
           p_nombre: string;
+          /** Mínimo S/1 (0065). El creador entra con un ticket a este precio. */
           p_precio_ticket: number;
-          p_monto: number;
         };
         Returns: RuletaRonda;
       };

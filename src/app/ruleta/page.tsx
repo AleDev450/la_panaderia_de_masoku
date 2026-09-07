@@ -757,27 +757,23 @@ function FormularioLibre({
 }) {
   const [nombre, setNombre] = useState("");
   const [precio, setPrecio] = useState("3");
-  const [cantidad, setCantidad] = useState("1");
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const precioNum = Number(precio);
-  const cantidadNum = Number(cantidad);
-  const monto =
-    Number.isFinite(precioNum) && Number.isFinite(cantidadNum)
-      ? Math.round(precioNum * cantidadNum * 100) / 100
-      : 0;
+  // Abrirla cuesta exactamente un ticket: el creador entra con uno.
+  const cuesta = Number.isFinite(precioNum) ? Math.round(precioNum * 100) / 100 : 0;
 
   async function handleCrear(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
 
-    if (monto <= 0) {
-      setError("Elige un precio y cuántos tickets llevas.");
+    if (cuesta < 1) {
+      setError("El ticket tiene que costar al menos S/1.");
       return;
     }
-    if (monto > saldo) {
-      setError(`No te alcanza: necesitas S/${soles(monto)} y tienes S/${soles(saldo)}.`);
+    if (cuesta > saldo) {
+      setError(`No te alcanza: necesitas S/${soles(cuesta)} y tienes S/${soles(saldo)}.`);
       return;
     }
 
@@ -786,7 +782,6 @@ function FormularioLibre({
       const result = await crearRondaLibre({
         nombre,
         precioTicket: precioNum,
-        monto,
       });
       if (!result.ok) {
         setError(result.error);
@@ -798,7 +793,6 @@ function FormularioLibre({
         description: "Cuando entre otro jugador arranca la cuenta atrás.",
       });
       setNombre("");
-      setCantidad("1");
       await onCreada();
     } finally {
       setCreando(false);
@@ -836,7 +830,7 @@ function FormularioLibre({
 
             <label className="block">
               <span className="text-[11px] uppercase tracking-wide text-parchment/40">
-                Precio por ticket (S/)
+                Precio por ticket (mínimo S/1)
               </span>
               <input
                 type="number"
@@ -852,40 +846,21 @@ function FormularioLibre({
               />
             </label>
 
-            <label className="block">
-              <span className="text-[11px] uppercase tracking-wide text-parchment/40">
-                Con cuántos tickets entras
-              </span>
-              <input
-                type="number"
-                min={1}
-                max={200}
-                step="1"
-                value={cantidad}
-                onChange={(e) => {
-                  setCantidad(e.target.value);
-                  setError(null);
-                }}
-                className="mt-1 min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
-              />
-            </label>
-
-            <div className="sm:col-span-2">
+            <div className="flex items-end">
               <Button type="submit" disabled={creando || nombre.trim().length < 3}>
-                {creando ? "Abriendo…" : `Abrir ruleta por S/${soles(monto)}`}
+                {creando ? "Abriendo…" : `Abrir por S/${soles(cuesta)}`}
               </Button>
             </div>
 
             <p className="text-[11px] leading-relaxed text-parchment/40 sm:col-span-2">
-              Entras de una con tus tickets — no existe una ruleta libre sin su creador
-              adentro. Cuando llegue{" "}
-              <strong className="text-parchment/60">
-                el jugador nº {config?.libre_min_jugadores ?? 2}
-              </strong>{" "}
-              arranca una cuenta de{" "}
-              <strong className="text-parchment/60">{config?.libre_minutos ?? 10} minutos</strong>,
-              y al terminar la ruleta gira y paga sola. Con una sola persona no arranca: no
-              habría contra quién sortear.
+              Abrirla te cuesta <strong className="text-parchment/60">un ticket</strong>: entras
+              de una, porque no existe una ruleta libre sin su creador adentro. Si quieres más,
+              los compras después como cualquiera —{" "}
+              <strong className="text-parchment/60">no hay tope de tickets</strong>. Cuando
+              llegue el jugador nº {config?.libre_min_jugadores ?? 2} arranca una cuenta de{" "}
+              <strong className="text-parchment/60">{config?.libre_minutos ?? 10} minutos</strong>{" "}
+              y al terminar gira y paga sola. Con una sola persona no arranca: no habría contra
+              quién sortear.
             </p>
 
             {error ? <p className="text-sm text-lose-glow sm:col-span-2">{error}</p> : null}

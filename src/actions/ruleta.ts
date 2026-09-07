@@ -422,12 +422,15 @@ const crearLibreSchema = z.object({
     .trim()
     .min(3, "Ponle un nombre a tu ruleta.")
     .max(80, "Máximo 80 caracteres."),
+  /**
+   * Mínimo S/1 (0065): por debajo de eso el pozo no llega a nada. El creador
+   * entra con UN ticket a este precio — con cuántos entrar deja de
+   * preguntarse, y quien quiera más los compra después como cualquiera.
+   */
   precioTicket: z
     .number()
-    .positive("El precio del ticket debe ser mayor a 0.")
+    .min(1, "El ticket tiene que costar al menos S/1.")
     .max(100, "En una ruleta libre el ticket no puede pasar de S/100."),
-  /** Lo que pone el creador al abrirla. Múltiplo del precio del ticket. */
-  monto: z.number().positive("Tienes que entrar con al menos un ticket."),
 });
 export type CrearRondaLibreInput = z.infer<typeof crearLibreSchema>;
 
@@ -454,7 +457,6 @@ export async function crearRondaLibre(
     p_usuario_id: session.userId,
     p_nombre: parsed.data.nombre,
     p_precio_ticket: parsed.data.precioTicket,
-    p_monto: parsed.data.monto,
   });
 
   if (error) return { ok: false, error: error.message };
@@ -515,6 +517,10 @@ export interface RondaAdmin {
   ronda: RuletaRonda;
   totalTickets: number;
   participantes: number;
+  /** Quién ganó, ya resuelto a nickname. Null mientras no se haya sorteado.
+   * Viaja acá y no como id suelto para que la tabla no tenga que ir a
+   * buscar un nombre por fila. */
+  ganadorNickname: string | null;
 }
 
 /** Admin-only: todas las rondas, con lo que se necesita para la lista. */
@@ -549,12 +555,28 @@ export async function getRondas(modo?: ModoRonda): Promise<ActionResult<RondaAdm
     usuarios.get(t.ronda_id)!.add(t.usuario_id);
   }
 
+  // Un solo viaje por los nicknames de todos los ganadores, no uno por ronda.
+  const ganadores = [
+    ...new Set(
+      (rondas as RuletaRonda[])
+        .map((r) => r.ganador_usuario_id)
+        .filter((id): id is string => id !== null)
+    ),
+  ];
+  const { data: perfiles } = ganadores.length
+    ? await admin.from("perfiles").select("id, nickname").in("id", ganadores)
+    : { data: [] };
+  const nick = new Map((perfiles ?? []).map((p) => [p.id, p.nickname]));
+
   return {
     ok: true,
     data: (rondas as RuletaRonda[]).map((ronda) => ({
       ronda,
       totalTickets: conteo.get(ronda.id) ?? 0,
       participantes: usuarios.get(ronda.id)?.size ?? 0,
+      ganadorNickname: ronda.ganador_usuario_id
+        ? (nick.get(ronda.ganador_usuario_id) ?? "—")
+        : null,
     })),
   };
 }

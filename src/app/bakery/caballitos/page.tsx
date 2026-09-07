@@ -163,6 +163,23 @@ function AdminCaballitosContent() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  // Solo las que ya se corrieron: una carrera sin girar no dejó ni premio ni
+  // comisión, y meterla en el total inflaría lo recaudado con plata que
+  // todavía puede devolverse.
+  const corridas = (rondas ?? []).filter((r) => r.ronda.ganador_ticket_id !== null);
+
+  const totales = corridas.reduce(
+    (acc, { ronda: r, totalTickets }) => ({
+      recaudado: acc.recaudado + Number(r.pozo_total),
+      premios: acc.premios + Number(r.premio_monto ?? 0),
+      casa: acc.casa + Number(r.comision_monto ?? 0),
+      caballos: acc.caballos + totalTickets,
+      porCaballo: 0,
+    }),
+    { recaudado: 0, premios: 0, casa: 0, caballos: 0, porCaballo: 0 }
+  );
+  totales.porCaballo = totales.caballos > 0 ? totales.recaudado / totales.caballos : 0;
+
   const ronda = vista?.ronda ?? null;
   const caballos = armarCaballosDeTickets(vista?.tickets ?? []);
   const evento =
@@ -306,6 +323,101 @@ function AdminCaballitosContent() {
               desfaseMs={desfase}
               reducirMovimiento={false}
             />
+          </section>
+        ) : null}
+
+        {/* --------------------------------------------- lo que dejó todo */}
+        {corridas.length > 0 ? (
+          <section className="mt-10">
+            <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
+              Ganadores e ingresos
+            </h2>
+
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <Dato
+                label="Entró por tickets"
+                valor={`S/${soles(totales.recaudado)}`}
+                detalle={`${corridas.length} ${corridas.length === 1 ? "carrera corrida" : "carreras corridas"}`}
+                tono="gold"
+              />
+              <Dato
+                label="Pagado en premios"
+                valor={`S/${soles(totales.premios)}`}
+                detalle="A los ganadores"
+              />
+              <Dato
+                label="Se quedó la casa"
+                valor={`S/${soles(totales.casa)}`}
+                detalle="Comisión sobre lo ajeno"
+                tono="win"
+              />
+              <Dato
+                label="Caballos vendidos"
+                valor={String(totales.caballos)}
+                detalle={`S/${soles(totales.porCaballo)} por caballo en promedio`}
+              />
+            </div>
+
+            <Panel className="mt-3 overflow-x-auto p-0">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead>
+                  <tr className="border-b border-gold-dark/40 text-left text-[11px] uppercase tracking-wide text-parchment/40">
+                    <th className="px-3 py-2 font-semibold">Carrera</th>
+                    <th className="px-3 py-2 font-semibold">Ganador</th>
+                    <th className="px-3 py-2 text-right font-semibold">Entró</th>
+                    <th className="px-3 py-2 text-right font-semibold">Se llevó</th>
+                    <th className="px-3 py-2 text-right font-semibold">Casa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {corridas.map(({ ronda: r, ganadorNickname, totalTickets }) => (
+                    <tr key={r.id} className="border-b border-gold-dark/20 last:border-0">
+                      <td className="px-3 py-2">
+                        <span className="text-parchment/50">
+                          #{String(r.numero).padStart(4, "0")}
+                        </span>{" "}
+                        <span className="text-parchment/80">{r.nombre}</span>
+                        <span className="block text-[11px] text-parchment/35">
+                          {totalTickets} caballos · S/{soles(r.precio_ticket)} c/u
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 font-display font-bold text-gold">
+                        {ganadorNickname ?? "—"}
+                      </td>
+                      <td className="px-3 py-2 text-right text-parchment/70">
+                        S/{soles(r.pozo_total)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold text-win-glow">
+                        S/{soles(r.premio_monto ?? 0)}
+                      </td>
+                      <td className="px-3 py-2 text-right text-gold-light">
+                        S/{soles(r.comision_monto ?? 0)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-gold-dark/50 font-bold text-parchment">
+                    <td className="px-3 py-2">TOTAL</td>
+                    <td className="px-3 py-2" />
+                    <td className="px-3 py-2 text-right">S/{soles(totales.recaudado)}</td>
+                    <td className="px-3 py-2 text-right text-win-glow">
+                      S/{soles(totales.premios)}
+                    </td>
+                    <td className="px-3 py-2 text-right text-gold-light">
+                      S/{soles(totales.casa)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </Panel>
+
+            <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
+              <strong className="text-parchment/60">Entró</strong> es el pozo de esa carrera:
+              todo lo que pagaron los jugadores por sus caballos. De ahí sale el premio, y la
+              diferencia es lo que se queda la casa — que no es el 20% del pozo sino el 20% de
+              lo que pusieron los que perdieron (ver 0051).
+            </p>
           </section>
         ) : null}
 
@@ -534,6 +646,37 @@ function AdminCaballitosContent() {
         </div>
       ) : null}
     </>
+  );
+}
+
+function Dato({
+  label,
+  valor,
+  detalle,
+  tono = "neutro",
+}: {
+  label: string;
+  valor: string;
+  detalle?: string;
+  tono?: "neutro" | "gold" | "win";
+}) {
+  return (
+    <Panel className="p-4">
+      <p className="text-[11px] uppercase tracking-wide text-parchment/40">{label}</p>
+      <p
+        className={clsx(
+          "mt-1 font-display text-xl font-bold",
+          tono === "gold"
+            ? "text-gold-light"
+            : tono === "win"
+              ? "text-win-glow"
+              : "text-parchment"
+        )}
+      >
+        {valor}
+      </p>
+      {detalle ? <p className="mt-0.5 text-[11px] text-parchment/40">{detalle}</p> : null}
+    </Panel>
   );
 }
 
