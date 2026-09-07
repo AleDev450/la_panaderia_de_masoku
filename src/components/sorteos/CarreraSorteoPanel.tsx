@@ -43,9 +43,9 @@ export function CarreraSorteoPanel({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time bootstrap on mount
     refresh();
-    // 3s: es lo que tienen que cubrir los 5 segundos de cuenta regresiva para
-    // que todos lleguen a ver la largada.
-    const id = setInterval(refresh, 3_000);
+    // 2s, no 3: la cuenta regresiva bajó a 3 segundos (0057) y el poll tiene
+    // que caber dentro para que todos alcancen a ver el "3, 2, 1".
+    const id = setInterval(refresh, 2_000);
     return () => clearInterval(id);
   }, [refresh]);
 
@@ -102,14 +102,19 @@ export function CarreraSorteoPanel({
 
       {esAdmin ? (
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <Button type="button" disabled={largando || quedanPorCorrer === 0} onClick={largar}>
+          <Button
+            type="button"
+            disabled={largando || quedanPorCorrer === 0}
+            onClick={largar}
+            className="min-h-12 px-6 text-base"
+          >
             {largando
               ? "Largando…"
               : quedanPorCorrer === 0
                 ? "Ya ganaron todos"
                 : vista.carrera
-                  ? "🐎 Correr otra carrera"
-                  : "🐎 Largar carrera"}
+                  ? "🐎 Iniciar otra carrera"
+                  : "🐎 Iniciar carrera"}
           </Button>
           <p className="text-[11px] text-parchment/40">
             {quedanPorCorrer === 0

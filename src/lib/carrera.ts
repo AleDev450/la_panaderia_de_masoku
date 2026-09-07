@@ -20,9 +20,18 @@
 /** Cuánto dura la carrera, sin contar la cuenta regresiva. */
 export const DURACION_CARRERA_MS = 14_000;
 
-/** Los 5 segundos que `admin_correr_carrera` deja en `inicia_en`: sirven para
- * presentar a los caballos y para que el poll de todos llegue a la largada. */
-export const CUENTA_REGRESIVA_CARRERA_MS = 5_000;
+/**
+ * Los 3 segundos que `admin_correr_carrera` deja en `inicia_en` (0057): la
+ * cuenta que todo el mundo reconoce, y de paso el margen que necesita el poll
+ * de los clientes para llegar a la largada.
+ *
+ * Tiene que coincidir con el `interval` de la migración. Si cambia allá y no
+ * acá, la pantalla contaría hasta un número que no es el que espera.
+ */
+export const CUENTA_REGRESIVA_CARRERA_MS = 3_000;
+
+/** Cuánto dura el cartel de "¡CORRAN!" una vez abierta la puerta. */
+export const DURACION_CORRAN_MS = 1_200;
 
 export type Caballo = {
   /** `${inscripcionId}:${numero}` — único en la pista. */
@@ -78,13 +87,28 @@ export function armarCaballos(inscripciones: InscripcionCarrera[]): Caballo[] {
 // Azar reproducible
 // ---------------------------------------------------------------------------
 
-/** FNV-1a de 32 bits. Convierte la semilla + el id en un entero. */
+/**
+ * FNV-1a de 32 bits con el finalizador de MurmurHash3.
+ *
+ * EL FINALIZADOR NO ES ADORNO. FNV-1a solo tiene mala avalancha en el último
+ * carácter: cambiarlo mueve el hash apenas ~16.7M sobre 4.29e9, o sea un
+ * 0.4%. Con ids como `i4-0:1` … `i4-0:4` eso deja hashes casi pegados, y
+ * cualquier cosa que ORDENE por el hash —el cajón de partida, por ejemplo—
+ * termina agrupando a los caballos de la misma persona en vez de barajarlos.
+ * Se detectó justo así: 21 caballos con un vecino del mismo dueño cuando el
+ * azar predice 3.
+ */
 function hash32(texto: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < texto.length; i++) {
     h ^= texto.charCodeAt(i);
     h = Math.imul(h, 0x01000193);
   }
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
   return h >>> 0;
 }
 
@@ -223,4 +247,34 @@ export function faseDeCarrera(msDesdeInicio: number): FaseCarrera {
  * caballos entre los 32 de la pista. */
 export function colorDePersona(usuarioId: string): string {
   return `hsl(${hash32(usuarioId) % 360} 70% 58%)`;
+}
+
+/**
+ * El orden de los caballos en el cajón, antes de que haya carrera.
+ *
+ * Barajado a propósito: `armarCaballos` los devuelve agrupados por persona, y
+ * ver `Frank95_01` … `Frank95_04` uno debajo del otro hace que la pista
+ * parezca una planilla en vez de una partida. El barajado es estable —sale
+ * del id— así que la fila no baila entre refrescos.
+ */
+export function ordenEnCajon(caballos: Caballo[]): Caballo[] {
+  return [...caballos].sort((a, b) => hash32(`cajon|${a.id}`) - hash32(`cajon|${b.id}`));
+}
+
+/**
+ * En qué puesto va cada caballo AHORA, de 1 en adelante.
+ *
+ * Es lo que deja seguir al propio caballo entre 32 sin tener que medir barras
+ * con el ojo. Se recalcula en cada frame: con 32 corredores, ordenar sale
+ * gratis al lado de repintar.
+ */
+export function puestosActuales(
+  perfiles: PerfilCaballo[],
+  t: number
+): Map<string, number> {
+  const orden = perfiles
+    .map((p) => ({ id: p.caballo.id, x: posicionCaballo(p, t) }))
+    .sort((a, b) => b.x - a.x);
+
+  return new Map(orden.map((c, i) => [c.id, i + 1]));
 }

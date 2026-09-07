@@ -5,8 +5,10 @@ import {
   colorDePersona,
   faseDeCarrera,
   idDeCaballo,
+  ordenEnCajon,
   perfilesDeCarrera,
   posicionCaballo,
+  puestosActuales,
 } from "@/lib/carrera";
 
 /** El sorteo real: 7 personas con 4 tickets, 4 con 1, y 7 sin tickets. */
@@ -139,14 +141,17 @@ describe("perfilesDeCarrera", () => {
 });
 
 describe("faseDeCarrera", () => {
-  it("antes de la largada cuenta atrás", () => {
-    expect(faseDeCarrera(-4200)).toMatchObject({ fase: "cuenta", segundos: 5 });
+  it("antes de la largada cuenta 3, 2, 1", () => {
+    expect(faseDeCarrera(-2800)).toMatchObject({ fase: "cuenta", segundos: 3 });
+    expect(faseDeCarrera(-1500)).toMatchObject({ fase: "cuenta", segundos: 2 });
     expect(faseDeCarrera(-300)).toMatchObject({ fase: "cuenta", segundos: 1 });
   });
 
   it("la cuenta no pasa de lo que fija el backend", () => {
+    // Si 0057 y esta constante se desincronizan, la pantalla contaría hasta
+    // un número que la base no respeta.
     const f = faseDeCarrera(-90_000);
-    expect(f.fase === "cuenta" && f.segundos).toBeLessThanOrEqual(5);
+    expect(f.fase === "cuenta" && f.segundos).toBeLessThanOrEqual(3);
   });
 
   it("a mitad de carrera devuelve el avance proporcional", () => {
@@ -155,6 +160,44 @@ describe("faseDeCarrera", () => {
 
   it("una carrera vieja se muestra terminada, sin animar", () => {
     expect(faseDeCarrera(60 * 60_000)).toEqual({ fase: "terminada", t: 1 });
+  });
+});
+
+describe("ordenEnCajon", () => {
+  it("no deja a los caballos de una persona todos seguidos", () => {
+    // `armarCaballos` los devuelve agrupados; así la pista parecería una
+    // planilla en vez de una partida.
+    const enCajon = ordenEnCajon(CABALLOS);
+    const seguidos = enCajon.filter(
+      (c, i) => i > 0 && enCajon[i - 1].nickname === c.nickname
+    ).length;
+    expect(seguidos).toBeLessThan(CABALLOS.length / 2);
+  });
+
+  it("el orden no baila entre refrescos", () => {
+    expect(ordenEnCajon(CABALLOS).map((c) => c.id)).toEqual(
+      ordenEnCajon(CABALLOS).map((c) => c.id)
+    );
+  });
+
+  it("no pierde ni repite ningún caballo", () => {
+    expect(new Set(ordenEnCajon(CABALLOS).map((c) => c.id)).size).toBe(CABALLOS.length);
+  });
+});
+
+describe("puestosActuales", () => {
+  const ganadorId = idDeCaballo("i4-2", 3);
+  const perfiles = perfilesDeCarrera(SEMILLA, CABALLOS, ganadorId);
+
+  it("numera del 1 al último, sin repetir puesto", () => {
+    const puestos = puestosActuales(perfiles, 0.5);
+    expect([...puestos.values()].sort((a, b) => a - b)).toEqual(
+      CABALLOS.map((_, i) => i + 1)
+    );
+  });
+
+  it("al cruzar la meta, el puesto 1 es el ganador", () => {
+    expect(puestosActuales(perfiles, 1).get(ganadorId)).toBe(1);
   });
 });
 

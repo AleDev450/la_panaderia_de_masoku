@@ -6,13 +6,16 @@ import { Panel } from "@/components/ui/Panel";
 import { CarreraSorteo } from "@/lib/supabase/types";
 import {
   DURACION_CARRERA_MS,
+  DURACION_CORRAN_MS,
   InscripcionCarrera,
   armarCaballos,
   colorDePersona,
   faseDeCarrera,
   idDeCaballo,
+  ordenEnCajon,
   perfilesDeCarrera,
   posicionCaballo,
+  puestosActuales,
 } from "@/lib/carrera";
 
 /**
@@ -40,9 +43,12 @@ export function PistaCarrera({
   miUsuarioId?: string;
   reducirMovimiento: boolean;
 }) {
-  const [fase, setFase] = useState<"cajon" | "cuenta" | "corriendo" | "terminada">("cajon");
+  const [fase, setFase] = useState<"cajon" | "cuenta" | "largando" | "corriendo" | "terminada">(
+    "cajon"
+  );
   const [cuenta, setCuenta] = useState(0);
   const marcasRef = useRef(new Map<string, HTMLDivElement | null>());
+  const puestosRef = useRef(new Map<string, HTMLSpanElement | null>());
 
   const caballos = useMemo(() => armarCaballos(inscripciones), [inscripciones]);
   const sinTickets = inscripciones.filter((i) => i.tickets === 0);
@@ -58,8 +64,11 @@ export function PistaCarrera({
 
   // Los carriles se fijan una vez y no se reordenan durante la carrera: con 32
   // filas saltando de lugar, seguir a un caballo con la vista es imposible.
+  //
+  // Sin carrera todavía, los caballos igual se muestran BARAJADOS: agrupados
+  // por dueño la pista parece una planilla, no una partida.
   const enOrden = useMemo(() => {
-    if (!perfiles) return caballos.map((caballo, i) => ({ caballo, carril: i }));
+    if (!perfiles) return ordenEnCajon(caballos).map((caballo, i) => ({ caballo, carril: i }));
     return [...perfiles].sort((a, b) => a.carril - b.carril);
   }, [perfiles, caballos]);
 
@@ -73,22 +82,43 @@ export function PistaCarrera({
     // Con movimiento reducido no se anima: los caballos aparecen ya en la
     // meta. El rótulo lo resuelve `faseVisible`, así que acá solo se colocan.
     if (reducirMovimiento) {
+      const puestos = puestosActuales(perfiles, 1);
       for (const p of perfiles) {
         const el = marcasRef.current.get(p.caballo.id);
         if (el) el.style.left = `${posicionCaballo(p, 1) * 100}%`;
+
+        const puesto = puestosRef.current.get(p.caballo.id);
+        if (puesto) puesto.textContent = `${puestos.get(p.caballo.id) ?? "-"}°`;
       }
       return;
     }
 
     let frame = 0;
     const tick = () => {
-      const f = faseDeCarrera(Date.now() + desfaseMs - inicio);
+      const transcurrido = Date.now() + desfaseMs - inicio;
+      const f = faseDeCarrera(transcurrido);
+
+      // Posición y puesto se escriben al DOM: son 64 nodos cambiando 60 veces
+      // por segundo, y pasarlos por el estado de React haría la carrera a
+      // tirones.
+      const puestos = puestosActuales(perfiles, f.t);
       for (const p of perfiles) {
         const el = marcasRef.current.get(p.caballo.id);
         if (el) el.style.left = `${posicionCaballo(p, f.t) * 100}%`;
+
+        const puesto = puestosRef.current.get(p.caballo.id);
+        if (puesto) puesto.textContent = `${puestos.get(p.caballo.id) ?? "-"}°`;
       }
 
-      setFase(f.fase === "cuenta" ? "cuenta" : f.fase === "corriendo" ? "corriendo" : "terminada");
+      setFase(
+        f.fase === "cuenta"
+          ? "cuenta"
+          : f.fase === "terminada"
+            ? "terminada"
+            : transcurrido < DURACION_CORRAN_MS
+              ? "largando"
+              : "corriendo"
+      );
       if (f.fase === "cuenta") setCuenta(f.segundos);
 
       if (f.fase !== "terminada") frame = requestAnimationFrame(tick);
@@ -132,9 +162,11 @@ export function PistaCarrera({
             ? "En el cajón"
             : faseVisible === "cuenta"
               ? `Largan en ${cuenta}…`
-              : faseVisible === "corriendo"
-                ? "¡Corriendo!"
-                : "Llegaron"}
+              : faseVisible === "largando"
+                ? "¡Corran!"
+                : faseVisible === "corriendo"
+                  ? "¡Corriendo!"
+                  : "Llegaron"}
         </span>
       </div>
 
@@ -155,7 +187,27 @@ export function PistaCarrera({
       ) : null}
 
       {/* -------------------------------------------------------- pista */}
-      <Panel className="overflow-hidden p-0">
+      <Panel className="relative overflow-hidden p-0">
+        {/* La cuenta va ENCIMA de la pista y no en un rincón: es el momento
+            en el que todos miran lo mismo. */}
+        {faseVisible === "cuenta" || faseVisible === "largando" ? (
+          <div
+            aria-live="assertive"
+            className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-obsidian/70 backdrop-blur-[2px]"
+          >
+            <span
+              className={clsx(
+                "font-display font-black uppercase text-glow-gold",
+                faseVisible === "largando"
+                  ? "text-5xl text-win-glow sm:text-7xl"
+                  : "text-7xl text-gold sm:text-9xl"
+              )}
+            >
+              {faseVisible === "largando" ? "¡Corran!" : cuenta}
+            </span>
+          </div>
+        ) : null}
+
         <div className="max-h-[30rem] overflow-y-auto">
           {enOrden.map((fila) => {
             const c = fila.caballo;
@@ -172,9 +224,23 @@ export function PistaCarrera({
                   mio && !esGanador && "bg-gold/5"
                 )}
               >
+                {/* El puesto en vivo: es lo que deja seguir al caballo propio
+                    entre 32 sin medir barras con el ojo. */}
+                <span
+                  ref={(el) => {
+                    puestosRef.current.set(c.id, el);
+                  }}
+                  className={clsx(
+                    "w-7 shrink-0 text-right font-display text-[11px] font-black tabular-nums",
+                    esGanador ? "text-win-glow" : mio ? "text-gold" : "text-parchment/35"
+                  )}
+                >
+                  —
+                </span>
+
                 <span
                   className={clsx(
-                    "w-28 shrink-0 truncate text-[11px] font-semibold sm:w-36",
+                    "w-24 shrink-0 truncate text-[11px] font-semibold sm:w-32",
                     esGanador ? "text-win-glow" : mio ? "text-gold" : "text-parchment/60"
                   )}
                   style={!esGanador && !mio ? { color } : undefined}
