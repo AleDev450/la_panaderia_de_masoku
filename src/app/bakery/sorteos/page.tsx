@@ -133,6 +133,41 @@ function AdminSorteosContent() {
     }
   }
 
+  /**
+   * Cierra el sorteo sin abrir el formulario. Es `activo = false`, el mismo
+   * interruptor que ya existía en "Editar" — pero ahí había que entrar, mirar
+   * un checkbox entre otros cinco campos y guardar. Culminar un sorteo es una
+   * acción de un solo paso y merece un botón.
+   *
+   * Se mandan los demás campos tal como están: `admin_guardar_sorteo` reescribe
+   * la fila entera, así que omitirlos los borraría.
+   */
+  async function marcarCulminado(sorteo: Sorteo) {
+    setProcesando(sorteo.id);
+    try {
+      const result = await guardarSorteo({
+        sorteoId: sorteo.id,
+        nombre: sorteo.nombre,
+        premio: sorteo.premio,
+        instrucciones: sorteo.instrucciones ?? "",
+        fechaSorteo: sorteo.fecha_sorteo ?? "",
+        activo: false,
+      });
+      if (!result.ok) {
+        showToast({ variant: "warning", title: "No se pudo cerrar", description: result.error });
+        return;
+      }
+      showToast({
+        variant: "success",
+        title: "Sorteo culminado",
+        description: "Ya no admite inscripciones. Los ganadores quedan a la vista.",
+      });
+      await refresh();
+    } finally {
+      setProcesando(null);
+    }
+  }
+
   async function alternarGanador(fila: InscripcionConUsuario) {
     setProcesando(fila.inscripcion.id);
     try {
@@ -406,6 +441,17 @@ function AdminSorteosContent() {
                           carreras. Acá no hay plata que devolver: los tickets
                           del sorteo los escribe el staff y nunca salieron del
                           saldo de nadie. */}
+                      {sorteo.activo ? (
+                        <Button
+                          type="button"
+                          variant="win"
+                          disabled={procesando === sorteo.id}
+                          onClick={() => marcarCulminado(sorteo)}
+                          className="min-h-9 px-3 py-1 text-xs"
+                        >
+                          {procesando === sorteo.id ? "Cerrando…" : "Sorteo culminado"}
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         variant="ghost"

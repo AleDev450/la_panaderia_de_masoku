@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Panel } from "@/components/ui/Panel";
 import { PistaCarrera } from "@/components/sorteos/PistaCarrera";
+import { PodioGanadores } from "@/components/sorteos/PodioGanadores";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
 import { VistaCarrera, correrCarrera, getCarrera } from "@/actions/sorteos";
@@ -114,6 +115,9 @@ export function CarreraSorteoPanel({
 
   return (
     <div className="mt-6">
+      {/* El podio va ARRIBA de la pista: es el resultado, no una nota al pie. */}
+      <PodioGanadores ganadores={vista.ganadores} miUsuarioId={user?.id} />
+
       <PistaCarrera
         caballos={caballos}
         evento={evento}

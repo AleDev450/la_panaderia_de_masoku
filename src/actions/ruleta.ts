@@ -259,7 +259,22 @@ export async function getRuleta(): Promise<ActionResult<VistaRuleta>> {
     .order("created_at", { ascending: false });
   if (error) return { ok: false, error: error.message };
 
-  let vivas = (enJuego ?? []) as RuletaRonda[];
+  /**
+   * Activas son las ABIERTAS y las CERRADAS listas para girar.
+   *
+   * `girando` se deja pasar solo mientras la animación de verdad está
+   * corriendo. Es un estado de tránsito que dura segundos, pero la ronda se
+   * queda ahí hasta que el staff aprieta "Finalizar" — y si se olvida, esa
+   * ronda quedaría para siempre en la lista de activas ensuciándola. El
+   * minuto de margen alcanza de sobra para los 8 segundos que dura el giro,
+   * incluso en un teléfono lento.
+   */
+  const ahoraMs = new Date(ahora).getTime();
+  let vivas = ((enJuego ?? []) as RuletaRonda[]).filter((r) => {
+    if (r.estado !== "girando") return true;
+    if (!r.giro_inicia_en) return false;
+    return ahoraMs - new Date(r.giro_inicia_en).getTime() < 60_000;
+  });
 
   // Sin ninguna viva se muestra la última que se jugó, para que la pantalla no
   // quede en blanco después de un sorteo.

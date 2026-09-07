@@ -314,11 +314,30 @@ export async function asignarTickets(
   return { ok: true, data: data as InscripcionSorteo };
 }
 
+/** Un ganador ya salido, con el puesto en que salió. */
+export interface GanadorCarrera {
+  /** 1 el primero sorteado, 2 el segundo… un premio por puesto. */
+  puesto: number;
+  usuarioId: string;
+  nickname: string;
+  /** El caballo exacto que cruzó primero: `Fulano_03`. */
+  caballo: string;
+  tickets: number;
+}
+
 export interface VistaCarrera {
   /** Todos los inscritos, con o sin tickets: los de 0 no corren pero se ven. */
   inscripciones: (InscripcionCarrera & { ganador: boolean })[];
   /** La última carrera corrida, o null si todavía no se largó ninguna. */
   carrera: CarreraSorteo | null;
+  /**
+   * TODOS los ganadores del sorteo, en el orden en que salieron.
+   *
+   * Se arma desde `carreras_sorteo` y no desde el flag `ganador` de las
+   * inscripciones porque ese flag no guarda el ORDEN ni QUÉ caballo ganó — y
+   * con varios premios, saber quién salió primero es justamente el dato.
+   */
+  ganadores: GanadorCarrera[];
   /** `now()` de Postgres: el reloj contra el que se mide la animación. */
   servidorAhora: string;
 }
@@ -344,12 +363,12 @@ export async function getCarrera(sorteoId: string): Promise<ActionResult<VistaCa
       .select("id, usuario_id, tickets, ganador")
       .eq("sorteo_id", parsed.data)
       .order("created_at", { ascending: true }),
+    // TODAS, de la más vieja a la más nueva: el orden ES el puesto.
     admin
       .from("carreras_sorteo")
       .select("*")
       .eq("sorteo_id", parsed.data)
-      .order("created_at", { ascending: false })
-      .limit(1),
+      .order("created_at", { ascending: true }),
     admin.rpc("ahora_servidor"),
   ]);
 
@@ -358,6 +377,21 @@ export async function getCarrera(sorteoId: string): Promise<ActionResult<VistaCa
     ? await admin.from("perfiles").select("id, nickname").in("id", ids)
     : { data: [] };
   const nick = new Map((perfiles ?? []).map((p) => [p.id, p.nickname]));
+
+  const todas = (carreras ?? []) as CarreraSorteo[];
+  const porInscripcion = new Map((inscripciones ?? []).map((i) => [i.id, i]));
+
+  const ganadores: GanadorCarrera[] = todas.map((c, i) => {
+    const ins = porInscripcion.get(c.inscripcion_ganadora_id);
+    const nombre = ins ? (nick.get(ins.usuario_id) ?? "—") : "—";
+    return {
+      puesto: i + 1,
+      usuarioId: ins?.usuario_id ?? "",
+      nickname: nombre,
+      caballo: `${nombre}_${String(c.caballo_numero).padStart(2, "0")}`,
+      tickets: ins?.tickets ?? 0,
+    };
+  });
 
   return {
     ok: true,
@@ -369,7 +403,9 @@ export async function getCarrera(sorteoId: string): Promise<ActionResult<VistaCa
         tickets: i.tickets,
         ganador: i.ganador,
       })),
-      carrera: ((carreras ?? [])[0] as CarreraSorteo | undefined) ?? null,
+      // La última es la que se anima; las anteriores ya se vieron.
+      carrera: todas.length > 0 ? todas[todas.length - 1] : null,
+      ganadores,
       servidorAhora: typeof ahora === "string" ? ahora : new Date().toISOString(),
     },
   };

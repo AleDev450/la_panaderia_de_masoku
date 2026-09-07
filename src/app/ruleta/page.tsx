@@ -236,13 +236,14 @@ function RuletaContent() {
             {rondas.length > 1 ? (
               <section className="mt-6">
                 <p className="mb-2 text-[11px] uppercase tracking-wide text-parchment/40">
-                  {rondas.length} ruletas abiertas
+                  {rondas.length} ruletas activas — elige una
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {rondas.map((r) => {
                     const activa = r.ronda.id === ronda.ronda.id;
                     const mios =
                       r.participantes.find((p) => p.usuarioId === user?.id)?.tickets ?? 0;
+                    const abierta = r.ronda.estado === "abierta";
                     return (
                       <button
                         key={r.ronda.id}
@@ -250,25 +251,60 @@ function RuletaContent() {
                         aria-pressed={activa}
                         onClick={() => setSeleccionada(r.ronda.id)}
                         className={clsx(
-                          "min-h-11 rounded-lg border px-3 py-2 text-left transition",
+                          "rounded-xl border p-4 text-left transition",
                           activa
-                            ? "border-gold bg-gold/10"
-                            : "border-gold-dark hover:border-gold/60"
+                            ? "border-gold bg-gold/10 shadow-[0_0_24px_-10px_rgba(245,197,24,0.8)]"
+                            : "border-gold-dark bg-charcoal/60 hover:border-gold/60"
                         )}
                       >
-                        <span
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-display text-[10px] font-bold uppercase tracking-wider text-parchment/40">
+                            Ronda #{String(r.ronda.numero).padStart(4, "0")}
+                          </span>
+                          <span
+                            className={clsx(
+                              "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase",
+                              abierta
+                                ? "border-win-glow/50 text-win-glow"
+                                : "border-gold/50 text-gold"
+                            )}
+                          >
+                            {abierta ? "Abierta" : ESTADO_RONDA_LABEL[r.ronda.estado]}
+                          </span>
+                        </div>
+
+                        {/* El nombre es lo que la identifica: por eso va grande
+                            y no como un pie de foto. */}
+                        <p
                           className={clsx(
-                            "block font-display text-xs font-bold",
-                            activa ? "text-gold" : "text-parchment/70"
+                            "mt-1.5 font-display text-lg leading-tight font-bold break-words",
+                            activa ? "text-gold" : "text-parchment"
                           )}
                         >
-                          #{String(r.ronda.numero).padStart(4, "0")} · S/
-                          {soles(r.ronda.pozo_total)}
-                        </span>
-                        <span className="block text-[10px] text-parchment/45">
-                          {r.ronda.estado === "abierta" ? "🟢 Abierta" : ESTADO_RONDA_LABEL[r.ronda.estado]}
-                          {mios > 0 ? ` · tienes ${mios}` : ""}
-                        </span>
+                          {r.ronda.nombre}
+                        </p>
+
+                        <p className="mt-2 font-display text-2xl font-black text-gold-light">
+                          S/{soles(r.ronda.pozo_total)}
+                          <span className="ml-1 text-[11px] font-normal text-parchment/40">
+                            de pozo
+                          </span>
+                        </p>
+
+                        {/* Saber si ya estás dentro es la pregunta que uno se
+                            hace mirando varias ruletas a la vez. */}
+                        <p
+                          className={clsx(
+                            "mt-2 text-xs font-semibold",
+                            mios > 0 ? "text-win-glow" : "text-parchment/45"
+                          )}
+                        >
+                          {mios > 0
+                            ? `✓ Participas con ${mios} ${mios === 1 ? "ticket" : "tickets"}`
+                            : abierta
+                              ? "Todavía no participas"
+                              : "No alcanzaste a entrar"}
+                        </p>
                       </button>
                     );
                   })}
