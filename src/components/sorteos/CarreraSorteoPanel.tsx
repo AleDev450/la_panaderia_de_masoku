@@ -105,18 +105,29 @@ export function CarreraSorteoPanel({
     (i) => i.ganador && i.inscripcionId !== ganadorActual
   );
 
+  // Los ganadores se muestran SIEMPRE que existan, incluso si ya no queda
+  // nadie con tickets o si la carrera nunca se corrió con esta pista. Antes
+  // esta pantalla devolvía null antes de llegar al podio, así que el resultado
+  // del sorteo —lo único que la gente vuelve a mirar— quedaba invisible.
+  const podio = <PodioGanadores ganadores={vista.ganadores} miUsuarioId={user?.id} />;
+
   if (conTickets.length === 0) {
-    return esAdmin ? (
-      <Panel className="mt-4 border-dashed p-5 text-center text-sm text-parchment/50">
-        Nadie tiene tickets todavía. Asígnalos arriba y después larga la carrera.
-      </Panel>
-    ) : null;
+    return (
+      <>
+        {podio}
+        {esAdmin ? (
+          <Panel className="mt-4 border-dashed p-5 text-center text-sm text-parchment/50">
+            Nadie tiene tickets todavía. Asígnalos arriba y después larga la carrera.
+          </Panel>
+        ) : null}
+      </>
+    );
   }
 
   return (
     <div className="mt-6">
       {/* El podio va ARRIBA de la pista: es el resultado, no una nota al pie. */}
-      <PodioGanadores ganadores={vista.ganadores} miUsuarioId={user?.id} />
+      {podio}
 
       <PistaCarrera
         caballos={caballos}
