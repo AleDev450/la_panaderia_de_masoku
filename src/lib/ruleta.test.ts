@@ -12,6 +12,7 @@ import {
   premioMinimo,
   repartoParaGanador,
   rotacionFinal,
+  tiempoRestante,
   segmentosDeRueda,
   ticketsPorMonto,
 } from "@/lib/ruleta";
@@ -121,6 +122,29 @@ describe("repartoParaGanador", () => {
 
   it("un pozo vacío no reparte nada", () => {
     expect(repartoParaGanador(0, 0, 80)).toEqual({ premio: 0, comision: 0 });
+  });
+});
+
+describe("tiempoRestante", () => {
+  const gira = "2026-09-08T15:30:00.000Z";
+  const en = (segundosAntes: number) => new Date(gira).getTime() - segundosAntes * 1000;
+
+  it("cuenta en minutos y segundos", () => {
+    expect(tiempoRestante(gira, en(545))).toBe("9:05");
+    expect(tiempoRestante(gira, en(600))).toBe("10:00");
+    expect(tiempoRestante(gira, en(9))).toBe("0:09");
+  });
+
+  it("no muestra números negativos cuando ya venció", () => {
+    // A esa altura el cliente ya está disparando el giro; seguir contando
+    // hacia atrás sería mentirle a quien mira.
+    expect(tiempoRestante(gira, en(-30))).toBe("0:00");
+  });
+
+  it("sin reloj todavía no hay cuenta", () => {
+    // Le falta el segundo jugador: `gira_en` sigue en null.
+    expect(tiempoRestante(null, Date.now())).toBeNull();
+    expect(tiempoRestante("no es fecha", Date.now())).toBeNull();
   });
 });
 

@@ -254,7 +254,9 @@ export async function getRuleta(): Promise<ActionResult<VistaRuleta>> {
   const { data: enJuego, error } = await admin
     .from("ruleta_rondas")
     .select("*")
-    .eq("modo", "ruleta")
+    // Las dos ruletas: la semanal del staff y las libres de los jugadores
+    // (0064). Comparten pantalla y rueda; se distinguen por el `modo`.
+    .in("modo", ["ruleta", "libre"])
     .in("estado", ["abierta", "cerrada", "girando"])
     .order("created_at", { ascending: false });
   if (error) return { ok: false, error: error.message };
@@ -282,7 +284,7 @@ export async function getRuleta(): Promise<ActionResult<VistaRuleta>> {
     const { data: ultima } = await admin
       .from("ruleta_rondas")
       .select("*")
-      .eq("modo", "ruleta")
+      .in("modo", ["ruleta", "libre"])
       .eq("estado", "finalizada")
       .order("finalizada_at", { ascending: false })
       .limit(1);
@@ -412,6 +414,76 @@ export async function getCaballitos(): Promise<ActionResult<VistaCaballitos>> {
       })),
     },
   };
+}
+
+const crearLibreSchema = z.object({
+  nombre: z
+    .string()
+    .trim()
+    .min(3, "Ponle un nombre a tu ruleta.")
+    .max(80, "Máximo 80 caracteres."),
+  precioTicket: z
+    .number()
+    .positive("El precio del ticket debe ser mayor a 0.")
+    .max(100, "En una ruleta libre el ticket no puede pasar de S/100."),
+  /** Lo que pone el creador al abrirla. Múltiplo del precio del ticket. */
+  monto: z.number().positive("Tienes que entrar con al menos un ticket."),
+});
+export type CrearRondaLibreInput = z.infer<typeof crearLibreSchema>;
+
+/**
+ * Un jugador abre su propia ruleta y entra con sus tickets (0064).
+ *
+ * Crear y comprar son una sola transacción en Postgres: si no le alcanza el
+ * saldo, la ronda no llega a existir. Así no quedan salas vacías de gente que
+ * quiso abrir una sin plata.
+ */
+export async function crearRondaLibre(
+  input: CrearRondaLibreInput
+): Promise<ActionResult<RuletaRonda>> {
+  const parsed = crearLibreSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const session = await requireSessionUserId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("crear_ronda_libre", {
+    p_usuario_id: session.userId,
+    p_nombre: parsed.data.nombre,
+    p_precio_ticket: parsed.data.precioTicket,
+    p_monto: parsed.data.monto,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as RuletaRonda };
+}
+
+/**
+ * Dispara el giro automático de una ruleta libre.
+ *
+ * SIN pg_cron, EL RELOJ LO MIRA EL CLIENTE: cualquiera que tenga la pantalla
+ * abierta y vea la hora vencida llama acá. Es seguro porque la función no
+ * confía en quien llama — no gira antes de tiempo, y si otro se adelantó
+ * devuelve la ronda ya girada en vez de fallar. Por eso esta acción tampoco
+ * muestra el error al usuario: es una tarea de fondo, no una acción suya.
+ */
+export async function girarLibre(rondaId: string): Promise<ActionResult<RuletaRonda>> {
+  const parsed = z.string().uuid("Ronda inválida.").safeParse(rondaId);
+  if (!parsed.success) return { ok: false, error: "Ronda inválida." };
+
+  const session = await requireSessionUserId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("girar_ruleta_libre", {
+    p_ronda_id: parsed.data,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data as RuletaRonda };
 }
 
 /** Compra con saldo. El monto tiene que ser múltiplo exacto del precio del

@@ -65,6 +65,23 @@ export function colorDeIndice(indice: number): string {
 }
 
 /**
+ * Cuánto falta para que gire sola una ruleta libre (0064), como `9:05`.
+ *
+ * Devuelve `null` si la ronda todavía no tiene reloj —le falta el segundo
+ * jugador— y `"0:00"` cuando ya venció: en ese momento el cliente dispara el
+ * giro, así que mostrar un número negativo sería mentirle a quien mira.
+ */
+export function tiempoRestante(giraEn: string | null, ahora: number): string | null {
+  if (!giraEn) return null;
+
+  const falta = new Date(giraEn).getTime() - ahora;
+  if (Number.isNaN(falta)) return null;
+
+  const segundos = Math.max(0, Math.floor(falta / 1000));
+  return `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, "0")}`;
+}
+
+/**
  * Cuántos tickets da un monto. `null` cuando no es múltiplo exacto del precio
  * —redondear para abajo y quedarse con el vuelto sería quedarse con plata
  * ajena sin avisar, así que la UI rebota igual que `comprar_tickets_ruleta`.

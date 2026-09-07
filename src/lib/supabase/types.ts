@@ -395,6 +395,9 @@ export type CachudobetConfig = {
   cara_sello_multiplicador: number;
   cara_sello_min: number;
   cara_sello_max: number;
+  /** Ruleta libre (0064): minutos de cuenta atrás y jugadores que la arrancan. */
+  libre_minutos: number;
+  libre_min_jugadores: number;
   updated_at: string;
 };
 
@@ -409,9 +412,16 @@ export type EstadoRondaRuleta =
   /** Se devolvió el pozo y la ronda no se corre (0061). */
   | "cancelada";
 
-/** Cómo se muestra el sorteo de una ronda (0058). La mecánica y el dinero son
- * idénticos: lo único que cambia es si gira una rueda o corren caballos. */
-export type ModoRonda = "ruleta" | "carrera";
+/**
+ * Qué clase de ronda es. Todas comparten pozo, tickets y fórmula de premio;
+ * cambia quién la crea y cómo se muestra.
+ *
+ * - `ruleta`  — Ruleta semanal: la crea el staff y el staff la gira (0048).
+ * - `libre`   — Ruleta libre: la crea un jugador y gira sola a los N minutos
+ *               de juntarse el mínimo de jugadores (0064).
+ * - `carrera` — Caballitos (0058).
+ */
+export type ModoRonda = "ruleta" | "libre" | "carrera";
 
 export type RuletaRonda = {
   id: string;
@@ -438,6 +448,9 @@ export type RuletaRonda = {
   /** Instante del SERVIDOR en que arranca la animación. Todos los clientes
    * anclan el giro acá, así ven el mismo ganador en el mismo momento. */
   giro_inicia_en: string | null;
+  /** Ruleta libre (0064): cuándo gira sola. Se fija al entrar el 2º jugador;
+   * null en las que maneja el staff. */
+  gira_en: string | null;
   abierta_at: string | null;
   cerrada_at: string | null;
   girada_at: string | null;
@@ -941,6 +954,19 @@ export interface Database {
           /** Tope de tickets por persona (0063). Null = sin tope. */
           p_max_tickets: number | null;
         };
+        Returns: RuletaRonda;
+      };
+      crear_ronda_libre: {
+        Args: {
+          p_usuario_id: string;
+          p_nombre: string;
+          p_precio_ticket: number;
+          p_monto: number;
+        };
+        Returns: RuletaRonda;
+      };
+      girar_ruleta_libre: {
+        Args: { p_ronda_id: string };
         Returns: RuletaRonda;
       };
       admin_cancelar_ronda: {

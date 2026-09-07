@@ -13,9 +13,12 @@ import {
   RondaHistorial,
   VistaRuleta,
   comprarTickets,
+  crearRondaLibre,
   getHistorialRondas,
   getRuleta,
+  girarLibre,
 } from "@/actions/ruleta";
+import { CachudobetConfig } from "@/lib/supabase/types";
 import {
   ESTADO_RONDA_LABEL,
   FaseGiro,
@@ -29,6 +32,7 @@ import {
   rotacionFinal,
   segmentosDeRueda,
   ticketsPorMonto,
+  tiempoRestante,
 } from "@/lib/ruleta";
 
 /**
@@ -57,10 +61,24 @@ function RuletaContent() {
   const [reducirMovimiento, setReducirMovimiento] = useState(false);
   /** Id de la ruleta que se está mirando, cuando hay varias abiertas. */
   const [seleccionada, setSeleccionada] = useState<string | null>(null);
+  /** Reloj propio para la cuenta atrás de las ruletas libres: leer Date.now()
+   * en el render sería impuro y no volvería a pintar solo. */
+  const [ahora, setAhora] = useState(() => Date.now());
+  /** El mismo desfase que `desfaseRef`, pero en estado: la animación lo lee en
+   * un rAF (ref) y la cuenta atrás en el render, y un ref no se puede leer
+   * mientras se pinta. */
+  const [desfase, setDesfase] = useState(0);
 
   /** Reloj del servidor menos el de este navegador. Los relojes de los
    * dispositivos están sueltos; sin corregir esto el ancla no sirve. */
   const desfaseRef = useRef(0);
+
+  /**
+   * Ruletas libres que ya mandamos a girar, para no llamar en cada poll.
+   * El RPC aguanta llamadas repetidas —devuelve la ronda ya girada en vez de
+   * fallar— pero no tiene sentido pedirle lo mismo cada dos segundos.
+   */
+  const disparadas = useRef<Set<string>>(new Set());
 
   const refresh = useCallback(async () => {
     const result = await getRuleta();
@@ -69,8 +87,35 @@ function RuletaContent() {
       return;
     }
     setErrorCarga(null);
-    desfaseRef.current = new Date(result.data.servidorAhora).getTime() - Date.now();
+    const nuevoDesfase = new Date(result.data.servidorAhora).getTime() - Date.now();
+    desfaseRef.current = nuevoDesfase;
+    setDesfase(nuevoDesfase);
     setVista(result.data);
+
+    /**
+     * EL RELOJ DE LA RULETA LIBRE LO MIRA EL CLIENTE.
+     *
+     * El proyecto no tiene tareas programadas, así que quien tenga la pantalla
+     * abierta y vea la hora vencida es el que dispara el giro — el mismo
+     * patrón que el pago automático de eventos. Postgres no confía en esto:
+     * `girar_ruleta_libre` no gira antes de tiempo ni dos veces.
+     *
+     * El error se ignora a propósito: es una tarea de fondo, y molestar al
+     * jugador con un toast por algo que él no pidió sería ruido.
+     */
+    const ahoraServidor = Date.now() + desfaseRef.current;
+    for (const r of result.data.rondas) {
+      const { id, modo, gira_en, ganador_ticket_id } = r.ronda;
+      if (modo !== "libre" || ganador_ticket_id !== null || !gira_en) continue;
+      if (new Date(gira_en).getTime() > ahoraServidor) continue;
+      if (disparadas.current.has(id)) continue;
+
+      disparadas.current.add(id);
+      // No se refresca acá a propósito: el poll de 2 segundos trae el
+      // resultado igual, y llamar a `refresh` desde dentro de sí mismo pide
+      // un ref que después hay que leer en el render.
+      void girarLibre(id);
+    }
   }, []);
 
   useEffect(() => {
@@ -82,6 +127,11 @@ function RuletaContent() {
     const id = setInterval(refresh, 2_000);
     return () => clearInterval(id);
   }, [refresh]);
+
+  useEffect(() => {
+    const id = setInterval(() => setAhora(Date.now()), 1_000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -258,18 +308,20 @@ function RuletaContent() {
                         )}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <span className="font-display text-[10px] font-bold uppercase tracking-wider text-parchment/40">
-                            Ronda #{String(r.ronda.numero).padStart(4, "0")}
-                          </span>
+                          {/* Qué clase de ruleta es: la semanal la gira el
+                              staff, la libre gira sola. */}
                           <span
                             className={clsx(
                               "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase",
-                              abierta
+                              r.ronda.modo === "libre"
                                 ? "border-win-glow/50 text-win-glow"
                                 : "border-gold/50 text-gold"
                             )}
                           >
-                            {abierta ? "Abierta" : ESTADO_RONDA_LABEL[r.ronda.estado]}
+                            {r.ronda.modo === "libre" ? "Libre" : "Semanal"}
+                          </span>
+                          <span className="shrink-0 font-display text-[10px] font-bold uppercase tracking-wider text-parchment/40">
+                            #{String(r.ronda.numero).padStart(4, "0")}
                           </span>
                         </div>
 
@@ -305,6 +357,20 @@ function RuletaContent() {
                               ? "Todavía no participas"
                               : "No alcanzaste a entrar"}
                         </p>
+
+                        {/* El reloj de la libre. Sin segundo jugador todavía no
+                            corre, y decirlo evita que parezca colgada. */}
+                        {r.ronda.modo === "libre" ? (
+                          <p className="mt-1.5 font-display text-xs font-bold text-gold-light">
+                            {tiempoRestante(r.ronda.gira_en, ahora + desfase)
+                              ? `⏱ Gira en ${tiempoRestante(r.ronda.gira_en, ahora + desfase)}`
+                              : `Esperando un jugador más para arrancar el reloj`}
+                          </p>
+                        ) : (
+                          <p className="mt-1.5 text-[11px] text-parchment/40">
+                            La gira el staff
+                          </p>
+                        )}
                       </button>
                     );
                   })}
@@ -440,6 +506,18 @@ function RuletaContent() {
             </section>
           </>
         )}
+
+        <FormularioLibre
+          config={vista?.config ?? null}
+          saldo={user?.balance ?? 0}
+          yaTengo={rondas.some(
+            (r) => r.ronda.modo === "libre" && r.ronda.admin_id === user?.id
+          )}
+          onCreada={async () => {
+            await Promise.all([refresh(), refreshUser()]);
+          }}
+          showToast={showToast}
+        />
 
         <Historial rondas={historial} />
       </main>
@@ -652,6 +730,169 @@ function ModalGanador({
         </Button>
       </Panel>
     </div>
+  );
+}
+
+/**
+ * Abrir una ruleta libre.
+ *
+ * El precio del ticket lo pone quien la crea, y entra de una con sus propios
+ * tickets — no existe una ruleta libre sin su creador adentro. La cuenta atrás
+ * no arranca acá: espera al segundo jugador, porque una ruleta de una sola
+ * persona no tiene contra quién sortear.
+ */
+function FormularioLibre({
+  config,
+  saldo,
+  yaTengo,
+  onCreada,
+  showToast,
+}: {
+  config: CachudobetConfig | null;
+  saldo: number;
+  /** Solo se permite una ruleta libre abierta por persona. */
+  yaTengo: boolean;
+  onCreada: () => Promise<void>;
+  showToast: ReturnType<typeof useToast>["showToast"];
+}) {
+  const [nombre, setNombre] = useState("");
+  const [precio, setPrecio] = useState("3");
+  const [cantidad, setCantidad] = useState("1");
+  const [creando, setCreando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const precioNum = Number(precio);
+  const cantidadNum = Number(cantidad);
+  const monto =
+    Number.isFinite(precioNum) && Number.isFinite(cantidadNum)
+      ? Math.round(precioNum * cantidadNum * 100) / 100
+      : 0;
+
+  async function handleCrear(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+
+    if (monto <= 0) {
+      setError("Elige un precio y cuántos tickets llevas.");
+      return;
+    }
+    if (monto > saldo) {
+      setError(`No te alcanza: necesitas S/${soles(monto)} y tienes S/${soles(saldo)}.`);
+      return;
+    }
+
+    setCreando(true);
+    try {
+      const result = await crearRondaLibre({
+        nombre,
+        precioTicket: precioNum,
+        monto,
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      showToast({
+        variant: "success",
+        title: "Tu ruleta está abierta",
+        description: "Cuando entre otro jugador arranca la cuenta atrás.",
+      });
+      setNombre("");
+      setCantidad("1");
+      await onCreada();
+    } finally {
+      setCreando(false);
+    }
+  }
+
+  return (
+    <section className="mt-10">
+      <h2 className="mb-3 font-display text-lg font-semibold text-gold-light">
+        Abre tu propia ruleta
+      </h2>
+
+      {yaTengo ? (
+        <Panel className="border-dashed p-6 text-center text-sm text-parchment/50">
+          Ya tienes una ruleta libre abierta. Cuando termine podrás abrir otra.
+        </Panel>
+      ) : (
+        <Panel className="p-5">
+          <form onSubmit={handleCrear} className="grid gap-3 sm:grid-cols-2">
+            <label className="block sm:col-span-2">
+              <span className="text-[11px] uppercase tracking-wide text-parchment/40">
+                Nombre
+              </span>
+              <input
+                value={nombre}
+                onChange={(e) => {
+                  setNombre(e.target.value);
+                  setError(null);
+                }}
+                placeholder="La ruleta de los valientes"
+                maxLength={80}
+                className="mt-1 min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-[11px] uppercase tracking-wide text-parchment/40">
+                Precio por ticket (S/)
+              </span>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                step="0.5"
+                value={precio}
+                onChange={(e) => {
+                  setPrecio(e.target.value);
+                  setError(null);
+                }}
+                className="mt-1 min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-[11px] uppercase tracking-wide text-parchment/40">
+                Con cuántos tickets entras
+              </span>
+              <input
+                type="number"
+                min={1}
+                max={200}
+                step="1"
+                value={cantidad}
+                onChange={(e) => {
+                  setCantidad(e.target.value);
+                  setError(null);
+                }}
+                className="mt-1 min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+              />
+            </label>
+
+            <div className="sm:col-span-2">
+              <Button type="submit" disabled={creando || nombre.trim().length < 3}>
+                {creando ? "Abriendo…" : `Abrir ruleta por S/${soles(monto)}`}
+              </Button>
+            </div>
+
+            <p className="text-[11px] leading-relaxed text-parchment/40 sm:col-span-2">
+              Entras de una con tus tickets — no existe una ruleta libre sin su creador
+              adentro. Cuando llegue{" "}
+              <strong className="text-parchment/60">
+                el jugador nº {config?.libre_min_jugadores ?? 2}
+              </strong>{" "}
+              arranca una cuenta de{" "}
+              <strong className="text-parchment/60">{config?.libre_minutos ?? 10} minutos</strong>,
+              y al terminar la ruleta gira y paga sola. Con una sola persona no arranca: no
+              habría contra quién sortear.
+            </p>
+
+            {error ? <p className="text-sm text-lose-glow sm:col-span-2">{error}</p> : null}
+          </form>
+        </Panel>
+      )}
+    </section>
   );
 }
 
