@@ -139,6 +139,10 @@ export async function getMetricas(): Promise<ActionResult<AdminMetricas>> {
       // donde estaba antes.
       ganancia_caballitos_hoy: num(fila.ganancia_caballitos_hoy),
       ganancia_caballitos_total: num(fila.ganancia_caballitos_total),
+      // Ruleta libre (0067). Sin esa migración llegan undefined y quedan en 0;
+      // el total tampoco las contaba, que era justo el bug.
+      ganancia_libre_hoy: num(fila.ganancia_libre_hoy),
+      ganancia_libre_total: num(fila.ganancia_libre_total),
     },
   };
 }
@@ -179,6 +183,7 @@ export async function getResumenDiario(
       comision_ruleta: Number(d.comision_ruleta ?? 0),
       comision_cara_sello: Number(d.comision_cara_sello ?? 0),
       comision_caballitos: Number(d.comision_caballitos ?? 0),
+      comision_libre: Number(d.comision_libre ?? 0),
     })),
   };
 }

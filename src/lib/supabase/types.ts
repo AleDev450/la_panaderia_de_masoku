@@ -245,6 +245,10 @@ export type AdminMetricas = {
    * son la misma tabla, separados por `modo`. */
   ganancia_caballitos_hoy: number;
   ganancia_caballitos_total: number;
+  /** Ruleta libre (0067). Existía desde 0064 pero no se contaba en ningún
+   * lado — ni siquiera en el total. */
+  ganancia_libre_hoy: number;
+  ganancia_libre_total: number;
 };
 
 /** Una fila del resumen día a día (0034/0035). Fecha en calendario de Perú;
@@ -267,6 +271,8 @@ export type ResumenDia = {
   comision_cara_sello: number;
   /** Caballitos (0062): la otra mitad de `ruleta_rondas`, por `modo`. */
   comision_caballitos: number;
+  /** Ruleta libre (0067). */
+  comision_libre: number;
 };
 
 export type PagoManual = {
