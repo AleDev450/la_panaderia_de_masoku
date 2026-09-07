@@ -427,6 +427,9 @@ export type RuletaRonda = {
   precio_ticket: number;
   porcentaje_premio: number;
   porcentaje_casa: number;
+  /** Cuántos tickets como máximo puede tener UNA persona (0063). Null = sin
+   * tope. Cuenta también los que le regaló el staff. */
+  max_tickets_por_persona: number | null;
   pozo_total: number;
   ganador_ticket_id: string | null;
   ganador_usuario_id: string | null;
@@ -935,6 +938,8 @@ export interface Database {
           p_modo: ModoRonda;
           /** Precio por ticket de ESTA ronda (0060). Null = el de la config. */
           p_precio_ticket: number | null;
+          /** Tope de tickets por persona (0063). Null = sin tope. */
+          p_max_tickets: number | null;
         };
         Returns: RuletaRonda;
       };

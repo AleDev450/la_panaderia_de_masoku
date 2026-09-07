@@ -163,6 +163,7 @@ function CaballitosContent() {
                 precio={ronda.ronda.precio_ticket}
                 saldo={user?.balance ?? 0}
                 misTickets={vista.misTickets}
+                tope={ronda.ronda.max_tickets_por_persona}
                 rondaId={ronda.ronda.id}
                 onComprado={async () => {
                   await Promise.all([refresh(), refreshUser()]);
@@ -191,6 +192,7 @@ function PanelCompra({
   precio,
   saldo,
   misTickets,
+  tope,
   rondaId,
   onComprado,
   showToast,
@@ -198,6 +200,8 @@ function PanelCompra({
   precio: number;
   saldo: number;
   misTickets: number;
+  /** Máximo de caballos por persona en esta carrera (0063). Null = sin tope. */
+  tope: number | null;
   rondaId: string;
   onComprado: () => Promise<void>;
   showToast: ReturnType<typeof useToast>["showToast"];
@@ -207,11 +211,23 @@ function PanelCompra({
   const [error, setError] = useState<string | null>(null);
 
   const monto = Math.round(cantidad * precio * 100) / 100;
+  // Postgres es quien decide de verdad (`comprar_tickets_ruleta`); esto solo
+  // evita el viaje al servidor para recibir un "no".
+  const meQuedan = tope === null ? null : Math.max(0, tope - misTickets);
+  const sinCupo = meQuedan === 0;
 
   async function handleComprar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
 
+    if (meQuedan !== null && cantidad > meQuedan) {
+      setError(
+        meQuedan === 0
+          ? `Ya llegaste al máximo de ${tope} caballos en esta carrera.`
+          : `Solo puedes llevar ${meQuedan} más: el máximo es ${tope} por persona.`
+      );
+      return;
+    }
     if (monto > saldo) {
       setError("No te alcanza el saldo disponible.");
       return;
@@ -249,19 +265,24 @@ function PanelCompra({
             id="cantidad"
             type="number"
             min={1}
-            max={200}
+            max={meQuedan ?? 200}
             step="1"
             value={cantidad}
+            disabled={sinCupo}
             onChange={(e) => {
               setCantidad(Math.max(1, Number(e.target.value) || 1));
               setError(null);
             }}
-            className="mt-1 min-h-11 w-32 rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+            className="mt-1 min-h-11 w-32 rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light disabled:opacity-50"
           />
         </div>
 
-        <Button type="submit" disabled={comprando}>
-          {comprando ? "Comprando…" : `Comprar por S/${soles(monto)}`}
+        <Button type="submit" disabled={comprando || sinCupo}>
+          {comprando
+            ? "Comprando…"
+            : sinCupo
+              ? "Ya tienes el máximo"
+              : `Comprar por S/${soles(monto)}`}
         </Button>
 
         <p className="text-xs text-parchment/45">
@@ -269,6 +290,12 @@ function PanelCompra({
             ? `Ya corres con ${misTickets} caballo(s).`
             : "Todavía no tienes caballos en esta carrera."}{" "}
           Tu saldo: S/{soles(saldo)}
+          {tope !== null ? (
+            <span className="mt-0.5 block text-parchment/60">
+              Máximo {tope} por persona
+              {meQuedan !== null && meQuedan > 0 ? ` — te quedan ${meQuedan}` : ""}.
+            </span>
+          ) : null}
         </p>
 
         {error ? <p className="w-full text-sm text-lose-glow">{error}</p> : null}

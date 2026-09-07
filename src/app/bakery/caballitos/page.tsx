@@ -46,9 +46,11 @@ type Borrador = {
   nombre: string;
   premio: string;
   precio: string;
+  /** Vacío = sin tope. */
+  tope: string;
 };
 
-const NUEVA: Borrador = { rondaId: null, nombre: "", premio: "", precio: "" };
+const NUEVA: Borrador = { rondaId: null, nombre: "", premio: "", precio: "", tope: "" };
 
 function AdminCaballitosContent() {
   const { showToast } = useToast();
@@ -115,6 +117,12 @@ function AdminCaballitosContent() {
         return;
       }
 
+      const tope = form.tope.trim() === "" ? null : Number(form.tope);
+      if (tope !== null && (!Number.isInteger(tope) || tope < 1)) {
+        setErrorForm("El tope por persona debe ser un número entero de 1 o más.");
+        return;
+      }
+
       const result = await guardarRonda({
         rondaId: form.rondaId,
         nombre: form.nombre,
@@ -122,6 +130,7 @@ function AdminCaballitosContent() {
         // Lo que separa esta ronda de las de la ruleta.
         modo: "carrera",
         precioTicket: precio,
+        maxTickets: tope,
       });
       if (!result.ok) {
         setErrorForm(result.error);
@@ -149,6 +158,7 @@ function AdminCaballitosContent() {
       nombre: r.nombre,
       premio: r.premio_concepto ?? "",
       precio: String(r.precio_ticket),
+      tope: r.max_tickets_por_persona === null ? "" : String(r.max_tickets_por_persona),
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -225,6 +235,24 @@ function AdminCaballitosContent() {
               />
             </label>
 
+            <label className="block">
+              <span className="text-[11px] uppercase tracking-wide text-parchment/40">
+                Máximo de caballos por persona (vacío = sin tope)
+              </span>
+              <input
+                type="number"
+                min={1}
+                step="1"
+                value={form.tope}
+                onChange={(e) => {
+                  setForm({ ...form, tope: e.target.value });
+                  setErrorForm(null);
+                }}
+                placeholder="Sin tope"
+                className="mt-1 min-h-11 w-full rounded-md border border-gold-dark bg-obsidian/60 px-3 py-2 text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
+              />
+            </label>
+
             <div className="flex items-end gap-2">
               <Button type="submit" disabled={guardando || form.nombre.trim().length < 3}>
                 {guardando ? "Guardando…" : form.rondaId ? "Guardar cambios" : "Crear carrera"}
@@ -237,9 +265,19 @@ function AdminCaballitosContent() {
             </div>
 
             <p className="text-[11px] leading-relaxed text-parchment/40 sm:col-span-2">
-              El precio se puede cambiar solo mientras <strong>nadie haya comprado</strong>: con
-              gente adentro, moverlo dejaría el pozo sin explicación —unos habrían pagado un
-              precio y otros otro—. Dejándolo vacío se usa el de la configuración general.
+              El <strong className="text-parchment/60">precio</strong> se puede cambiar solo
+              mientras nadie haya comprado: con gente adentro, moverlo dejaría el pozo sin
+              explicación —unos habrían pagado un precio y otros otro—. Vacío usa el de la
+              configuración general.
+            </p>
+            <p className="text-[11px] leading-relaxed text-parchment/40 sm:col-span-2">
+              El <strong className="text-parchment/60">tope por persona</strong> evita que
+              alguien se compre la carrera entera. Importa más de lo que parece: con más del
+              80% del pozo, esa persona <em>pierde plata aunque gane</em>, y una carrera donde
+              uno tiene el 90% deja de ser un sorteo. Además la casa cobra más cuando el pozo
+              está repartido, porque su comisión sale de la plata ajena. El tope sí se puede
+              bajar con gente adentro: no toca lo ya comprado, solo impide sumar más. Cuenta
+              también los caballos que regales a mano.
             </p>
 
             {errorForm ? (
@@ -310,8 +348,12 @@ function AdminCaballitosContent() {
                           </span>
                         </p>
                         <p className="mt-1 text-xs text-parchment/45">
-                          S/{soles(r.precio_ticket)} por caballo · pozo S/{soles(r.pozo_total)} ·{" "}
-                          {totalTickets} caballos · {participantes} jugadores
+                          S/{soles(r.precio_ticket)} por caballo ·{" "}
+                          {r.max_tickets_por_persona === null
+                            ? "sin tope"
+                            : `máx. ${r.max_tickets_por_persona} por persona`}{" "}
+                          · pozo S/{soles(r.pozo_total)} · {totalTickets} caballos ·{" "}
+                          {participantes} jugadores
                           {sorteada
                             ? ` · premio S/${soles(r.premio_monto ?? 0)} · casa S/${soles(r.comision_monto ?? 0)}`
                             : ` · premio desde S/${soles(premioMinimo(r.pozo_total, r.porcentaje_premio))} · casa hasta S/${soles(comisionMaxima(r.pozo_total, r.porcentaje_premio))}`}

@@ -76,6 +76,19 @@ const guardarRondaSchema = z.object({
     .positive("El precio del ticket debe ser mayor a 0.")
     .max(1000, "Un ticket no puede costar más de S/1000.")
     .optional(),
+  /**
+   * Tope de tickets por persona (0063). `null` lo quita.
+   *
+   * Es `nullable` y no solo `optional` a propósito: "no lo mandes" y "déjalo
+   * sin tope" son cosas distintas, y al editar hay que poder quitarlo.
+   */
+  maxTickets: z
+    .number()
+    .int("El tope es un número entero.")
+    .min(1, "El tope debe ser al menos 1.")
+    .max(10000, "Ese tope es demasiado alto.")
+    .nullable()
+    .optional(),
 });
 export type GuardarRondaInput = z.infer<typeof guardarRondaSchema>;
 
@@ -130,6 +143,16 @@ export interface RondaResumen {
 }
 
 export interface VistaRuleta {
+  /**
+   * TODAS las ruletas vivas, de la más nueva a la más vieja.
+   *
+   * Antes se devolvía solo la última y el resto quedaba invisible: si el staff
+   * abría dos, la primera dejaba de existir para el jugador aunque siguiera
+   * aceptando tickets.
+   */
+  rondas: RondaResumen[];
+  /** La primera de `rondas` — o la última finalizada si no hay ninguna viva.
+   * Es la que muestra el resumen del inicio, que enseña una sola. */
   ronda: RondaResumen | null;
   config: CachudobetConfig;
   /** Tickets de quien pide, en la ronda que se está mostrando. */
@@ -226,17 +249,21 @@ export async function getRuleta(): Promise<ActionResult<VistaRuleta>> {
 
   // El filtro por modo es lo que mantiene separados los dos juegos: sin él,
   // la ruleta mostraría una ronda de caballitos y viceversa (0058).
+  // TODAS las vivas, no solo la última: el staff puede tener varias abiertas a
+  // la vez y antes solo se veía una.
   const { data: enJuego, error } = await admin
     .from("ruleta_rondas")
     .select("*")
     .eq("modo", "ruleta")
     .in("estado", ["abierta", "cerrada", "girando"])
-    .order("created_at", { ascending: false })
-    .limit(1);
+    .order("created_at", { ascending: false });
   if (error) return { ok: false, error: error.message };
 
-  let ronda = (enJuego ?? [])[0] as RuletaRonda | undefined;
-  if (!ronda) {
+  let vivas = (enJuego ?? []) as RuletaRonda[];
+
+  // Sin ninguna viva se muestra la última que se jugó, para que la pantalla no
+  // quede en blanco después de un sorteo.
+  if (vivas.length === 0) {
     const { data: ultima } = await admin
       .from("ruleta_rondas")
       .select("*")
@@ -244,23 +271,35 @@ export async function getRuleta(): Promise<ActionResult<VistaRuleta>> {
       .eq("estado", "finalizada")
       .order("finalizada_at", { ascending: false })
       .limit(1);
-    ronda = (ultima ?? [])[0] as RuletaRonda | undefined;
+    vivas = (ultima ?? []) as RuletaRonda[];
   }
 
-  if (!ronda) {
+  if (vivas.length === 0) {
     return {
       ok: true,
-      data: { ronda: null, config: config as CachudobetConfig, misTickets: 0, servidorAhora: ahora },
+      data: {
+        rondas: [],
+        ronda: null,
+        config: config as CachudobetConfig,
+        misTickets: 0,
+        servidorAhora: ahora,
+      },
     };
   }
 
-  const resumen = await resumenDeRonda(admin, ronda);
+  const rondas = await Promise.all(vivas.map((r) => resumenDeRonda(admin, r)));
   const misTickets =
-    resumen.participantes.find((p) => p.usuarioId === session.userId)?.tickets ?? 0;
+    rondas[0].participantes.find((p) => p.usuarioId === session.userId)?.tickets ?? 0;
 
   return {
     ok: true,
-    data: { ronda: resumen, config: config as CachudobetConfig, misTickets, servidorAhora: ahora },
+    data: {
+      rondas,
+      ronda: rondas[0],
+      config: config as CachudobetConfig,
+      misTickets,
+      servidorAhora: ahora,
+    },
   };
 }
 
@@ -473,6 +512,7 @@ export async function guardarRonda(
     p_premio_concepto: parsed.data.premioConcepto || null,
     p_modo: parsed.data.modo ?? "ruleta",
     p_precio_ticket: parsed.data.precioTicket ?? null,
+    p_max_tickets: parsed.data.maxTickets ?? null,
   });
 
   if (error) return { ok: false, error: error.message };

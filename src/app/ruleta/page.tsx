@@ -55,6 +55,8 @@ function RuletaContent() {
   const [modalCerrado, setModalCerrado] = useState<string | null>(null);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [reducirMovimiento, setReducirMovimiento] = useState(false);
+  /** Id de la ruleta que se está mirando, cuando hay varias abiertas. */
+  const [seleccionada, setSeleccionada] = useState<string | null>(null);
 
   /** Reloj del servidor menos el de este navegador. Los relojes de los
    * dispositivos están sueltos; sin corregir esto el ancla no sirve. */
@@ -90,8 +92,17 @@ function RuletaContent() {
     return () => mq.removeEventListener("change", escuchar);
   }, []);
 
-  const ronda = vista?.ronda ?? null;
+  // Cuál de las ruletas vivas se está mirando. La selección es del cliente:
+  // el servidor manda todas y acá se elige. Si la elegida desaparece —el staff
+  // la finalizó— se cae sola a la primera en vez de dejar la pantalla vacía.
+  const rondas = vista?.rondas ?? [];
+  const ronda =
+    rondas.find((r) => r.ronda.id === seleccionada) ?? vista?.ronda ?? null;
   const totalTickets = ronda?.totalTickets ?? 0;
+
+  // Por ronda, no global: cada ruleta tiene sus propios tickets.
+  const misTickets =
+    ronda?.participantes.find((p) => p.usuarioId === user?.id)?.tickets ?? 0;
 
   const segmentos = useMemo(
     () =>
@@ -150,7 +161,7 @@ function RuletaContent() {
   // Desde 0051 el premio depende de CUÁNTO puso el que gana: recupera lo suyo
   // y se lleva el 80% de lo ajeno. Así que ya no hay un premio único que
   // mostrar antes de girar — se muestra el tuyo.
-  const miAporte = ronda ? (vista?.misTickets ?? 0) * ronda.ronda.precio_ticket : 0;
+  const miAporte = ronda ? misTickets * ronda.ronda.precio_ticket : 0;
   const premioSiGano = ronda
     ? repartoParaGanador(miAporte, ronda.ronda.pozo_total, ronda.ronda.porcentaje_premio).premio
     : 0;
@@ -220,6 +231,51 @@ function RuletaContent() {
           </Panel>
         ) : (
           <>
+            {/* Solo aparece si de verdad hay varias: con una sola, una fila de
+                pestañas de un elemento es ruido. */}
+            {rondas.length > 1 ? (
+              <section className="mt-6">
+                <p className="mb-2 text-[11px] uppercase tracking-wide text-parchment/40">
+                  {rondas.length} ruletas abiertas
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {rondas.map((r) => {
+                    const activa = r.ronda.id === ronda.ronda.id;
+                    const mios =
+                      r.participantes.find((p) => p.usuarioId === user?.id)?.tickets ?? 0;
+                    return (
+                      <button
+                        key={r.ronda.id}
+                        type="button"
+                        aria-pressed={activa}
+                        onClick={() => setSeleccionada(r.ronda.id)}
+                        className={clsx(
+                          "min-h-11 rounded-lg border px-3 py-2 text-left transition",
+                          activa
+                            ? "border-gold bg-gold/10"
+                            : "border-gold-dark hover:border-gold/60"
+                        )}
+                      >
+                        <span
+                          className={clsx(
+                            "block font-display text-xs font-bold",
+                            activa ? "text-gold" : "text-parchment/70"
+                          )}
+                        >
+                          #{String(r.ronda.numero).padStart(4, "0")} · S/
+                          {soles(r.ronda.pozo_total)}
+                        </span>
+                        <span className="block text-[10px] text-parchment/45">
+                          {r.ronda.estado === "abierta" ? "🟢 Abierta" : ESTADO_RONDA_LABEL[r.ronda.estado]}
+                          {mios > 0 ? ` · tienes ${mios}` : ""}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
+
             <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
               <Metrica
                 label="Pozo"
@@ -231,14 +287,14 @@ function RuletaContent() {
                 label="Premio"
                 valor={`S/${soles(
                   ronda.ronda.premio_monto ??
-                    (vista.misTickets > 0
+                    (misTickets > 0
                       ? premioSiGano
                       : premioMinimo(ronda.ronda.pozo_total, ronda.ronda.porcentaje_premio))
                 )}`}
                 detalle={
                   ronda.ronda.premio_monto !== null
                     ? "Pagado al ganador"
-                    : vista.misTickets > 0
+                    : misTickets > 0
                       ? "Si ganas tú"
                       : `Lo tuyo + ${ronda.ronda.porcentaje_premio}% del resto`
                 }
@@ -247,7 +303,7 @@ function RuletaContent() {
               <Metrica
                 label="Participantes"
                 valor={String(ronda.participantes.length)}
-                detalle={vista.misTickets > 0 ? `Tienes ${vista.misTickets}` : "Todavía no entras"}
+                detalle={misTickets > 0 ? `Tienes ${misTickets}` : "Todavía no entras"}
               />
             </section>
 
@@ -300,7 +356,7 @@ function RuletaContent() {
                   precioTicket={ronda.ronda.precio_ticket}
                   abierta={ronda.ronda.estado === "abierta"}
                   saldo={user ? user.balance : 0}
-                  misTickets={vista.misTickets}
+                  misTickets={misTickets}
                   showToast={showToast}
                   onComprado={async () => {
                     await Promise.all([refresh(), refreshUser()]);
