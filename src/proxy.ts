@@ -37,16 +37,20 @@ function ipDelRequest(request: NextRequest): string | null {
 }
 
 /**
- * Modo mantenimiento, prendido con la variable de entorno `MANTENIMIENTO`
- * ("true"/"1"). Corta TODA request que matchea el `config.matcher` de
- * abajo — sin excepción, ni siquiera para el login o /bakery — antes de
- * tocar Supabase, igual que el bloqueo de IPs. Para volver a abrir: se
- * apaga la variable y se reinicia el contenedor, mismo mecanismo que
- * `IPS_BLOQUEADAS`.
+ * Modo mantenimiento. PRENDIDO POR DEFECTO EN EL CÓDIGO: no depende de
+ * configurar nada en el servidor — apenas se despliega este commit, el
+ * sitio entero (login, /bakery, todo) muestra el aviso. Corta TODA
+ * request que matchea el `config.matcher` de abajo, antes de tocar
+ * Supabase, igual que el bloqueo de IPs.
+ *
+ * PARA VOLVER A ABRIR EL SITIO: poner `MANTENIMIENTO=false` en el .env
+ * del servidor y redesplegar/reiniciar — O, más simple, cambiar el
+ * `true` de la línea de abajo por `false` y volver a desplegar este
+ * archivo.
  */
-const MANTENIMIENTO = ["true", "1"].includes(
-  (process.env.MANTENIMIENTO ?? "").trim().toLowerCase()
-);
+const MANTENIMIENTO =
+  (process.env.MANTENIMIENTO ?? "true").trim().toLowerCase() !== "false" &&
+  (process.env.MANTENIMIENTO ?? "true").trim() !== "0";
 
 const PAGINA_MANTENIMIENTO = `<!doctype html>
 <html lang="es">
