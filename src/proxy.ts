@@ -36,7 +36,76 @@ function ipDelRequest(request: NextRequest): string | null {
   return request.headers.get("x-real-ip");
 }
 
+/**
+ * Modo mantenimiento, prendido con la variable de entorno `MANTENIMIENTO`
+ * ("true"/"1"). Corta TODA request que matchea el `config.matcher` de
+ * abajo — sin excepción, ni siquiera para el login o /bakery — antes de
+ * tocar Supabase, igual que el bloqueo de IPs. Para volver a abrir: se
+ * apaga la variable y se reinicia el contenedor, mismo mecanismo que
+ * `IPS_BLOQUEADAS`.
+ */
+const MANTENIMIENTO = ["true", "1"].includes(
+  (process.env.MANTENIMIENTO ?? "").trim().toLowerCase()
+);
+
+const PAGINA_MANTENIMIENTO = `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Estamos trabajando</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: #050506;
+    color: #f4f4f6;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    text-align: center;
+  }
+  .card {
+    max-width: 480px;
+    border: 1px solid #2c2a24;
+    background: #101014;
+    border-radius: 16px;
+    padding: 40px 28px;
+  }
+  .emoji { font-size: 40px; margin-bottom: 16px; }
+  h1 {
+    margin: 0 0 12px;
+    font-size: 22px;
+    color: #f5c518;
+  }
+  p { margin: 0; line-height: 1.5; color: #c9c9ce; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="emoji">🛠️</div>
+    <h1>Estamos trabajando. Vuelve pronto.</h1>
+    <p>Por ahora nadie puede ingresar mientras hacemos ajustes. Gracias por tu paciencia.</p>
+  </div>
+</body>
+</html>`;
+
 export async function proxy(request: NextRequest) {
+  if (MANTENIMIENTO) {
+    return new NextResponse(PAGINA_MANTENIMIENTO, {
+      status: 503,
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "retry-after": "3600",
+      },
+    });
+  }
+
   if (IPS_BLOQUEADAS.size > 0) {
     const ip = ipDelRequest(request);
     if (ip && IPS_BLOQUEADAS.has(ip)) {

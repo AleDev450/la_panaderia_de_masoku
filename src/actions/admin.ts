@@ -60,6 +60,85 @@ async function requireAdminId(): Promise<
   return { ok: true, userId: user.id };
 }
 
+/**
+ * PostgREST corta en 1000 filas y NO avisa: una consulta con más resultados
+ * devuelve las primeras 1000 con `error` en null. En un reporte contable eso
+ * es peor que fallar —salen números que cuadran solos pero están mal—, así
+ * que todo lo que puede crecer sin techo se pide por páginas hasta agotar.
+ *
+ * La columna de orden tiene que ser una que el propio `select` o el filtro ya
+ * usen: sin `order` el corte por `range` no es determinista y las páginas se
+ * pisan entre sí.
+ */
+const PAGINA = 1000;
+
+async function traerTodo<T>(
+  pagina: (
+    desde: number,
+    hasta: number
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>
+): Promise<{ ok: true; data: T[] } | { ok: false; error: string }> {
+  const todo: T[] = [];
+  for (let inicio = 0; ; inicio += PAGINA) {
+    const { data, error } = await pagina(inicio, inicio + PAGINA - 1);
+    if (error) return { ok: false, error: error.message };
+    if (!data || data.length === 0) break;
+    todo.push(...data);
+    if (data.length < PAGINA) break;
+  }
+  return { ok: true, data: todo };
+}
+
+// Formas mínimas de fila de las consultas paginadas: `traerTodo` es genérico y
+// el cliente de Supabase no está tipado, así que sin esto todo llegaría `any`.
+interface FilaPerfilMin {
+  id: string;
+  nickname: string;
+}
+interface FilaEventoMin {
+  id: string;
+  nombre: string;
+  estado: string;
+  resultado: string | null;
+}
+interface FilaRecarga {
+  usuario_id: string;
+  monto_acreditado: number | null;
+  revisado_at: string | null;
+}
+interface FilaIngreso {
+  usuario_id: string | null;
+  concepto: string;
+  monto: number | null;
+  created_at: string;
+}
+interface FilaRetiro {
+  usuario_id: string;
+  monto: number | null;
+  revisado_at: string | null;
+}
+interface FilaApuesta {
+  usuario_id: string;
+  evento_id: string;
+  lado: string;
+  monto_total: number | null;
+  monto_matcheado: number | null;
+  es_fake: boolean;
+  created_at: string;
+}
+interface FilaAjuste {
+  usuario_id: string;
+  saldo_anterior: number | null;
+  saldo_nuevo: number | null;
+  motivo: string;
+  es_fake: boolean;
+  created_at: string;
+}
+
+/** YYYY-MM-DD en calendario de Perú. `en-CA` ya da ese formato. */
+const diaEnPeru = (fecha: string | Date) =>
+  new Date(fecha).toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+
 const banearSchema = z.object({
   usuarioId: z.string().uuid("Usuario inválido."),
   banear: z.boolean(),
@@ -186,6 +265,27 @@ export async function getResumenDiario(
       comision_libre: Number(d.comision_libre ?? 0),
     })),
   };
+}
+
+/**
+ * Desde qué día tiene sentido pedir el histórico: el registro del primer
+ * jugador. Antes de que exista una cuenta no puede haber movimiento, así que
+ * sirve de tope inferior sin tener que barrer todas las tablas para buscarlo.
+ */
+export async function getFechaPrimerMovimiento(): Promise<ActionResult<string>> {
+  const session = await requireAdminId();
+  if (!session.ok) return session;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("perfiles")
+    .select("created_at")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+
+  return { ok: true, data: diaEnPeru(data?.created_at ?? new Date()) };
 }
 
 /**
@@ -375,42 +475,71 @@ export async function getMovimientosUsuarios(
   const admin = createSupabaseAdminClient();
 
   const [perfiles, recargas, ingresos, retiros, apuestas, ajustes] = await Promise.all([
-    admin.from("perfiles").select("id, nickname"),
-    admin
-      .from("recargas")
-      .select("usuario_id, monto_acreditado, revisado_at")
-      .eq("estado", "aprobada")
-      .gte("revisado_at", inicio)
-      .lt("revisado_at", fin),
-    admin
-      .from("ingresos_manuales")
-      .select("usuario_id, concepto, monto, created_at")
-      .gte("created_at", inicio)
-      .lt("created_at", fin),
-    admin
-      .from("retiros")
-      .select("usuario_id, monto, revisado_at")
-      .eq("estado", "pagado")
-      .gte("revisado_at", inicio)
-      .lt("revisado_at", fin),
-    admin
-      .from("apuestas")
-      .select("usuario_id, evento_id, lado, monto_total, monto_matcheado, es_fake, created_at")
-      .gte("created_at", inicio)
-      .lt("created_at", fin),
-    admin
-      .from("ajustes_saldo")
-      .select("usuario_id, saldo_anterior, saldo_nuevo, motivo, es_fake, created_at")
-      .gte("created_at", inicio)
-      .lt("created_at", fin),
+    traerTodo<FilaPerfilMin>((a, b) =>
+      admin.from("perfiles").select("id, nickname").order("created_at").range(a, b)
+    ),
+    traerTodo<FilaRecarga>((a, b) =>
+      admin
+        .from("recargas")
+        .select("usuario_id, monto_acreditado, revisado_at")
+        .eq("estado", "aprobada")
+        .gte("revisado_at", inicio)
+        .lt("revisado_at", fin)
+        .order("revisado_at")
+        .range(a, b)
+    ),
+    traerTodo<FilaIngreso>((a, b) =>
+      admin
+        .from("ingresos_manuales")
+        .select("usuario_id, concepto, monto, created_at")
+        .gte("created_at", inicio)
+        .lt("created_at", fin)
+        .order("created_at")
+        .range(a, b)
+    ),
+    traerTodo<FilaRetiro>((a, b) =>
+      admin
+        .from("retiros")
+        .select("usuario_id, monto, revisado_at")
+        .eq("estado", "pagado")
+        .gte("revisado_at", inicio)
+        .lt("revisado_at", fin)
+        .order("revisado_at")
+        .range(a, b)
+    ),
+    traerTodo<FilaApuesta>((a, b) =>
+      admin
+        .from("apuestas")
+        .select("usuario_id, evento_id, lado, monto_total, monto_matcheado, es_fake, created_at")
+        .gte("created_at", inicio)
+        .lt("created_at", fin)
+        .order("created_at")
+        .range(a, b)
+    ),
+    traerTodo<FilaAjuste>((a, b) =>
+      admin
+        .from("ajustes_saldo")
+        .select("usuario_id, saldo_anterior, saldo_nuevo, motivo, es_fake, created_at")
+        .gte("created_at", inicio)
+        .lt("created_at", fin)
+        .order("created_at")
+        .range(a, b)
+    ),
   ]);
 
-  const nick = new Map((perfiles.data ?? []).map((p) => [p.id, p.nickname]));
+  if (!perfiles.ok) return perfiles;
+  if (!recargas.ok) return recargas;
+  if (!ingresos.ok) return ingresos;
+  if (!retiros.ok) return retiros;
+  if (!apuestas.ok) return apuestas;
+  if (!ajustes.ok) return ajustes;
+
+  const nick = new Map(perfiles.data.map((p) => [p.id, p.nickname]));
   const quien = (id: string) => nick.get(id) ?? "—";
 
   const filas: MovimientoUsuario[] = [];
 
-  for (const r of recargas.data ?? []) {
+  for (const r of recargas.data) {
     filas.push({
       fecha: r.revisado_at ?? "",
       nickname: quien(r.usuario_id),
@@ -421,7 +550,7 @@ export async function getMovimientosUsuarios(
     });
   }
 
-  for (const i of ingresos.data ?? []) {
+  for (const i of ingresos.data) {
     if (!i.usuario_id) continue;
     filas.push({
       fecha: i.created_at,
@@ -433,7 +562,7 @@ export async function getMovimientosUsuarios(
     });
   }
 
-  for (const t of retiros.data ?? []) {
+  for (const t of retiros.data) {
     filas.push({
       fecha: t.revisado_at ?? "",
       nickname: quien(t.usuario_id),
@@ -444,7 +573,7 @@ export async function getMovimientosUsuarios(
     });
   }
 
-  for (const a of ajustes.data ?? []) {
+  for (const a of ajustes.data) {
     const delta = Number(a.saldo_nuevo ?? 0) - Number(a.saldo_anterior ?? 0);
     filas.push({
       fecha: a.created_at,
@@ -458,19 +587,19 @@ export async function getMovimientosUsuarios(
 
   // Las apuestas necesitan el resultado del evento para saber si ganó o
   // perdió; se piden solo los eventos tocados por el rango.
-  const eventoIds = [...new Set((apuestas.data ?? []).map((a) => a.evento_id))];
-  const eventosPorId = new Map<string, { nombre: string; estado: string; resultado: string | null }>();
-  if (eventoIds.length > 0) {
-    const { data: eventos } = await admin
+  // En lotes: un `in` con miles de ids arma una URL que el servidor rechaza.
+  const eventoIds = [...new Set(apuestas.data.map((a) => a.evento_id))];
+  const eventosPorId = new Map<string, FilaEventoMin>();
+  for (let i = 0; i < eventoIds.length; i += 200) {
+    const { data: eventos, error } = await admin
       .from("eventos")
       .select("id, nombre, estado, resultado")
-      .in("id", eventoIds);
-    for (const e of eventos ?? []) {
-      eventosPorId.set(e.id, { nombre: e.nombre, estado: e.estado, resultado: e.resultado });
-    }
+      .in("id", eventoIds.slice(i, i + 200));
+    if (error) return { ok: false, error: error.message };
+    for (const e of (eventos ?? []) as FilaEventoMin[]) eventosPorId.set(e.id, e);
   }
 
-  for (const a of apuestas.data ?? []) {
+  for (const a of apuestas.data) {
     const evento = eventosPorId.get(a.evento_id);
     const matcheado = Number(a.monto_matcheado ?? 0);
     const total = Number(a.monto_total ?? 0);
@@ -721,22 +850,32 @@ export async function getUsuarios(): Promise<ActionResult<UsuarioAdmin[]>> {
   if (!session.ok) return session;
 
   const admin = createSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("perfiles")
-    .select("*")
-    .eq("rol", "user")
-    .order("created_at", { ascending: false });
-  if (error) return { ok: false, error: error.message };
+  const perfiles = await traerTodo<Perfil>((a, b) =>
+    admin
+      .from("perfiles")
+      .select("*")
+      .eq("rol", "user")
+      .order("created_at", { ascending: false })
+      .range(a, b)
+  );
+  if (!perfiles.ok) return perfiles;
 
   // Aparte y no con un join: `recargas` puede tener varias filas aprobadas
   // por usuario, así que se suma acá en vez de traer la tabla completa a
   // la UI. Sirve para ver de dónde salió el saldo de cada uno.
-  const { data: recargas } = await admin
-    .from("recargas")
-    .select("usuario_id, monto_acreditado")
-    .eq("estado", "aprobada");
+  const recargas = await traerTodo<{ usuario_id: string; monto_acreditado: number | null }>(
+    (a, b) =>
+      admin
+        .from("recargas")
+        .select("usuario_id, monto_acreditado")
+        .eq("estado", "aprobada")
+        .order("created_at")
+        .range(a, b)
+  );
+  if (!recargas.ok) return recargas;
+
   const depositadoPorUsuario = new Map<string, number>();
-  for (const r of recargas ?? []) {
+  for (const r of recargas.data) {
     const previo = depositadoPorUsuario.get(r.usuario_id) ?? 0;
     depositadoPorUsuario.set(r.usuario_id, previo + Number(r.monto_acreditado ?? 0));
   }
@@ -744,11 +883,17 @@ export async function getUsuarios(): Promise<ActionResult<UsuarioAdmin[]>> {
   // La plata que entró por fuera del flujo de recargas también es depósito
   // de esa persona (0044). Los ajustes de saldo NO: son correcciones, no
   // plata que entró.
-  const { data: ingresos } = await admin
-    .from("ingresos_manuales")
-    .select("usuario_id, monto")
-    .not("usuario_id", "is", null);
-  for (const i of ingresos ?? []) {
+  const ingresos = await traerTodo<{ usuario_id: string | null; monto: number | null }>((a, b) =>
+    admin
+      .from("ingresos_manuales")
+      .select("usuario_id, monto")
+      .not("usuario_id", "is", null)
+      .order("created_at")
+      .range(a, b)
+  );
+  if (!ingresos.ok) return ingresos;
+
+  for (const i of ingresos.data) {
     if (!i.usuario_id) continue;
     const previo = depositadoPorUsuario.get(i.usuario_id) ?? 0;
     depositadoPorUsuario.set(i.usuario_id, previo + Number(i.monto ?? 0));
@@ -756,7 +901,7 @@ export async function getUsuarios(): Promise<ActionResult<UsuarioAdmin[]>> {
 
   return {
     ok: true,
-    data: ((data ?? []) as Perfil[]).map((p) => ({
+    data: perfiles.data.map((p) => ({
       id: p.id,
       nickname: p.nickname,
       fullName: p.full_name,

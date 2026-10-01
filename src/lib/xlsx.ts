@@ -287,6 +287,9 @@ export function descargarXlsx(nombreArchivo: string, hojas: HojaExcel[]) {
   const a = document.createElement("a");
   a.href = url;
   a.download = nombreArchivo;
+  // Firefox ignora el click de un <a> que no está en el documento.
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }

@@ -9,11 +9,13 @@ import { Button } from "@/components/ui/Button";
 import { getSolicitudesTelefono } from "@/actions/perfil";
 import { getRecargas } from "@/actions/recargas";
 import {
+  getFechaPrimerMovimiento,
   getMetricas,
   getMovimientosUsuarios,
   getResumenDiario,
   getUsuarios,
 } from "@/actions/admin";
+import type { MovimientoUsuario } from "@/actions/admin";
 import { getSorteos } from "@/actions/sorteos";
 import { getRondas } from "@/actions/ruleta";
 import { getMetricasCaraSello } from "@/actions/caraSello";
@@ -314,6 +316,40 @@ function fechaCorta(iso: string) {
 }
 
 /**
+ * Parte [desde, hasta] en tramos de un mes calendario.
+ *
+ * El historial de jugadores de varios años en un solo pedido se pasa del
+ * tiempo máximo de una Server Action y la descarga muere con un timeout. En
+ * tramos, cada pedido es corto —y además se puede mostrar el avance, que con
+ * años de datos importa: sin eso el botón parece colgado.
+ *
+ * Se trabaja sobre las cadenas YYYY-MM-DD a propósito: pasar por `Date` para
+ * mover un mes corre el día cuando el huso del navegador no es el de Perú.
+ */
+function tramosMensuales(desde: string, hasta: string): [string, string][] {
+  const tramos: [string, string][] = [];
+  let anio = Number(desde.slice(0, 4));
+  let mes = Number(desde.slice(5, 7));
+  let cursor = desde;
+
+  while (cursor <= hasta) {
+    // Día 0 del mes siguiente = último del actual, en UTC para que no corra.
+    const ultimo = new Date(Date.UTC(anio, mes, 0)).getUTCDate();
+    const finMes = `${anio}-${String(mes).padStart(2, "0")}-${String(ultimo).padStart(2, "0")}`;
+    tramos.push([cursor, finMes < hasta ? finMes : hasta]);
+
+    mes += 1;
+    if (mes > 12) {
+      mes = 1;
+      anio += 1;
+    }
+    cursor = `${anio}-${String(mes).padStart(2, "0")}-01`;
+  }
+
+  return tramos;
+}
+
+/**
  * Descarga el libro de Excel del día: el mes día a día, quiénes tienen
  * saldo ahora mismo, y el desglose de qué parte del Yape es tuya.
  *
@@ -321,11 +357,18 @@ function fechaCorta(iso: string) {
  * es la lista completa de usuarios y solo hace falta cuando se descarga.
  */
 async function descargarLibro(
-  filas: ResumenDia[],
   desde: string,
   hasta: string,
-  metricas: AdminMetricas | null
+  metricas: AdminMetricas | null,
+  onProgreso: (hecho: number, total: number) => void
 ): Promise<string | null> {
+  // Se vuelve a pedir en vez de usar lo que muestra la tabla: si el rango
+  // acaba de cambiar, lo pintado todavía es del anterior y el libro saldría
+  // con el día a día de un período y el historial de otro.
+  const resumen = await getResumenDiario(desde, hasta);
+  if (!resumen.ok) return resumen.error;
+  const filas = resumen.data;
+
   const t = filas.reduce(
     (acc, d) => ({
       dep: acc.dep + d.depositado,
@@ -487,9 +530,19 @@ async function descargarLibro(
       : [["Sin datos", 0, "No se pudieron cargar las metricas"]],
   };
 
-  // Historial por jugador: de dónde salió cada sol y a dónde se fue.
-  const movimientos = await getMovimientosUsuarios(desde, hasta);
-  if (!movimientos.ok) return movimientos.error;
+  // Historial por jugador: de dónde salió cada sol y a dónde se fue. Va mes a
+  // mes para que ningún pedido se pase del tiempo máximo (ver tramosMensuales).
+  const tramos = tramosMensuales(desde, hasta);
+  const movimientos: MovimientoUsuario[] = [];
+  for (const [i, [tramoDesde, tramoHasta]] of tramos.entries()) {
+    const parte = await getMovimientosUsuarios(tramoDesde, tramoHasta);
+    if (!parte.ok) return parte.error;
+    movimientos.push(...parte.data);
+    onProgreso(i + 1, tramos.length);
+  }
+  // Cada tramo viene ordenado, pero pegados quedan por mes: se reordena todo
+  // junto para que la hoja lea del movimiento más nuevo al más viejo.
+  movimientos.sort((x, y) => (x.fecha < y.fecha ? 1 : x.fecha > y.fecha ? -1 : 0));
 
   const hojaHistorial: HojaExcel = {
     nombre: "Historial de jugadores",
@@ -502,7 +555,7 @@ async function descargarLibro(
       "Monto (S/)",
       "Es fake",
     ],
-    filas: movimientos.data.map((m) => {
+    filas: movimientos.map((m) => {
       const d = new Date(m.fecha);
       return [
         d.toLocaleDateString("es-PE", { timeZone: "America/Lima" }),
@@ -520,13 +573,17 @@ async function descargarLibro(
     }),
   };
 
-  descargarXlsx(`cachudobet-${desde}_a_${hasta}.xlsx`, [
-    hojaMes,
-    hojaSaldos,
-    hojaHistorial,
-    hojaMiDinero,
-  ]);
-  return null;
+  try {
+    descargarXlsx(`cachudobet-${desde}_a_${hasta}.xlsx`, [
+      hojaMes,
+      hojaSaldos,
+      hojaHistorial,
+      hojaMiDinero,
+    ]);
+    return null;
+  } catch (err) {
+    return err instanceof Error ? err.message : "Error desconocido al descargar el archivo";
+  }
 }
 
 /**
@@ -683,16 +740,37 @@ function ResumenDiario({
   metricas: AdminMetricas | null;
 }) {
   const [descargando, setDescargando] = useState(false);
+  const [progreso, setProgreso] = useState<{ hecho: number; total: number } | null>(null);
   const [errorDescarga, setErrorDescarga] = useState<string | null>(null);
+  const [buscandoInicio, setBuscandoInicio] = useState(false);
 
   async function handleDescargar() {
-    if (!resumen) return;
     setDescargando(true);
+    setProgreso(null);
     setErrorDescarga(null);
     try {
-      setErrorDescarga(await descargarLibro(resumen, desde, hasta, metricas));
+      setErrorDescarga(
+        await descargarLibro(desde, hasta, metricas, (hecho, total) =>
+          setProgreso({ hecho, total })
+        )
+      );
     } finally {
       setDescargando(false);
+      setProgreso(null);
+    }
+  }
+
+  /** Mueve el rango hasta el registro del primer jugador: antes de eso no
+   * puede haber movimiento, así que es el histórico completo. */
+  async function handleTodoElHistorico() {
+    setBuscandoInicio(true);
+    setErrorDescarga(null);
+    try {
+      const result = await getFechaPrimerMovimiento();
+      if (result.ok) onDesde(result.data);
+      else setErrorDescarga(result.error);
+    } finally {
+      setBuscandoInicio(false);
     }
   }
 
@@ -739,21 +817,34 @@ function ResumenDiario({
               className="mt-1 block min-h-9 rounded-md border border-gold-dark bg-obsidian/60 px-2 py-1 text-xs text-parchment outline-none focus-visible:ring-2 focus-visible:ring-gold-light"
             />
           </label>
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={!resumen || resumen.length === 0 || descargando}
-          onClick={handleDescargar}
-          className="min-h-9 px-3 py-1 text-xs"
-        >
-          {descargando ? "Armando el Excel…" : "Descargar Excel"}
-        </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={buscandoInicio || descargando}
+            onClick={handleTodoElHistorico}
+            className="min-h-9 px-3 py-1 text-xs"
+          >
+            {buscandoInicio ? "…" : "Todo el histórico"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={descargando}
+            onClick={handleDescargar}
+            className="min-h-9 px-3 py-1 text-xs"
+          >
+            {descargando
+              ? progreso
+                ? `Armando el Excel… ${progreso.hecho}/${progreso.total}`
+                : "Armando el Excel…"
+              : "Descargar Excel"}
+          </Button>
         </div>
       </div>
 
       {errorDescarga ? (
         <p className="mb-3 text-xs text-lose-glow">
-          No se pudo armar la hoja de saldos: {errorDescarga}
+          Error al descargar: {errorDescarga}
         </p>
       ) : null}
 

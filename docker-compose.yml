@@ -12,6 +12,11 @@ services:
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      # Modo mantenimiento y bloqueo de IPs (src/proxy.ts). Para prenderlos
+      # en producción: setear en el .env del host y `docker compose up -d`
+      # (recrea el contenedor, no basta con reiniciarlo).
+      MANTENIMIENTO: ${MANTENIMIENTO:-false}
+      IPS_BLOQUEADAS: ${IPS_BLOQUEADAS:-}
     networks:
       - default
       - supabase
